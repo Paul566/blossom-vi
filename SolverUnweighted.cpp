@@ -65,6 +65,10 @@ void SolverUnweighted::Solve() {
         while((!queue.empty()) && (!augmented)) {
             int cur_vertex = queue.front();
             queue.pop();
+            // std::cout << "root: " << root << " " << cur_vertex << std::endl;
+            // for (int v = 0; v < n; ++v) {
+            //     std::cout << v << " " << plus[v] << " " << minus[v] << std::endl;
+            // }
 
             for (auto edge : adj_list[cur_vertex]) {
                 int to = edge->OtherNode(cur_vertex);
@@ -104,7 +108,7 @@ void SolverUnweighted::Solve() {
                         break;
                     }
                 } else { // to is in the tree
-                    if (!minus[to]) { // we will create a cherry blossom
+                    if (plus[to]) { // we will create a cherry blossom
                         UpdateLabels(edge, root, queue, plus_parents, minus_parents, 
                                     plus, minus, depth_plus, depth_minus);
                     }
@@ -177,31 +181,63 @@ void SolverUnweighted::UpdateLabels(std::shared_ptr<Edge> edge_plus_plus, int ro
     int first_vertex, second_vertex = -1;
     std::tie(first_vertex, second_vertex) = edge_plus_plus->Vertices();
 
-    minus_parents[first_vertex] = edge_plus_plus;
-    minus_parents[second_vertex] = edge_plus_plus;
-    depth_minus[first_vertex] = depth_plus[second_vertex] + 1;
-    depth_minus[second_vertex] = depth_plus[first_vertex] + 1;
+    // std::cout << "Beginning UpdLabels, status before\n";
+    // std::cout << "vertices: " << first_vertex << " " << second_vertex << std::endl;
+    // for (int v = 0; v < n; ++v) {
+    //     std::cout << v << ": " << plus[v] << " " << minus[v] << std::endl;
+    //     if ((plus[v]) && (v != root)) {
+    //         std::cout << plus_parents[v]->OtherNode(v) << " " << depth_plus[v] << " ";
+    //     }
+    //     if (minus[v]) {
+    //         std::cout << minus_parents[v]->OtherNode(v) << " " << depth_minus[v] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    if ((!minus[first_vertex]) && (first_vertex != root)) {
+        minus[first_vertex] = true;
+        minus_parents[first_vertex] = edge_plus_plus;
+        depth_minus[first_vertex] = depth_plus[second_vertex] + 1;
+    }
+    if ((!minus[second_vertex]) && (second_vertex != root)) {
+        minus[second_vertex] = true;
+        minus_parents[second_vertex] = edge_plus_plus;
+        depth_minus[second_vertex] = depth_plus[first_vertex] + 1;
+    }
 
     while(first_vertex != second_vertex) {
         // std::cout << "while in UpdLabels:" << first_vertex << " " << second_vertex << std::endl;
+        // std::cout << "\nUpdLabels status\n";
+        // std::cout << "vertices: " << first_vertex << " " << second_vertex << std::endl;
+        // for (int v = 0; v < n; ++v) {
+        //     std::cout << v << ": " << plus[v] << " " << minus[v] << std::endl;
+        //     if ((plus[v]) && (v != root)) {
+        //         std::cout << plus_parents[v]->OtherNode(v) << " " << depth_plus[v] << " ";
+        //     }
+        //     if (minus[v]) {
+        //         std::cout << minus_parents[v]->OtherNode(v) << " " << depth_minus[v] << " ";
+        //     }
+        //     std::cout << std::endl;
+        // }
 
         int cur_vertex = first_vertex;
         if (depth_plus[first_vertex] < depth_plus[second_vertex]) {
             cur_vertex = second_vertex;
         } 
+        // std::cout << "moving " << cur_vertex << std::endl;
 
-        minus[cur_vertex] = true;
-
-        int parent = plus_parents[first_vertex]->OtherNode(first_vertex);
+        int parent = plus_parents[cur_vertex]->OtherNode(cur_vertex);
+        //std::cout << "parent " << parent << std::endl;
         if (!plus[parent]) {
             plus[parent] = true;
             queue.push(parent);
-            plus_parents[parent] = plus_parents[first_vertex];
-            depth_plus[parent] = depth_minus[first_vertex] + 1;
+            plus_parents[parent] = plus_parents[cur_vertex];
+            depth_plus[parent] = depth_minus[cur_vertex] + 1;
         }
 
         int grandparent = minus_parents[parent]->OtherNode(parent);
-        if (!minus[grandparent]) {
+        //std::cout << "grandparent " << grandparent << std::endl;
+        if ((!minus[grandparent]) && (grandparent != root)) {
             minus[grandparent] = true;
             minus_parents[grandparent] = minus_parents[parent];
             depth_minus[grandparent] = depth_plus[parent] + 1;
@@ -213,4 +249,17 @@ void SolverUnweighted::UpdateLabels(std::shared_ptr<Edge> edge_plus_plus, int ro
             second_vertex = grandparent;
         }
     }
+
+    // std::cout << "UpdLabels status after\n";
+    // std::cout << "vertices: " << first_vertex << " " << second_vertex << std::endl;
+    // for (int v = 0; v < n; ++v) {
+    //     std::cout << v << ": " << plus[v] << " " << minus[v] << std::endl;
+    //     if ((plus[v]) && (v != root)) {
+    //         std::cout << plus_parents[v]->OtherNode(v) << " " << depth_plus[v] << " ";
+    //     }
+    //     if (minus[v]) {
+    //         std::cout << minus_parents[v]->OtherNode(v) << " " << depth_minus[v] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 }

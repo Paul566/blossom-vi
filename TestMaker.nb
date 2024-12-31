@@ -1,0 +1,181 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 13.0' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[      6377,        173]
+NotebookOptionsPosition[      5366,        147]
+NotebookOutlinePosition[      5763,        163]
+CellTagsIndexPosition[      5720,        160]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"graphs", "=", 
+   RowBox[{
+    RowBox[{"Table", "[", 
+     RowBox[{
+      RowBox[{"RandomGraph", "[", 
+       RowBox[{"{", 
+        RowBox[{"n", ",", "m"}], "}"}], "]"}], ",", 
+      RowBox[{"{", 
+       RowBox[{"n", ",", "3", ",", "15"}], "}"}], ",", 
+      RowBox[{"{", 
+       RowBox[{"m", ",", "n", ",", 
+        RowBox[{"n", 
+         RowBox[{
+          RowBox[{"(", 
+           RowBox[{"n", "-", "1"}], ")"}], "/", "2"}]}]}], "}"}]}], "]"}], "//",
+     "Flatten"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"graphs", "//", "Length"}]}], "Input",
+ CellChangeTimes->{{3.915333770889844*^9, 3.915333774549543*^9}, {
+   3.915333817780624*^9, 3.9153338520458727`*^9}, {3.915334720941964*^9, 
+   3.915334730717605*^9}, {3.915334781582341*^9, 3.915334804426696*^9}, {
+   3.915334837451758*^9, 3.9153348802300262`*^9}, 3.9153354647129602`*^9, {
+   3.91533555353148*^9, 3.9153355541290007`*^9}},
+ CellLabel->"In[1]:=",ExpressionUUID->"4ceba1b0-5e77-4c03-be68-ef9a456ac051"],
+
+Cell[BoxData["455"], "Output",
+ CellChangeTimes->{
+  3.915334880593852*^9, {3.915335462070923*^9, 3.9153354655085907`*^9}, 
+   3.915335554629217*^9, 3.944620343292164*^9},
+ CellLabel->"Out[2]=",ExpressionUUID->"5f2b4dec-4f2f-43df-b381-4b5c684d41d7"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{"Export", "[", "\[IndentingNewLine]", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"NotebookDirectory", "[", "]"}], "<>", 
+       "\"\<tests/random-graphs/\>\"", "<>", 
+       RowBox[{"ToString", "[", 
+        RowBox[{"VertexCount", "[", "#", "]"}], "]"}], "<>", "\"\<-\>\"", "<>", 
+       RowBox[{"ToString", "[", 
+        RowBox[{"EdgeCount", "[", "#", "]"}], "]"}], "<>", "\"\<.txt\>\""}], 
+      ",", "\[IndentingNewLine]", 
+      RowBox[{"Prepend", "[", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"EdgeList", "[", "#", "]"}], "/.", 
+         RowBox[{
+          RowBox[{"(", 
+           RowBox[{"u_", "\[UndirectedEdge]", "v_"}], ")"}], "->", 
+          RowBox[{"{", 
+           RowBox[{
+            RowBox[{"u", "-", "1"}], ",", 
+            RowBox[{"v", "-", "1"}]}], "}"}]}]}], ",", 
+        RowBox[{"{", 
+         RowBox[{
+          RowBox[{"VertexCount", "[", "#", "]"}], ",", 
+          RowBox[{"EdgeCount", "[", "#", "]"}]}], "}"}]}], "]"}], ",", 
+      "\[IndentingNewLine]", "\"\<Table\>\"", ",", 
+      RowBox[{"\"\<FieldSeparators\>\"", "->", "\"\< \>\""}]}], 
+     "\[IndentingNewLine]", "]"}], "&"}], "/@", "graphs"}], ";"}]], "Input",
+ CellChangeTimes->{{3.915334885987516*^9, 3.915334898421466*^9}, {
+   3.915334933622354*^9, 3.915334965841112*^9}, {3.915335032629216*^9, 
+   3.9153350486491528`*^9}, {3.915335186946525*^9, 3.91533521202668*^9}, {
+   3.9153352541323643`*^9, 3.9153352698417473`*^9}, {3.91533536330436*^9, 
+   3.915335478422762*^9}, 3.915335550092154*^9, 3.944620399608509*^9, {
+   3.944620919567976*^9, 3.94462092472405*^9}, 3.944622059204165*^9},
+ CellLabel->"In[16]:=",ExpressionUUID->"24fa757f-ce96-4643-ac98-f3659bca89b0"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"EdgeList", "[", 
+  RowBox[{"graphs", "//", "First"}], "]"}]], "Input",
+ CellLabel->"In[9]:=",ExpressionUUID->"f48a44e9-94a0-48b5-90f6-348e15ffac40"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"1", "\[UndirectedEdge]", "2"}], ",", 
+   RowBox[{"1", "\[UndirectedEdge]", "3"}], ",", 
+   RowBox[{"2", "\[UndirectedEdge]", "3"}]}], "}"}]], "Output",
+ CellChangeTimes->{3.9446206100004587`*^9},
+ CellLabel->"Out[9]=",ExpressionUUID->"3c51df9b-e8ac-4ebb-9359-837c287af3e5"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"EdgeList", "[", 
+   RowBox[{"graphs", "//", "First"}], "]"}], "/.", 
+  RowBox[{
+   RowBox[{"(", 
+    RowBox[{"u_", "\[UndirectedEdge]", "v_"}], ")"}], "->", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"u", "-", "1"}], ",", 
+     RowBox[{"v", "-", "1"}]}], "}"}]}]}]], "Input",
+ CellChangeTimes->{{3.9446203939344*^9, 3.944620425428116*^9}, {
+  3.9446204582107267`*^9, 3.944620507523673*^9}, {3.944620543835759*^9, 
+  3.94462054591203*^9}, {3.944620583288268*^9, 3.9446205855998373`*^9}, {
+  3.9446206408355293`*^9, 3.9446206409019403`*^9}, {3.944620743943227*^9, 
+  3.944620777135872*^9}, {3.944620851097756*^9, 3.9446208979915123`*^9}, {
+  3.944622051403983*^9, 3.9446220528340397`*^9}},
+ CellLabel->"In[15]:=",ExpressionUUID->"a8c162e3-d06e-475f-82b0-b653d66731ef"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"0", ",", "1"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"0", ",", "2"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"1", ",", "2"}], "}"}]}], "}"}]], "Output",
+ CellChangeTimes->{3.944620777590376*^9, 3.944620898686281*^9, 
+  3.9446220535793324`*^9},
+ CellLabel->"Out[15]=",ExpressionUUID->"1dd71aa4-ed7b-433f-aad7-c496eef4db5e"]
+}, Open  ]]
+},
+WindowSize->{695.25, 758.25},
+WindowMargins->{{Automatic, 0}, {0, Automatic}},
+FrontEndVersion->"13.0 for Linux x86 (64-bit) (December 2, 2021)",
+StyleDefinitions->"Default.nb",
+ExpressionUUID->"2c8d0bca-94e3-491b-a1ce-952b86fb32af"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[580, 22, 1007, 24, 51, "Input",ExpressionUUID->"4ceba1b0-5e77-4c03-be68-ef9a456ac051"],
+Cell[1590, 48, 249, 4, 33, "Output",ExpressionUUID->"5f2b4dec-4f2f-43df-b381-4b5c684d41d7"]
+}, Open  ]],
+Cell[1854, 55, 1729, 38, 210, "Input",ExpressionUUID->"24fa757f-ce96-4643-ac98-f3659bca89b0"],
+Cell[CellGroupData[{
+Cell[3608, 97, 172, 3, 29, "Input",ExpressionUUID->"f48a44e9-94a0-48b5-90f6-348e15ffac40"],
+Cell[3783, 102, 325, 7, 33, "Output",ExpressionUUID->"3c51df9b-e8ac-4ebb-9359-837c287af3e5"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[4145, 114, 802, 17, 29, "Input",ExpressionUUID->"a8c162e3-d06e-475f-82b0-b653d66731ef"],
+Cell[4950, 133, 400, 11, 33, "Output",ExpressionUUID->"1dd71aa4-ed7b-433f-aad7-c496eef4db5e"]
+}, Open  ]]
+}
+]
+*)
+
