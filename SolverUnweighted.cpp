@@ -2,7 +2,7 @@
 
 
 SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int>> &adj_list_) : 
-                                                n(static_cast<int>(adj_list_.size())){
+                            n(static_cast<int>(adj_list_.size())), cherry_blossoms(LabeledDisjointSets(n)){
     adj_list = std::vector<std::vector<std::shared_ptr<Edge>>>(n);
     matched_edge = std::vector<std::shared_ptr<Edge>>(n, nullptr);
 
@@ -17,9 +17,14 @@ SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int>> &adj_list
             }
         }
     }
+
+    minus_parents = std::vector<std::shared_ptr<Edge>>(n, nullptr);
+    plus = std::vector<bool>(n, false);
+    minus = std::vector<bool>(n, false);
+    growable_vertices = std::queue<int>();
 }
 
-void SolverUnweighted::Print() {
+void SolverUnweighted::PrintMatching() {
     std::cout << "Matching:" << std::endl;
     for (int vertex = 0; vertex < n; ++vertex) {
         for (auto edge : adj_list[vertex]) {
@@ -30,8 +35,10 @@ void SolverUnweighted::Print() {
             }
         }
     }
+}
 
-    std::cout << "\nAdjacency list:" << std::endl;
+void SolverUnweighted::PrintAdjList() {
+    std::cout << "Adjacency list:" << std::endl;
     for (int vertex = 0; vertex < n; ++vertex) {
         std::cout << vertex << ": ";
         for (auto edge : adj_list[vertex]) {
@@ -41,30 +48,46 @@ void SolverUnweighted::Print() {
     }
 }
 
+void SolverUnweighted::PrintTreeData() {
+    std::cout << "Tree data:\n";
+    for (int v = 0; v < n; ++v) {
+        std::cout << v << ": ";
+        if (plus[v]) {
+            if (matched_edge[v]) {
+                std::cout << "(+ parent: " << matched_edge[v]->OtherNode(v) << ") ";
+            } else {
+                std::cout << "(is root) ";
+            }
+        }
+        if (minus[v]) {
+            std::cout << "(- parent: " << minus_parents[v]->OtherNode(v) << ") ";
+        }
+        std::cout << "(receptacle: " << cherry_blossoms.Label(v) << ")";
+        std::cout << std::endl;
+    }
+}
+
 void SolverUnweighted::Solve() {
     GreedyInit();
+    // PrintAdjList();
+    // std::cout << "after greedy init:\n";
+    // PrintMatching();
+    // std::cout << std::endl;
 
     for (int root = 0; root < n; ++root) {
         if (matched_edge[root]) {
             continue;
         }
 
-        std::queue<int> queue;
-        queue.push(root);
+        ClearTrees();
 
-        std::vector<std::shared_ptr<Edge>> plus_parents(n, nullptr);
-        std::vector<std::shared_ptr<Edge>> minus_parents(n, nullptr);
-        std::vector<bool> plus(n, false);
-        std::vector<bool> minus(n, false);
-        std::vector<int> depth_plus(n, -1);
-        std::vector<int> depth_minus(n, -1);
+        growable_vertices.push(root);
         plus[root] = true;
-        depth_plus[root] = 0;
         bool augmented = false;
 
-        while((!queue.empty()) && (!augmented)) {
-            int cur_vertex = queue.front();
-            queue.pop();
+        while((!growable_vertices.empty()) && (!augmented)) {
+            int cur_vertex = growable_vertices.front();
+            growable_vertices.pop();
             // std::cout << "root: " << root << " " << cur_vertex << std::endl;
             // for (int v = 0; v < n; ++v) {
             //     std::cout << v << " " << plus[v] << " " << minus[v] << std::endl;
@@ -82,10 +105,7 @@ void SolverUnweighted::Solve() {
                         minus[to] = true;
                         plus[matched_edge[to]->OtherNode(to)] = true;
                         minus_parents[to] = edge;
-                        plus_parents[matched_edge[to]->OtherNode(to)] = matched_edge[to];
-                        depth_minus[to] = depth_plus[cur_vertex] + 1;
-                        depth_plus[matched_edge[to]->OtherNode(to)] = depth_plus[cur_vertex] + 2;
-                        queue.push(matched_edge[to]->OtherNode(to));
+                        growable_vertices.push(matched_edge[to]->OtherNode(to));
                     } else { // if to is unmatched, augment
                         std::vector<std::shared_ptr<Edge>> path;
                         path.push_back(edge);
@@ -93,15 +113,17 @@ void SolverUnweighted::Solve() {
                         bool now_plus = true;
                         while (path_vertex != root) {
                             if (now_plus) {
-                                path.push_back(plus_parents[path_vertex]);
-                                path_vertex = plus_parents[path_vertex]->OtherNode(path_vertex);
+                                path.push_back(matched_edge[path_vertex]);
+                                path_vertex = matched_edge[path_vertex]->OtherNode(path_vertex);
                                 now_plus = false;
                             } else {
                                 path.push_back(minus_parents[path_vertex]);
                                 path_vertex = minus_parents[path_vertex]->OtherNode(path_vertex);
                                 now_plus = true;
                             }
+                            // std::cout << path_vertex << " ";
                         }
+                        // std::cout << std::endl;
 
                         Augment(path, to);
                         augmented = true;
@@ -109,8 +131,7 @@ void SolverUnweighted::Solve() {
                     }
                 } else { // to is in the tree
                     if (plus[to]) { // we will create a cherry blossom
-                        UpdateLabels(edge, root, queue, plus_parents, minus_parents, 
-                                    plus, minus, depth_plus, depth_minus);
+                        MakeCherryBlossom(edge, root);
                     }
                 }
             }
@@ -170,96 +191,118 @@ void SolverUnweighted::Augment(std::vector<std::shared_ptr<Edge>> path, int star
     }
 }
 
-void SolverUnweighted::UpdateLabels(std::shared_ptr<Edge> edge_plus_plus, int root, 
-    std::queue<int> &queue, 
-    std::vector<std::shared_ptr<Edge>> &plus_parents, 
-    std::vector<std::shared_ptr<Edge>> &minus_parents, 
-    std::vector<bool> &plus, std::vector<bool> &minus,
-    std::vector<int> &depth_plus,
-    std::vector<int> &depth_minus) {
+void SolverUnweighted::MakeCherryBlossom(std::shared_ptr<Edge> edge_plus_plus, int root) {
 
     int first_vertex, second_vertex = -1;
     std::tie(first_vertex, second_vertex) = edge_plus_plus->Vertices();
+    if (first_vertex == second_vertex) {
+        throw std::runtime_error("in UpdateLabels: first_vertex == second_vertex");
+    }
+    if (cherry_blossoms.Representative(first_vertex) == cherry_blossoms.Representative(second_vertex)) {
+        return;
+    }
 
-    // std::cout << "Beginning UpdLabels, status before\n";
-    // std::cout << "vertices: " << first_vertex << " " << second_vertex << std::endl;
-    // for (int v = 0; v < n; ++v) {
-    //     std::cout << v << ": " << plus[v] << " " << minus[v] << std::endl;
-    //     if ((plus[v]) && (v != root)) {
-    //         std::cout << plus_parents[v]->OtherNode(v) << " " << depth_plus[v] << " ";
-    //     }
-    //     if (minus[v]) {
-    //         std::cout << minus_parents[v]->OtherNode(v) << " " << depth_minus[v] << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
+    // std::cout << "making cherry blossom " << first_vertex << " " << second_vertex << std::endl;
+    // PrintTreeData();
 
-    if ((!minus[first_vertex]) && (first_vertex != root)) {
+    int first_bound, second_bound;
+    std::tie(first_bound, second_bound) = PathUpperBounds(first_vertex, second_vertex);
+    // std::cout << "bounds: " << first_bound << " " << second_bound << std::endl;
+
+    UpdatePath(first_vertex, first_bound);
+    UpdatePath(second_vertex, second_bound);
+
+    if (first_vertex != first_bound) { // first_vertex is not a root
         minus[first_vertex] = true;
         minus_parents[first_vertex] = edge_plus_plus;
-        depth_minus[first_vertex] = depth_plus[second_vertex] + 1;
     }
-    if ((!minus[second_vertex]) && (second_vertex != root)) {
+    if (second_vertex != second_bound) { // second_vertex is not a root
         minus[second_vertex] = true;
         minus_parents[second_vertex] = edge_plus_plus;
-        depth_minus[second_vertex] = depth_plus[first_vertex] + 1;
+    }
+}
+
+int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) {
+
+    // TODO this is O(n), make it better
+    std::vector<bool> visited_first(n, false);
+    std::vector<bool> visited_second(n, false);
+    visited_first[first_vertex] = true;
+    visited_second[second_vertex] = true;
+    while ((matched_edge[second_vertex]) && (matched_edge[first_vertex])) {
+        first_vertex = matched_edge[first_vertex]->OtherNode(first_vertex);
+        first_vertex = minus_parents[first_vertex]->OtherNode(first_vertex);
+        if (visited_second[first_vertex]) {
+            return first_vertex;
+        }
+        visited_first[first_vertex] = true;
+
+        second_vertex = matched_edge[second_vertex]->OtherNode(second_vertex);
+        second_vertex = minus_parents[second_vertex]->OtherNode(second_vertex);
+        if (visited_first[second_vertex]) {
+            return second_vertex;
+        }
+        visited_second[second_vertex] = true;
     }
 
-    while(first_vertex != second_vertex) {
-        // std::cout << "while in UpdLabels:" << first_vertex << " " << second_vertex << std::endl;
-        // std::cout << "\nUpdLabels status\n";
-        // std::cout << "vertices: " << first_vertex << " " << second_vertex << std::endl;
-        // for (int v = 0; v < n; ++v) {
-        //     std::cout << v << ": " << plus[v] << " " << minus[v] << std::endl;
-        //     if ((plus[v]) && (v != root)) {
-        //         std::cout << plus_parents[v]->OtherNode(v) << " " << depth_plus[v] << " ";
-        //     }
-        //     if (minus[v]) {
-        //         std::cout << minus_parents[v]->OtherNode(v) << " " << depth_minus[v] << " ";
-        //     }
-        //     std::cout << std::endl;
-        // }
+    if (!matched_edge[first_vertex]) { // first_vertex is a root
+        return first_vertex;
+    }
+    return second_vertex;
+}
 
-        int cur_vertex = first_vertex;
-        if (depth_plus[first_vertex] < depth_plus[second_vertex]) {
-            cur_vertex = second_vertex;
-        } 
-        // std::cout << "moving " << cur_vertex << std::endl;
+std::pair<int, int> SolverUnweighted::PathUpperBounds(int first_vertex, int second_vertex) {
+    int lca = PlusPlusLCA(first_vertex, second_vertex);
+    int lca_receptacle = cherry_blossoms.Label(lca);
 
-        int parent = plus_parents[cur_vertex]->OtherNode(cur_vertex);
-        //std::cout << "parent " << parent << std::endl;
+    while (first_vertex != lca) {
+        if (cherry_blossoms.Label(first_vertex) == lca_receptacle) {
+            break;
+        }
+        first_vertex = matched_edge[first_vertex]->OtherNode(first_vertex);
+        first_vertex = minus_parents[first_vertex]->OtherNode(first_vertex);
+    }
+    while (second_vertex != lca) {
+        if (cherry_blossoms.Label(second_vertex) == lca_receptacle) {
+            break;
+        }
+        second_vertex = matched_edge[second_vertex]->OtherNode(second_vertex);
+        second_vertex = minus_parents[second_vertex]->OtherNode(second_vertex);
+    }
+
+    return {first_vertex, second_vertex};
+}
+
+void SolverUnweighted::UpdatePath(int lower_vertex, int upper_vertex) {
+    int receptacle = cherry_blossoms.Label(upper_vertex);
+
+    while(lower_vertex != upper_vertex) {
+        // std::cout << lower_vertex << std::endl;
+
+        int parent = matched_edge[lower_vertex]->OtherNode(lower_vertex);
+        int grandparent = minus_parents[parent]->OtherNode(parent);
+
+        cherry_blossoms.Unite(lower_vertex, upper_vertex, receptacle);
+        cherry_blossoms.Unite(parent, upper_vertex, receptacle);
+
         if (!plus[parent]) {
             plus[parent] = true;
-            queue.push(parent);
-            plus_parents[parent] = plus_parents[cur_vertex];
-            depth_plus[parent] = depth_minus[cur_vertex] + 1;
+            growable_vertices.push(parent);
         }
 
-        int grandparent = minus_parents[parent]->OtherNode(parent);
-        //std::cout << "grandparent " << grandparent << std::endl;
-        if ((!minus[grandparent]) && (grandparent != root)) {
+        if (grandparent != upper_vertex) {
             minus[grandparent] = true;
             minus_parents[grandparent] = minus_parents[parent];
-            depth_minus[grandparent] = depth_plus[parent] + 1;
         }
 
-        if (cur_vertex == first_vertex) {
-            first_vertex = grandparent;
-        } else {
-            second_vertex = grandparent;
-        }
+        lower_vertex = grandparent;
     }
+}
 
-    // std::cout << "UpdLabels status after\n";
-    // std::cout << "vertices: " << first_vertex << " " << second_vertex << std::endl;
-    // for (int v = 0; v < n; ++v) {
-    //     std::cout << v << ": " << plus[v] << " " << minus[v] << std::endl;
-    //     if ((plus[v]) && (v != root)) {
-    //         std::cout << plus_parents[v]->OtherNode(v) << " " << depth_plus[v] << " ";
-    //     }
-    //     if (minus[v]) {
-    //         std::cout << minus_parents[v]->OtherNode(v) << " " << depth_minus[v] << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
+void SolverUnweighted::ClearTrees() {
+    minus_parents = std::vector<std::shared_ptr<Edge>>(n, nullptr);
+    plus = std::vector<bool>(n, false);
+    minus = std::vector<bool>(n, false);
+    growable_vertices = std::queue<int>();
+    cherry_blossoms = LabeledDisjointSets(n);
 }

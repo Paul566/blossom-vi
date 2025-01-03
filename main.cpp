@@ -4,6 +4,7 @@
 #include <sstream>
 #include <filesystem>
 #include "SolverUnweighted.h"
+#include "Tester.h"
 
 void PrintVector(std::vector<int> numbers) {
     for (int number : numbers) {
@@ -59,8 +60,15 @@ void RunRandomTests() {
 
             SolverUnweighted solver = SolverUnweighted(adj_list);
             solver.Solve();
-            solver.Print();
-            std::cout << "\n";
+            solver.PrintMatching();
+            solver.PrintAdjList();
+
+            // Tester tester = Tester(adj_list);
+            // std::cout << "runtime: " << tester.runtime << " seconds" << std::endl;
+            // if (!tester.Validate()) {
+            //     throw std::runtime_error("test failed");
+            // }
+            // std::cout << "\n";
         }
     }
 
@@ -71,13 +79,18 @@ int main() {
     RunRandomTests();
 
     // std::string prefix = std::filesystem::current_path().string() + "/tests/random-graphs/";
-    // int n = 5;
-    // int m = 8;
+    // int n = 14;
+    // int m = 55;
     // std::string filename_graph = std::to_string(n) + "-" + std::to_string(m) + ".txt";
     // auto adj_list = ReadEdgeList(prefix + filename_graph);
     // SolverUnweighted solver = SolverUnweighted(adj_list);
     // solver.Solve();
-    // solver.Print();
+    // solver.PrintMatching();
+    // solver.PrintAdjList();
+
+    // std::cout << std::endl;
+    // Tester tester = Tester(adj_list);
+    // std::cout << tester.Validate();
 
     // std::vector<std::vector<int>> adj_list;
     // adj_list.push_back(std::vector<int>({1, 2, 3}));
