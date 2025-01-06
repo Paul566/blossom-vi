@@ -6,7 +6,7 @@
 #include <iostream>
 #include <chrono>
 #include <unordered_map>
-#include <queue>
+#include <stack>
 #include "SolverUnweighted.h"
 
 
@@ -14,26 +14,22 @@ class Tester {
 public:
     double runtime;
 
-    Tester(const std::vector<std::vector<int>> &adj_list_);
+    explicit Tester(const std::vector<std::vector<int>> &adj_list_);
 
     bool Validate();
 
 private:
-    std::vector<std::vector<std::tuple<int, bool, int>>> adj_list_out; // (destination, is_matched, edge_index)
-    std::vector<std::vector<std::tuple<int, bool, int>>> adj_list_in;
+    std::vector<std::vector<int>> adj_list; // (destination, is_matched)
+    std::vector<int> matched_to;
+    std::vector<int> blossom_index;
 
-    bool IsAMatching();
+    int LCA(int first_vertex, int second_vertex, const std::vector<int> &parents) const;
 
     bool AugmentingPathsExist();
 
-    int MatchingSize();
+    void MakeBlossom(const std::vector<int> &blossom, std::vector<int> &parents);
 
-    std::vector<int> UnmatchedVertices();
-
-    // returns the adjacency list of the auxiliary graph and the number of terminal vertices
-    std::pair<std::vector<std::vector<int>>, int> AuxGraph();
-
-    int NumberOfEdges();
+    int TopBlossom(int vertex) const;
 };
 
 #endif
