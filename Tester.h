@@ -1,13 +1,7 @@
 #ifndef BLOSSOM_VI_TESTER_H
 #define BLOSSOM_VI_TESTER_H
 
-
 #include <vector>
-#include <iostream>
-#include <chrono>
-#include <unordered_map>
-#include <stack>
-#include "SolverUnweighted.h"
 
 
 class Tester {

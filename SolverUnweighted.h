@@ -4,7 +4,6 @@
 
 #include <vector>
 #include <memory>
-#include <iostream>
 #include <queue>
 #include "Edge.h"
 #include "LabeledDisjointSets.h"
@@ -14,7 +13,7 @@ class SolverUnweighted {
 public:
     std::vector<std::vector<std::shared_ptr<Edge>>> adj_list;
 
-    SolverUnweighted(const std::vector<std::vector<int>> &adj_list_);
+    explicit SolverUnweighted(const std::vector<std::vector<int>> &adj_list_);
 
     void PrintMatching();
 
@@ -42,7 +41,7 @@ private:
     // adding the new pluses to the queue and updating parent pointers
     void MakeCherryBlossom(std::shared_ptr<Edge> edge_plus_plus, int root);
 
-    int PlusPlusLCA(int first_vertex, int second_vertex);
+    int PlusPlusLCA(int first_vertex, int second_vertex) const;
 
     std::pair<int, int> PathUpperBounds(int first_vertex, int second_vertex);
 

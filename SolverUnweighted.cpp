@@ -1,5 +1,6 @@
 #include "SolverUnweighted.h"
 
+#include <iostream>
 
 SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int>> &adj_list_) : 
                             n(static_cast<int>(adj_list_.size())), cherry_blossoms(LabeledDisjointSets(n)){
@@ -222,7 +223,7 @@ void SolverUnweighted::MakeCherryBlossom(std::shared_ptr<Edge> edge_plus_plus, i
     }
 }
 
-int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) {
+int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) const {
 
     // TODO this is O(n), make it better
     std::vector<bool> visited_first(n, false);

@@ -6,8 +6,9 @@
 #include "SolverUnweighted.h"
 #include "Tester.h"
 
-void PrintVector(std::vector<int> numbers) {
-    for (int number : numbers) {
+
+void PrintVector(const std::vector<int>& numbers) {
+    for (const int number : numbers) {
         std::cout << number << " ";
     }
     std::cout << std::endl;
@@ -27,12 +28,12 @@ std::vector<std::vector<int>> ReadEdgeList(const std::string &path) {
 
         adj_list.reserve(num_vertices);
         for (int i = 0; i < num_vertices; ++i) {
-            adj_list.push_back(std::vector<int>());
+            adj_list.emplace_back();
         }
 
         for (int i = 0; i < num_edges; ++i) {
             std::getline(input_file, line);
-            std::istringstream stream(line);
+            stream = std::istringstream(line);
 
             int head, tail;
             stream >> head >> tail;
@@ -48,7 +49,7 @@ std::vector<std::vector<int>> ReadEdgeList(const std::string &path) {
 }
 
 void RunRandomTests() {
-    std::string prefix = std::filesystem::current_path().string() + "/tests/random-graphs/";
+    const std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
 
     for (int n = 3; n <= 15; ++n) {
         for (int m = n; m <= n * (n - 1) / 2; ++m) {
@@ -58,39 +59,34 @@ void RunRandomTests() {
 
             auto adj_list = ReadEdgeList(prefix + filename_graph);
 
-            SolverUnweighted solver = SolverUnweighted(adj_list);
-            solver.Solve();
-            solver.PrintMatching();
-            solver.PrintAdjList();
+            // SolverUnweighted solver = SolverUnweighted(adj_list);
+            // solver.Solve();
+            // solver.PrintMatching();
+            // solver.PrintAdjList();
 
-            // Tester tester = Tester(adj_list);
-            // std::cout << "runtime: " << tester.runtime << " seconds" << std::endl;
-            // if (!tester.Validate()) {
-            //     throw std::runtime_error("test failed");
-            // }
-            // std::cout << "\n";
+            Tester tester = Tester(adj_list);
+            std::cout << "runtime: " << tester.runtime << " seconds" << std::endl;
+            if (!tester.Validate()) {
+                throw std::runtime_error("test failed");
+            }
+            std::cout << "\n";
         }
     }
 
-    std::cout << "\nAll tests passed!\n";
+    std::cout << "All tests passed!\n";
 }
 
 int main() {
     RunRandomTests();
 
-    // std::string prefix = std::filesystem::current_path().string() + "/tests/random-graphs/";
-    // int n = 14;
-    // int m = 55;
+    // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
+    // int n = 5;
+    // int m = 8;
     // std::string filename_graph = std::to_string(n) + "-" + std::to_string(m) + ".txt";
     // auto adj_list = ReadEdgeList(prefix + filename_graph);
-    // SolverUnweighted solver = SolverUnweighted(adj_list);
-    // solver.Solve();
-    // solver.PrintMatching();
-    // solver.PrintAdjList();
-
-    // std::cout << std::endl;
     // Tester tester = Tester(adj_list);
-    // std::cout << tester.Validate();
+    // tester.Validate();
+
 
     // std::vector<std::vector<int>> adj_list;
     // adj_list.push_back(std::vector<int>({1, 2, 3}));

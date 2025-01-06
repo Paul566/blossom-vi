@@ -1,3 +1,6 @@
+#ifndef BLOSSOM_VI_EDGE_H
+#define BLOSSOM_VI_EDGE_H
+
 class Edge {
 public:
     bool matched;
@@ -24,3 +27,5 @@ public:
 private:
     const int head, tail;
 };
+
+#endif
