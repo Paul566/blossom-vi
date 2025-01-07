@@ -1,6 +1,7 @@
 #include "SolverUnweighted.h"
 
 #include <iostream>
+#include <unordered_set>
 
 SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int>> &adj_list_) : 
                             n(static_cast<int>(adj_list_.size())), cherry_blossoms(LabeledDisjointSets(n)){
@@ -224,11 +225,8 @@ void SolverUnweighted::MakeCherryBlossom(std::shared_ptr<Edge> edge_plus_plus, i
 }
 
 int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) const {
-
-    // TODO this is O(n), make it better
-    std::vector<bool> visited_first(n, false);
-    std::vector<bool> visited_second(n, false);
-    visited_first[first_vertex] = true;
+    std::unordered_set<int> visited_first;
+    visited_first.insert(first_vertex);
 
     while (matched_edge[first_vertex]) {
         first_vertex = matched_edge[first_vertex]->OtherNode(first_vertex);
@@ -236,13 +234,13 @@ int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) const {
         if (first_vertex == second_vertex) {
             return first_vertex;
         }
-        visited_first[first_vertex] = true;
+        visited_first.insert(first_vertex);
     }
 
     while (matched_edge[second_vertex]) {
         second_vertex = matched_edge[second_vertex]->OtherNode(second_vertex);
         second_vertex = minus_parents[second_vertex]->OtherNode(second_vertex);
-        if (visited_first[second_vertex]) {
+        if (visited_first.contains(second_vertex)) {
             return second_vertex;
         }
     }
