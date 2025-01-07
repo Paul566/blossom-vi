@@ -229,27 +229,25 @@ int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) const {
     std::vector<bool> visited_first(n, false);
     std::vector<bool> visited_second(n, false);
     visited_first[first_vertex] = true;
-    visited_second[second_vertex] = true;
-    while ((matched_edge[second_vertex]) && (matched_edge[first_vertex])) {
+
+    while (matched_edge[first_vertex]) {
         first_vertex = matched_edge[first_vertex]->OtherNode(first_vertex);
         first_vertex = minus_parents[first_vertex]->OtherNode(first_vertex);
-        if (visited_second[first_vertex]) {
+        if (first_vertex == second_vertex) {
             return first_vertex;
         }
         visited_first[first_vertex] = true;
+    }
 
+    while (matched_edge[second_vertex]) {
         second_vertex = matched_edge[second_vertex]->OtherNode(second_vertex);
         second_vertex = minus_parents[second_vertex]->OtherNode(second_vertex);
         if (visited_first[second_vertex]) {
             return second_vertex;
         }
-        visited_second[second_vertex] = true;
     }
 
-    if (!matched_edge[first_vertex]) { // first_vertex is a root
-        return first_vertex;
-    }
-    return second_vertex;
+    return first_vertex;
 }
 
 std::pair<int, int> SolverUnweighted::PathUpperBounds(int first_vertex, int second_vertex) {
