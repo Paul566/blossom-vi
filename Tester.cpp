@@ -43,27 +43,24 @@ bool Tester::Validate() {
 
 int Tester::LCA(int first_vertex, int second_vertex, const std::vector<int> &parents) const {
     std::vector<bool> visited_first(adj_list.size(), false);
-    std::vector<bool> visited_second(adj_list.size(), false);
     visited_first[first_vertex] = true;
-    visited_second[second_vertex] = true;
-    while ((parents[first_vertex] != -1) && (parents[second_vertex] != -1)) {
+
+    while (parents[first_vertex] != -1) {
         first_vertex = parents[first_vertex];
-        if (visited_second[first_vertex]) {
+        if (first_vertex == second_vertex) {
             return first_vertex;
         }
         visited_first[first_vertex] = true;
+    }
 
+    while (parents[second_vertex] != -1) {
         second_vertex = parents[second_vertex];
         if (visited_first[second_vertex]) {
             return second_vertex;
         }
-        visited_second[second_vertex] = true;
     }
 
-    if (parents[first_vertex] == -1) { // first_vertex is a root
-        return first_vertex;
-    }
-    return second_vertex;
+    return first_vertex;
 }
 
 bool Tester::AugmentingPathsExist() {
