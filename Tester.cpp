@@ -87,6 +87,9 @@ bool Tester::AugmentingPathsExist() {
             queue.pop();
             for (int next_vertex : adj_list[cur_vertex]) {
                 next_vertex = TopBlossom(next_vertex);
+                if (cur_vertex == next_vertex) {
+                    continue;
+                }
                 if (!visited[next_vertex]) {
                     if (matched_to[next_vertex] == -1) {
                         return true;
@@ -119,8 +122,8 @@ bool Tester::AugmentingPathsExist() {
                     MakeBlossom(future_blossom, parents);
 
                     int new_blossom = static_cast<int>(adj_list.size()) - 1;
-                    visited[new_blossom] = true;
-                    plus[new_blossom] = true;
+                    visited.push_back(true);
+                    plus.push_back(true);
                     queue.push(new_blossom);
 
                     cur_vertex = new_blossom;
