@@ -1,21 +1,24 @@
+#include <algorithm>
 #include <iostream>
 #include <vector>
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <random>
+#include <set>
+
 #include "SolverUnweighted.h"
 #include "Tester.h"
 
-
-void PrintVector(const std::vector<int>& numbers) {
+void PrintVector(const std::vector<int> &numbers) {
     for (const int number : numbers) {
         std::cout << number << " ";
     }
     std::cout << std::endl;
 }
 
-std::vector<std::vector<int>> ReadEdgeList(const std::string &path) {
-    std::vector<std::vector<int>> adj_list;
+std::vector<std::vector<int> > ReadEdgeList(const std::string &path) {
+    std::vector<std::vector<int> > adj_list;
     std::fstream input_file(path);
 
     if (input_file.is_open()) {
@@ -48,7 +51,34 @@ std::vector<std::vector<int>> ReadEdgeList(const std::string &path) {
     return adj_list;
 }
 
-void RunRandomTests() {
+std::vector<std::vector<int>> RandomGraph(const int num_vertices, const int num_edges, std::mt19937 &generator) {
+    std::vector<std::vector<int>> adj_list(num_vertices, std::vector<int>());
+
+    if (num_edges > num_vertices * (num_vertices - 1) / 2) {
+        throw std::runtime_error("In RandomGraph: too many edges");
+    }
+
+    std::set<std::pair<int, int>> edges;
+
+    std::uniform_int_distribution<> dist(0, num_vertices - 1);
+    while (edges.size() < static_cast<size_t>(num_edges)) {
+        int first_vertex = dist(generator); // Random vertex u
+        int second_vertex = dist(generator);
+
+        if (first_vertex != second_vertex) {
+            auto edge = std::minmax(first_vertex, second_vertex);
+            if (!edges.contains(edge)) {
+                edges.insert(edge);
+                adj_list[edge.first].push_back(edge.second);
+                adj_list[edge.second].push_back(edge.first);
+            }
+        }
+    }
+
+    return adj_list;
+}
+
+void RunSavedTests() {
     const std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
 
     for (int n = 3; n <= 15; ++n) {
@@ -76,8 +106,39 @@ void RunRandomTests() {
     std::cout << "All tests passed!\n";
 }
 
+void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator) {
+    std::uniform_int_distribution<> dist_vertices(1, max_vertices);
+
+    for (int i = 0; i < num_tests; ++i) {
+        std::cout << "test " << i << "\n";
+
+        if (i == 31477) {
+            std::cout << std::endl;
+        }
+
+        int num_vertices = dist_vertices(generator);
+        std::uniform_int_distribution<> dist_edges(0, num_vertices * (num_vertices - 1) / 2);
+        int num_edges = dist_edges(generator);
+
+        auto adj_list = RandomGraph(num_vertices, num_edges, generator);
+
+        // std::cout << "initializing tester" << std::endl;
+        Tester tester = Tester(adj_list);
+        // std::cout << "starting validation" << std::endl;
+
+        if (!tester.Validate()) {
+            throw std::runtime_error("test failed");
+        }
+    }
+
+    std::cout << "All tests passed!\n";
+}
+
 int main() {
-    RunRandomTests();
+    std::mt19937 gen(239);
+
+    // RunSavedTests();
+    RunRandomTests(50, 100000, gen);
 
     // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
     // int n = 5;
@@ -86,17 +147,6 @@ int main() {
     // auto adj_list = ReadEdgeList(prefix + filename_graph);
     // Tester tester = Tester(adj_list);
     // tester.Validate();
-
-
-    // std::vector<std::vector<int>> adj_list;
-    // adj_list.push_back(std::vector<int>({1, 2, 3}));
-    // adj_list.push_back(std::vector<int>({0, 2, 3}));
-    // adj_list.push_back(std::vector<int>({0, 1}));
-    // adj_list.push_back(std::vector<int>({0, 1}));
-
-    // SolverUnweighted solver = SolverUnweighted(adj_list);
-    // solver.Solve();
-    // solver.Print();
 
     return 0;
 }
