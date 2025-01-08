@@ -14,6 +14,8 @@ public:
 
     void Unite(int first, int second, int new_label);
 
+    void Detach(int element);
+
 private:
     std::vector<int> ranks;
     std::vector<int> parents;

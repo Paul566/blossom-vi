@@ -61,3 +61,10 @@ void LabeledDisjointSets::UniteRepresentatives(int first, int second, int new_la
 void LabeledDisjointSets::Unite(int first, int second, int new_label) {
     UniteRepresentatives(Representative(first), Representative(second), new_label);
 }
+
+void LabeledDisjointSets::Detach(const int element) {
+    // TODO this should not be here later
+    parents[element] = element;
+    labels[element] = element;
+    ranks[element] = 0;
+}

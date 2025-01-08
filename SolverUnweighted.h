@@ -27,6 +27,7 @@ private:
     const int n;  // the number of vertices
     std::vector<std::shared_ptr<Edge>> matched_edge;
     std::vector<std::shared_ptr<Edge>> minus_parents;
+    std::vector<std::vector<int>> children;
     std::vector<bool> plus;
     std::vector<bool> minus;
     std::queue<int> growable_vertices;
@@ -47,7 +48,7 @@ private:
 
     void UpdatePath(int lower_vertex, int upper_vertex);
 
-    void ClearTrees();
+    void ClearTree(int root);
 };
 
 #endif
