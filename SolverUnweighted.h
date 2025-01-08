@@ -35,12 +35,20 @@ private:
 
     void GreedyInit();
 
-    void Augment(std::vector<std::shared_ptr<Edge>> path, int start);
+    bool HandleVertex(int cur_vertex);
+    // returns true if performed an augmentation
 
+    void Augment(std::shared_ptr<Edge> edge_plus_plus, int cur_vertex, int to);
+
+    std::vector<std::shared_ptr<Edge>> PathToRoot(int vertex_plus);
+    // a vector of edges that lead to the root, starting from a plus vertex
+
+    void AugmentPath(std::vector<std::shared_ptr<Edge>> path);
+
+    void MakeCherryBlossom(std::shared_ptr<Edge> edge_plus_plus);
     // first_vertex and second_vertex are pluses
-    // walks up the tree until the lca and makes everyone plusminus, 
+    // walks up the tree until the lca and makes everyone plusminus,
     // adding the new pluses to the queue and updating parent pointers
-    void MakeCherryBlossom(std::shared_ptr<Edge> edge_plus_plus, int root);
 
     int PlusPlusLCA(int first_vertex, int second_vertex) const;
 
@@ -49,6 +57,8 @@ private:
     void UpdatePath(int lower_vertex, int upper_vertex);
 
     void ClearTree(int root);
+
+    int UnmatchedVertex(const std::shared_ptr<Edge> &edge);
 };
 
 #endif

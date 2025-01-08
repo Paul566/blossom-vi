@@ -138,7 +138,11 @@ int main() {
     std::mt19937 gen(239);
 
     // RunSavedTests();
-    RunRandomTests(50, 100000, gen);
+    // RunRandomTests(20, 100000, gen);
+
+    auto adj_list = RandomGraph(10000, 30000, gen);
+    Tester tester = Tester(adj_list);
+    std::cout << tester.runtime << " seconds" << std::endl;
 
     // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
     // int n = 5;
