@@ -54,7 +54,7 @@ std::vector<std::vector<int> > ReadEdgeList(const std::string &path) {
 std::vector<std::vector<int>> RandomGraph(const int num_vertices, const int num_edges, std::mt19937 &generator) {
     std::vector<std::vector<int>> adj_list(num_vertices, std::vector<int>());
 
-    if (num_edges > num_vertices * (num_vertices - 1) / 2) {
+    if (static_cast<long>(num_edges) > static_cast<long>(num_vertices) * static_cast<long>(num_vertices - 1) / 2) {
         throw std::runtime_error("In RandomGraph: too many edges");
     }
 
