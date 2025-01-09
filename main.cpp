@@ -78,7 +78,7 @@ std::vector<std::vector<int>> RandomGraph(const int num_vertices, const int num_
     return adj_list;
 }
 
-void RunSavedTests() {
+void RunSavedTests(int init_type) {
     const std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
 
     for (int n = 3; n <= 15; ++n) {
@@ -94,7 +94,7 @@ void RunSavedTests() {
             // solver.PrintMatching();
             // solver.PrintAdjList();
 
-            Tester tester = Tester(adj_list);
+            Tester tester = Tester(adj_list, init_type);
             std::cout << "runtime: " << tester.runtime << " seconds" << std::endl;
             if (!tester.Validate()) {
                 throw std::runtime_error("test failed");
@@ -106,7 +106,7 @@ void RunSavedTests() {
     std::cout << "All tests passed!\n";
 }
 
-void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator) {
+void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, int init_type) {
     std::uniform_int_distribution<> dist_vertices(1, max_vertices);
 
     for (int i = 0; i < num_tests; ++i) {
@@ -122,7 +122,7 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator) {
         if (i == 2095) {
             verbose = true;
         }
-        Tester tester = Tester(adj_list, verbose);
+        Tester tester = Tester(adj_list, verbose, init_type);
 
         if (!tester.Validate()) {
             throw std::runtime_error("test failed");
@@ -134,12 +134,13 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator) {
 
 int main() {
     std::mt19937 gen(239);
+    int init_type = 1;
 
-    // RunSavedTests();
-    // RunRandomTests(30, 100000, gen);
+    // RunSavedTests(init_type);
+    // RunRandomTests(30, 100000, gen, init_type);
 
-    auto adj_list = RandomGraph(1'000'00, 3'000'00, gen);
-    Tester tester = Tester(adj_list);
+    auto adj_list = RandomGraph(1'000'000, 3'000'000, gen);
+    Tester tester = Tester(adj_list, false, init_type);
     std::cout << tester.runtime << " seconds" << std::endl;
 
     // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";

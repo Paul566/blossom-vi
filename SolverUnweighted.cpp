@@ -1,12 +1,14 @@
 #include "SolverUnweighted.h"
 
+#include <algorithm>
 #include <iostream>
 #include <unordered_set>
 
-SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int>> &adj_list_,
+SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int> > &adj_list_,
+                                   int greedy_init_type_,
                                    bool verbose_) : n(static_cast<int>(adj_list_.size())),
-                                                    cherry_blossoms(LabeledDisjointSets(n)), verbose(verbose_) {
-
+                                                            cherry_blossoms(LabeledDisjointSets(n)), verbose(verbose_),
+                                                            greedy_init_type(greedy_init_type_) {
     adj_list = std::vector<std::vector<std::shared_ptr<Edge> > >(n);
     matched_edge = std::vector<std::shared_ptr<Edge> >(n, nullptr);
 
@@ -101,15 +103,41 @@ void SolverUnweighted::Solve() {
 }
 
 void SolverUnweighted::GreedyInit() {
-    for (int vertex = 0; vertex < n; ++vertex) {
-        if (!matched_edge[vertex]) {
-            for (auto edge : adj_list[vertex]) {
-                int to = edge->OtherNode(vertex);
-                if (!matched_edge[to]) {
-                    edge->matched = true;
-                    matched_edge[vertex] = edge;
-                    matched_edge[to] = edge;
-                    break;
+    if (greedy_init_type == 0) {
+        for (int vertex = 0; vertex < n; ++vertex) {
+            if (!matched_edge[vertex]) {
+                for (const auto &edge : adj_list[vertex]) {
+                    int to = edge->OtherNode(vertex);
+                    if (!matched_edge[to]) {
+                        edge->matched = true;
+                        matched_edge[vertex] = edge;
+                        matched_edge[to] = edge;
+                        break;
+                    }
+                }
+            }
+        }
+        return;
+    }
+    if (greedy_init_type == 1) {
+        std::vector<std::pair<int, int>> vertices;
+        vertices.reserve(n);
+        for (int i = 0; i < n; ++i) {
+            vertices.emplace_back(adj_list[i].size(), i);
+        }
+        std::sort(vertices.begin(), vertices.end());
+
+        for (int i = 0; i < n; ++i) {
+            int vertex = vertices[i].second;
+            if (!matched_edge[vertex]) {
+                for (const auto &edge : adj_list[vertex]) {
+                    int to = edge->OtherNode(vertex);
+                    if (!matched_edge[to]) {
+                        edge->matched = true;
+                        matched_edge[vertex] = edge;
+                        matched_edge[to] = edge;
+                        break;
+                    }
                 }
             }
         }

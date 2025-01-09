@@ -3,8 +3,11 @@
 #include <chrono>
 #include "SolverUnweighted.h"
 
-Tester::Tester(const std::vector<std::vector<int> > &adj_list_, bool verbose_) : verbose(verbose_) {
-    SolverUnweighted solver = SolverUnweighted(adj_list_, verbose_);
+Tester::Tester(const std::vector<std::vector<int> > &adj_list_,
+               int greedy_init_type_,
+               bool verbose_) : verbose(verbose_), greedy_init_type(greedy_init_type_) {
+
+    SolverUnweighted solver = SolverUnweighted(adj_list_, verbose_, greedy_init_type_);
 
     const auto start = std::chrono::high_resolution_clock::now();
     solver.Solve();
