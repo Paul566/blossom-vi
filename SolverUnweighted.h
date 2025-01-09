@@ -13,7 +13,7 @@ class SolverUnweighted {
 public:
     std::vector<std::vector<std::shared_ptr<Edge>>> adj_list;
 
-    explicit SolverUnweighted(const std::vector<std::vector<int>> &adj_list_);
+    explicit SolverUnweighted(const std::vector<std::vector<int>> &adj_list_, bool verbose_ = false);
 
     void PrintMatching();
 
@@ -32,6 +32,8 @@ private:
     std::vector<bool> minus;
     std::queue<int> growable_vertices;
     LabeledDisjointSets cherry_blossoms; // labels are receptacles
+    std::vector<int> root_of_vertex;
+    bool verbose;
 
     void GreedyInit();
 

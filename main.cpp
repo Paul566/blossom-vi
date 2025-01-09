@@ -112,19 +112,17 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator) {
     for (int i = 0; i < num_tests; ++i) {
         std::cout << "test " << i << "\n";
 
-        if (i == 31477) {
-            std::cout << std::endl;
-        }
-
         int num_vertices = dist_vertices(generator);
         std::uniform_int_distribution<> dist_edges(0, num_vertices * (num_vertices - 1) / 2);
         int num_edges = dist_edges(generator);
 
         auto adj_list = RandomGraph(num_vertices, num_edges, generator);
 
-        // std::cout << "initializing tester" << std::endl;
-        Tester tester = Tester(adj_list);
-        // std::cout << "starting validation" << std::endl;
+        bool verbose = false;
+        if (i == 2095) {
+            verbose = true;
+        }
+        Tester tester = Tester(adj_list, verbose);
 
         if (!tester.Validate()) {
             throw std::runtime_error("test failed");
@@ -138,19 +136,23 @@ int main() {
     std::mt19937 gen(239);
 
     // RunSavedTests();
-    // RunRandomTests(20, 100000, gen);
+    // RunRandomTests(30, 100000, gen);
 
-    auto adj_list = RandomGraph(10000, 30000, gen);
+    auto adj_list = RandomGraph(1'000'00, 3'000'00, gen);
     Tester tester = Tester(adj_list);
     std::cout << tester.runtime << " seconds" << std::endl;
 
     // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
-    // int n = 5;
-    // int m = 8;
+    // int n = 9;
+    // int m = 18;
     // std::string filename_graph = std::to_string(n) + "-" + std::to_string(m) + ".txt";
     // auto adj_list = ReadEdgeList(prefix + filename_graph);
-    // Tester tester = Tester(adj_list);
-    // tester.Validate();
+    // // Tester tester = Tester(adj_list);
+    // // tester.Validate();
+    // SolverUnweighted solver = SolverUnweighted(adj_list);
+    // solver.PrintAdjList();
+    // solver.Solve();
+    // solver.PrintMatching();
 
     return 0;
 }

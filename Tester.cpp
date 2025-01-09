@@ -3,17 +3,16 @@
 #include <chrono>
 #include "SolverUnweighted.h"
 
-
-Tester::Tester(const std::vector<std::vector<int>> &adj_list_) {
-    SolverUnweighted solver = SolverUnweighted(adj_list_);
+Tester::Tester(const std::vector<std::vector<int> > &adj_list_, bool verbose_) : verbose(verbose_) {
+    SolverUnweighted solver = SolverUnweighted(adj_list_, verbose_);
 
     const auto start = std::chrono::high_resolution_clock::now();
     solver.Solve();
     const auto stop = std::chrono::high_resolution_clock::now();
     runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
-            stop - start).count()) / 1'000'000;
+        stop - start).count()) / 1'000'000;
 
-    adj_list = std::vector<std::vector<int>>(adj_list_.size(), std::vector<int>());
+    adj_list = std::vector<std::vector<int> >(adj_list_.size(), std::vector<int>());
     matched_to = std::vector<int>(adj_list_.size(), -1);
     blossom_index.reserve(adj_list_.size());
     for (int i = 0; i < static_cast<int>(adj_list_.size()); ++i) {
@@ -21,7 +20,7 @@ Tester::Tester(const std::vector<std::vector<int>> &adj_list_) {
     }
 
     for (int vertex = 0; vertex < static_cast<int>(solver.adj_list.size()); ++vertex) {
-        for (const auto& edge : solver.adj_list[vertex]) {
+        for (const auto &edge : solver.adj_list[vertex]) {
             adj_list[vertex].emplace_back(edge->OtherNode(vertex));
             if (edge->matched) {
                 if (matched_to[vertex] != -1) {
@@ -78,7 +77,7 @@ bool Tester::AugmentingPathsExist() {
         visited[root] = true;
         plus[root] = true;
 
-        while(!queue.empty()) {
+        while (!queue.empty()) {
             int cur_vertex = queue.front(); // is a plus
             cur_vertex = TopBlossom(cur_vertex);
             queue.pop();
@@ -128,11 +127,11 @@ bool Tester::AugmentingPathsExist() {
             }
         }
     }
-    
+
     return false;
 }
 
-void Tester::MakeBlossom(const std::vector<int>& blossom, std::vector<int> &parents) {
+void Tester::MakeBlossom(const std::vector<int> &blossom, std::vector<int> &parents) {
     // the receptacle is the last element of blossom
 
     std::vector<bool> in_blossom(adj_list.size(), false);

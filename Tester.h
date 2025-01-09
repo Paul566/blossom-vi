@@ -8,7 +8,7 @@ class Tester {
 public:
     double runtime;
 
-    explicit Tester(const std::vector<std::vector<int>> &adj_list_);
+    explicit Tester(const std::vector<std::vector<int>> &adj_list_, bool verbose_ = false);
 
     bool Validate();
 
@@ -16,6 +16,7 @@ private:
     std::vector<std::vector<int>> adj_list; // (destination, is_matched)
     std::vector<int> matched_to;
     std::vector<int> blossom_index;
+    bool verbose;
 
     int LCA(int first_vertex, int second_vertex, const std::vector<int> &parents) const;
 
