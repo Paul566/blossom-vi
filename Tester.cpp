@@ -5,7 +5,8 @@
 
 Tester::Tester(const std::vector<std::vector<int> > &adj_list_,
                int greedy_init_type_,
-               bool verbose_) : verbose(verbose_), greedy_init_type(greedy_init_type_) {
+               bool verbose_) : verbose(verbose_), greedy_init_type(greedy_init_type_),
+                                adj_list(adj_list_) {
 
     SolverUnweighted solver = SolverUnweighted(adj_list_, verbose_, greedy_init_type_);
 
@@ -15,7 +16,6 @@ Tester::Tester(const std::vector<std::vector<int> > &adj_list_,
     runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
         stop - start).count()) / 1'000'000;
 
-    adj_list = std::vector<std::vector<int> >(adj_list_.size(), std::vector<int>());
     matched_to = std::vector<int>(adj_list_.size(), -1);
     blossom_index.reserve(adj_list_.size());
     for (int i = 0; i < static_cast<int>(adj_list_.size()); ++i) {
@@ -24,7 +24,6 @@ Tester::Tester(const std::vector<std::vector<int> > &adj_list_,
 
     for (int vertex = 0; vertex < static_cast<int>(solver.adj_list.size()); ++vertex) {
         for (const auto &edge : solver.adj_list[vertex]) {
-            adj_list[vertex].emplace_back(edge->OtherNode(vertex));
             if (edge->matched) {
                 if (matched_to[vertex] != -1) {
                     throw std::runtime_error("Not a matching");
