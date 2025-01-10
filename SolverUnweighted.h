@@ -12,7 +12,7 @@ class SolverUnweighted {
         std::vector<std::vector<std::shared_ptr<Edge> > > adj_list;
 
         explicit SolverUnweighted(const std::vector<std::vector<int> > &adj_list_,
-                                  int greedy_init_type_, bool verbose_ = false);
+                                  int greedy_init_type_, bool delete_edges_in_cherries_, bool verbose_ = false);
 
         void PrintMatching();
 
@@ -38,6 +38,7 @@ class SolverUnweighted {
         // 1: go through vertices from the lowest degree to the highest degree
         // 2: go through edges (u, v) sorted by deg(u)+deg(v)
         // 3: go through edges (u, v) sorted by max(deg(u), deg(v))
+        bool delete_edges_in_cherries;
 
         void GreedyInit();
 

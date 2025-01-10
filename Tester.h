@@ -9,7 +9,7 @@ public:
     double runtime;
 
     explicit Tester(const std::vector<std::vector<int>> &adj_list_,
-                                  int greedy_init_type_, bool verbose_ = false);
+                                  int greedy_init_type_, bool delete_edges_in_cherries_, bool verbose_ = false);
 
     bool Validate();
 
@@ -19,6 +19,7 @@ private:
     std::vector<int> blossom_index;
     bool verbose;
     int greedy_init_type;
+    bool delete_edges_in_cherries;
 
     int LCA(int first_vertex, int second_vertex, const std::vector<int> &parents) const;
 

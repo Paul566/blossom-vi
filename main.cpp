@@ -78,7 +78,7 @@ std::vector<std::vector<int>> RandomGraph(const int num_vertices, const int num_
     return adj_list;
 }
 
-void RunSavedTests(int init_type) {
+void RunSavedTests(int init_type, bool delete_edges_in_cherries) {
     const std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
 
     for (int n = 3; n <= 15; ++n) {
@@ -94,7 +94,7 @@ void RunSavedTests(int init_type) {
             // solver.PrintMatching();
             // solver.PrintAdjList();
 
-            Tester tester = Tester(adj_list, init_type);
+            Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries);
             std::cout << "runtime: " << tester.runtime << " seconds" << std::endl;
             if (!tester.Validate()) {
                 throw std::runtime_error("test failed");
@@ -106,7 +106,7 @@ void RunSavedTests(int init_type) {
     std::cout << "All tests passed!\n";
 }
 
-void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, int init_type) {
+void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, int init_type, bool delete_edges_in_cherries) {
     std::uniform_int_distribution<> dist_vertices(1, max_vertices);
 
     for (int i = 0; i < num_tests; ++i) {
@@ -122,7 +122,7 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, in
         if (i == 2095) {
             verbose = true;
         }
-        Tester tester = Tester(adj_list, verbose, init_type);
+        Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries, verbose);
 
         if (!tester.Validate()) {
             throw std::runtime_error("test failed");
@@ -135,12 +135,13 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, in
 int main() {
     std::mt19937 gen(239);
     int init_type = 1;
+    bool delete_edges_in_cherries = true;
 
-    // RunSavedTests(init_type);
-    // RunRandomTests(30, 100000, gen, init_type);
+    // RunSavedTests(init_type, delete_edges_in_cherries);
+    // RunRandomTests(30, 100000, gen, init_type, delete_edges_in_cherries);
 
     auto adj_list = RandomGraph(1'000'00, 3'000'00, gen);
-    Tester tester = Tester(adj_list, false, init_type);
+    Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries);
     std::cout << tester.runtime << " seconds" << std::endl;
 
     // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";

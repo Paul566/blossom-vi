@@ -5,10 +5,10 @@
 
 Tester::Tester(const std::vector<std::vector<int> > &adj_list_,
                int greedy_init_type_,
+               bool delete_edges_in_cherries_,
                bool verbose_) : verbose(verbose_), greedy_init_type(greedy_init_type_),
-                                adj_list(adj_list_) {
-
-    SolverUnweighted solver = SolverUnweighted(adj_list_, verbose_, greedy_init_type_);
+                                adj_list(adj_list_), delete_edges_in_cherries(delete_edges_in_cherries_) {
+    SolverUnweighted solver = SolverUnweighted(adj_list_, greedy_init_type_, delete_edges_in_cherries_, verbose_);
 
     const auto start = std::chrono::high_resolution_clock::now();
     solver.Solve();

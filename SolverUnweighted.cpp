@@ -1,14 +1,17 @@
 #include "SolverUnweighted.h"
 
 #include <algorithm>
+#include <chrono>
 #include <iostream>
 #include <unordered_set>
 
 SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int> > &adj_list_,
                                    int greedy_init_type_,
+                                   bool delete_edges_in_cherries_,
                                    bool verbose_) : n(static_cast<int>(adj_list_.size())),
-                                                            cherry_blossoms(LabeledDisjointSets(n)), verbose(verbose_),
-                                                            greedy_init_type(greedy_init_type_) {
+                                                    cherry_blossoms(LabeledDisjointSets(n)), verbose(verbose_),
+                                                    greedy_init_type(greedy_init_type_),
+                                                    delete_edges_in_cherries(delete_edges_in_cherries_) {
     adj_list = std::vector<std::vector<std::shared_ptr<Edge> > >(n);
     matched_edge = std::vector<std::shared_ptr<Edge> >(n, nullptr);
 
@@ -78,7 +81,12 @@ void SolverUnweighted::PrintTreeData() {
 }
 
 void SolverUnweighted::Solve() {
+    // const auto start = std::chrono::high_resolution_clock::now();
     GreedyInit();
+    // const auto stop = std::chrono::high_resolution_clock::now();
+    // std::cout << "init time: " << static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
+    //     stop - start).count()) / 1'000'000 << " seconds" << std::endl;
+
     if (verbose) {
         PrintMatching();
     }
@@ -121,7 +129,7 @@ void SolverUnweighted::GreedyInit() {
     }
 
     if (greedy_init_type == 1) {
-        std::vector<std::pair<int, int>> vertices;
+        std::vector<std::pair<int, int> > vertices;
         vertices.reserve(n);
         for (int i = 0; i < n; ++i) {
             vertices.emplace_back(adj_list[i].size(), i);
@@ -146,18 +154,18 @@ void SolverUnweighted::GreedyInit() {
     }
 
     if (greedy_init_type == 2) {
-        std::vector<std::pair<int, std::shared_ptr<Edge>>> edges;
+        std::vector<std::pair<int, std::shared_ptr<Edge> > > edges;
         for (int i = 0; i < n; ++i) {
-            for (const auto& edge : adj_list[i]) {
+            for (const auto &edge : adj_list[i]) {
                 if (i < edge->OtherNode(i)) {
                     edges.emplace_back(adj_list[i].size() + adj_list[edge->OtherNode(i)].size(), edge);
                 }
             }
         }
         std::sort(edges.begin(), edges.end());
-        for (auto & edge : edges) {
+        for (auto &edge : edges) {
             auto [head, tail] = edge.second->Vertices();
-            if ((!matched_edge[head]) && (matched_edge[tail])) {
+            if ((!matched_edge[head]) && (!matched_edge[tail])) {
                 edge.second->matched = true;
                 matched_edge[head] = edge.second;
                 matched_edge[tail] = edge.second;
@@ -167,18 +175,18 @@ void SolverUnweighted::GreedyInit() {
     }
 
     if (greedy_init_type == 3) {
-        std::vector<std::pair<int, std::shared_ptr<Edge>>> edges;
+        std::vector<std::pair<int, std::shared_ptr<Edge> > > edges;
         for (int i = 0; i < n; ++i) {
-            for (const auto& edge : adj_list[i]) {
+            for (const auto &edge : adj_list[i]) {
                 if (i < edge->OtherNode(i)) {
                     edges.emplace_back(std::max(adj_list[i].size(), adj_list[edge->OtherNode(i)].size()), edge);
                 }
             }
         }
         std::sort(edges.begin(), edges.end());
-        for (auto & edge : edges) {
+        for (auto &edge : edges) {
             auto [head, tail] = edge.second->Vertices();
-            if ((!matched_edge[head]) && (matched_edge[tail])) {
+            if ((!matched_edge[head]) && (!matched_edge[tail])) {
                 edge.second->matched = true;
                 matched_edge[head] = edge.second;
                 matched_edge[tail] = edge.second;
@@ -193,7 +201,8 @@ bool SolverUnweighted::HandleVertex(const int cur_vertex) {
         return false;
     }
 
-    for (auto edge : adj_list[cur_vertex]) {
+    for (int i = 0; i < static_cast<int>(adj_list[cur_vertex].size()); ++i) {
+        auto edge = adj_list[cur_vertex][i];
         int to = edge->OtherNode(cur_vertex);
 
         if ((!plus[to]) && (!minus[to])) {
@@ -211,7 +220,17 @@ bool SolverUnweighted::HandleVertex(const int cur_vertex) {
             // to is in the tree
             if (plus[to]) {
                 if (root_of_vertex[cur_vertex] == root_of_vertex[to]) {
-                    MakeCherryBlossom(edge);
+                    if (cherry_blossoms.Representative(cur_vertex) != cherry_blossoms.Representative(to)) {
+                        MakeCherryBlossom(edge);
+                    } else {
+                        if ((delete_edges_in_cherries) && (matched_edge[cur_vertex] != edge) && (minus_parents[
+                                cur_vertex] != edge) && (minus_parents[to] != edge)) {
+                            // if the edge is not anyone's parent, delete it
+                            adj_list[cur_vertex][i] = adj_list[cur_vertex].back();
+                            adj_list[cur_vertex].pop_back();
+                            --i;
+                        }
+                    }
                 } else {
                     Augment(edge, cur_vertex, to);
                     return true;
