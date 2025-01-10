@@ -36,6 +36,8 @@ class SolverUnweighted {
         int greedy_init_type;
         // 0: usual greedy init
         // 1: go through vertices from the lowest degree to the highest degree
+        // 2: go through edges (u, v) sorted by deg(u)+deg(v)
+        // 3: go through edges (u, v) sorted by max(deg(u), deg(v))
 
         void GreedyInit();
 

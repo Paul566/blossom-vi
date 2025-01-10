@@ -139,7 +139,7 @@ int main() {
     // RunSavedTests(init_type);
     // RunRandomTests(30, 100000, gen, init_type);
 
-    auto adj_list = RandomGraph(1'000'000, 3'000'000, gen);
+    auto adj_list = RandomGraph(1'000'00, 3'000'00, gen);
     Tester tester = Tester(adj_list, false, init_type);
     std::cout << tester.runtime << " seconds" << std::endl;
 

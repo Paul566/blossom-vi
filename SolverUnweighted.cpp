@@ -119,6 +119,7 @@ void SolverUnweighted::GreedyInit() {
         }
         return;
     }
+
     if (greedy_init_type == 1) {
         std::vector<std::pair<int, int>> vertices;
         vertices.reserve(n);
@@ -139,6 +140,48 @@ void SolverUnweighted::GreedyInit() {
                         break;
                     }
                 }
+            }
+        }
+        return;
+    }
+
+    if (greedy_init_type == 2) {
+        std::vector<std::pair<int, std::shared_ptr<Edge>>> edges;
+        for (int i = 0; i < n; ++i) {
+            for (const auto& edge : adj_list[i]) {
+                if (i < edge->OtherNode(i)) {
+                    edges.emplace_back(adj_list[i].size() + adj_list[edge->OtherNode(i)].size(), edge);
+                }
+            }
+        }
+        std::sort(edges.begin(), edges.end());
+        for (auto & edge : edges) {
+            auto [head, tail] = edge.second->Vertices();
+            if ((!matched_edge[head]) && (matched_edge[tail])) {
+                edge.second->matched = true;
+                matched_edge[head] = edge.second;
+                matched_edge[tail] = edge.second;
+            }
+        }
+        return;
+    }
+
+    if (greedy_init_type == 3) {
+        std::vector<std::pair<int, std::shared_ptr<Edge>>> edges;
+        for (int i = 0; i < n; ++i) {
+            for (const auto& edge : adj_list[i]) {
+                if (i < edge->OtherNode(i)) {
+                    edges.emplace_back(std::max(adj_list[i].size(), adj_list[edge->OtherNode(i)].size()), edge);
+                }
+            }
+        }
+        std::sort(edges.begin(), edges.end());
+        for (auto & edge : edges) {
+            auto [head, tail] = edge.second->Vertices();
+            if ((!matched_edge[head]) && (matched_edge[tail])) {
+                edge.second->matched = true;
+                matched_edge[head] = edge.second;
+                matched_edge[tail] = edge.second;
             }
         }
     }
