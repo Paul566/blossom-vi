@@ -15,8 +15,11 @@ SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int> > &adj_lis
     adj_list = std::vector<std::vector<std::shared_ptr<Edge> > >(n);
     matched_edge = std::vector<std::shared_ptr<Edge> >(n, nullptr);
 
+    for (int i = 0; i < n; i++) {
+        adj_list[i].reserve(adj_list[i].size());
+    }
+
     for (int i = 0; i < n; ++i) {
-        adj_list[i].reserve(n);
         for (int to : adj_list_[i]) {
             if (to > i) {
                 Edge new_edge(i, to);
