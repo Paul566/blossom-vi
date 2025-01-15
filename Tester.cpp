@@ -8,11 +8,16 @@ Tester::Tester(const std::vector<std::vector<int> > &adj_list_,
                bool delete_edges_in_cherries_,
                bool verbose_) : verbose(verbose_), greedy_init_type(greedy_init_type_),
                                 adj_list(adj_list_), delete_edges_in_cherries(delete_edges_in_cherries_) {
-    SolverUnweighted solver = SolverUnweighted(adj_list_, greedy_init_type_, delete_edges_in_cherries_, verbose_);
 
-    const auto start = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::high_resolution_clock::now();
+    SolverUnweighted solver = SolverUnweighted(adj_list_, greedy_init_type_, delete_edges_in_cherries_, verbose_);
+    auto stop = std::chrono::high_resolution_clock::now();
+    init_time = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
+        stop - start).count()) / 1'000'000;
+
+    start = std::chrono::high_resolution_clock::now();
     solver.Solve();
-    const auto stop = std::chrono::high_resolution_clock::now();
+    stop = std::chrono::high_resolution_clock::now();
     runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
         stop - start).count()) / 1'000'000;
 

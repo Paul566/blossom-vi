@@ -7,6 +7,7 @@
 class Tester {
 public:
     double runtime;
+    double init_time;
 
     explicit Tester(const std::vector<std::vector<int>> &adj_list_,
                                   int greedy_init_type_, bool delete_edges_in_cherries_, bool verbose_ = false);

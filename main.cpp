@@ -17,7 +17,7 @@ void PrintVector(const std::vector<int> &numbers) {
     std::cout << std::endl;
 }
 
-std::vector<std::vector<int> > ReadEdgeList(const std::string &path) {
+std::vector<std::vector<int>> ReadEdgeList(const std::string &path) {
     std::vector<std::vector<int> > adj_list;
     std::fstream input_file(path);
 
@@ -132,25 +132,55 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, in
     std::cout << "All tests passed!\n";
 }
 
+void MeasureTime(const std::string& path, int init_type, bool delete_edges_in_cherries) {
+    auto adj_list = ReadEdgeList(path);
+    Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries);
+    std::cout << "runtime: " << tester.runtime << " seconds" << std::endl;
+    std::cout << "runtime/init_time ratio: " << tester.runtime / tester.init_time << std::endl;
+}
+
+std::vector<std::string> AllFiles(const std::string& directory_path) {
+    std::vector<std::string> files;
+
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(directory_path)) {
+            if (std::filesystem::is_regular_file(entry.status())) {
+                files.push_back(entry.path().string());
+            }
+        }
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Cannot access directory: " << e.what() << std::endl;
+    }
+
+    std::sort(files.begin(), files.end());
+
+    return files;
+}
+
+void MeasureAll(const std::string& directory_path, int init_type, bool delete_edges_in_cherries) {
+    auto files = AllFiles(directory_path);
+    for (const auto& file : files) {
+        std::cout << file << std::endl;
+        MeasureTime(file, init_type, delete_edges_in_cherries);
+        std::cout << std::endl;
+    }
+}
+
 int main() {
     std::mt19937 gen(239);
     int init_type = 1;
     bool delete_edges_in_cherries = true;
 
+    MeasureAll("../tests", init_type, delete_edges_in_cherries);
+
     // RunSavedTests(init_type, delete_edges_in_cherries);
     // RunRandomTests(30, 100000, gen, init_type, delete_edges_in_cherries);
-
-    auto adj_list = RandomGraph(1'000'00, 3'000'00, gen);
-    Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries);
-    std::cout << tester.runtime << " seconds" << std::endl;
 
     // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
     // int n = 9;
     // int m = 18;
     // std::string filename_graph = std::to_string(n) + "-" + std::to_string(m) + ".txt";
     // auto adj_list = ReadEdgeList(prefix + filename_graph);
-    // // Tester tester = Tester(adj_list);
-    // // tester.Validate();
     // SolverUnweighted solver = SolverUnweighted(adj_list);
     // solver.PrintAdjList();
     // solver.Solve();
