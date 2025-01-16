@@ -35,6 +35,10 @@ int LabeledDisjointSets::Label(int element) {
     return labels[Representative(element)];
 }
 
+bool LabeledDisjointSets::SameSet(int first, int second) {
+    return Representative(first) == Representative(second);
+}
+
 void LabeledDisjointSets::UniteRepresentatives(int first, int second, int new_label) {
     if (first == second) {
         labels[first] = new_label;

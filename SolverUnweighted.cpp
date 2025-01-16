@@ -15,8 +15,8 @@ SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int> > &adj_lis
     adj_list = std::vector<std::vector<std::shared_ptr<Edge> > >(n);
     matched_edge = std::vector<std::shared_ptr<Edge> >(n, nullptr);
 
-    for (int i = 0; i < n; i++) {
-        adj_list[i].reserve(adj_list[i].size());
+    for (int i = 0; i < n; ++i) {
+        adj_list[i].reserve(adj_list_[i].size());
     }
 
     for (int i = 0; i < n; ++i) {
@@ -108,7 +108,6 @@ void SolverUnweighted::Solve() {
     while (!growable_vertices.empty()) {
         int cur_vertex = growable_vertices.front();
         if (verbose) {
-            PrintTreeData();
             std::cout << "cur_vertex: " << cur_vertex << std::endl;
         }
         growable_vertices.pop();
@@ -226,7 +225,7 @@ bool SolverUnweighted::HandleVertex(const int cur_vertex) {
             // to is in the tree
             if (plus[to]) {
                 if (root_of_vertex[cur_vertex] == root_of_vertex[to]) {
-                    if (cherry_blossoms.Representative(cur_vertex) != cherry_blossoms.Representative(to)) {
+                    if (!cherry_blossoms.SameSet(cur_vertex, to)) {
                         MakeCherryBlossom(edge);
                     } else {
                         if ((delete_edges_in_cherries) && (matched_edge[cur_vertex] != edge) && (minus_parents[
@@ -336,12 +335,14 @@ void SolverUnweighted::MakeCherryBlossom(const std::shared_ptr<Edge>& edge_plus_
     if (first_vertex == second_vertex) {
         throw std::runtime_error("in UpdateLabels: first_vertex == second_vertex");
     }
-    if (cherry_blossoms.Representative(first_vertex) == cherry_blossoms.Representative(second_vertex)) {
+    if (cherry_blossoms.SameSet(first_vertex, second_vertex)) {
         return;
     }
 
-    // std::cout << "making cherry blossom " << first_vertex << " " << second_vertex << std::endl;
-    // PrintTreeData();
+    if (verbose) {
+        PrintTreeData();
+        std::cout << "making cherry blossom " << first_vertex << " " << second_vertex << std::endl;
+    }
 
     int first_bound, second_bound;
     std::tie(first_bound, second_bound) = PathUpperBounds(first_vertex, second_vertex);
@@ -365,36 +366,61 @@ void SolverUnweighted::MakeCherryBlossom(const std::shared_ptr<Edge>& edge_plus_
 }
 
 int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) {
+    if (verbose) {
+        PrintTreeData();
+    }
+
+    first_vertex = cherry_blossoms.Label(first_vertex);
+    second_vertex = cherry_blossoms.Label(second_vertex);
+
     std::unordered_set<int> visited_first;
     std::unordered_set<int> visited_second;
     visited_first.insert(first_vertex);
     visited_second.insert(second_vertex);
 
-    while ((matched_edge[first_vertex]) && (matched_edge[second_vertex])) {
-        first_vertex = matched_edge[first_vertex]->OtherNode(first_vertex);
-        first_vertex = minus_parents[first_vertex]->OtherNode(first_vertex);
-        if (visited_second.contains(first_vertex)) {
-            return first_vertex;
-        }
-        visited_first.insert(first_vertex);
+    while (first_vertex != second_vertex) {
+        // if (verbose) {
+        //     std::cout << "in LCA " << first_vertex << " " << second_vertex << std::endl;
+        // }
 
-        second_vertex = matched_edge[second_vertex]->OtherNode(second_vertex);
-        second_vertex = minus_parents[second_vertex]->OtherNode(second_vertex);
-        if (visited_first.contains(second_vertex)) {
-            return second_vertex;
+        if (matched_edge[first_vertex]) {
+            first_vertex = matched_edge[first_vertex]->OtherNode(first_vertex);
+            first_vertex = minus_parents[first_vertex]->OtherNode(first_vertex);
+            first_vertex = cherry_blossoms.Label(first_vertex);
+            if (visited_second.contains(first_vertex)) {
+                return first_vertex;
+            }
+            visited_first.insert(first_vertex);
         }
-        visited_second.insert(second_vertex);
+
+        if (matched_edge[second_vertex]) {
+            if (verbose) {
+                PrintTreeData();
+                std::cout << "in lca: " << first_vertex << " " << second_vertex << std::endl;
+            }
+            second_vertex = matched_edge[second_vertex]->OtherNode(second_vertex);
+            second_vertex = minus_parents[second_vertex]->OtherNode(second_vertex);
+            if (verbose) {
+                std::cout << first_vertex << " " << second_vertex << std::endl;
+            }
+            second_vertex = cherry_blossoms.Label(second_vertex);
+            if (visited_first.contains(second_vertex)) {
+                return second_vertex;
+            }
+            visited_second.insert(second_vertex);
+        }
     }
 
-    if (!matched_edge[first_vertex]) {
-        return first_vertex;
-    }
-    return second_vertex;
+    return first_vertex;
 }
 
 std::pair<int, int> SolverUnweighted::PathUpperBounds(int first_vertex, int second_vertex) {
     int lca = PlusPlusLCA(first_vertex, second_vertex);
     int lca_receptacle = cherry_blossoms.Label(lca);
+
+    if (verbose) {
+        std::cout << "lca: " << lca << std::endl;
+    }
 
     while (first_vertex != lca) {
         if (cherry_blossoms.Label(first_vertex) == lca_receptacle) {

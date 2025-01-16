@@ -119,7 +119,7 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, in
         auto adj_list = RandomGraph(num_vertices, num_edges, generator);
 
         bool verbose = false;
-        if (i == 77672) {
+        if (i == 14080) {
             verbose = true;
         }
         Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries, verbose);
@@ -169,14 +169,14 @@ void MeasureAll(const std::string& directory_path, int init_type, bool delete_ed
 int main() {
     std::mt19937 gen(239);
     int init_type = 1;
-    bool delete_edges_in_cherries = true;
+    bool delete_edges_in_cherries = false;
 
-    // MeasureAll("../tests", init_type, delete_edges_in_cherries);
-    MeasureTime("../tests/spatial2d-100000-391934.txt", init_type, delete_edges_in_cherries);
+    MeasureAll("../tests", init_type, delete_edges_in_cherries);
+    // MeasureTime("../tests/spatial2d-100000-391934.txt", init_type, delete_edges_in_cherries);
     // MeasureTime("../tests/random-100000-300000.txt", init_type, delete_edges_in_cherries);
 
     // RunSavedTests(init_type, delete_edges_in_cherries);
-    // RunRandomTests(17, 100000, gen, init_type, delete_edges_in_cherries);
+    // RunRandomTests(50, 100000, gen, init_type, delete_edges_in_cherries);
 
     // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
     // int n = 5;

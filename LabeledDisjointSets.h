@@ -8,9 +8,9 @@ class LabeledDisjointSets {
 public:
     explicit LabeledDisjointSets(int size);
 
-    int Representative(int element);
-
     int Label(int element);
+
+    bool SameSet(int first, int second);
 
     void Unite(int first, int second, int new_label);
 
@@ -20,6 +20,8 @@ private:
     std::vector<int> ranks;
     std::vector<int> parents;
     std::vector<int> labels;
+
+    int Representative(int element);
 
     void UniteRepresentatives(int first, int second, int new_label);
 };
