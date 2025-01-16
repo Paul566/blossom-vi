@@ -16,6 +16,7 @@ Tester::Tester(const std::vector<std::vector<int> > &adj_list_,
         stop - start).count()) / 1'000'000;
 
     solver.Solve();
+    auto max_matching = solver.Matching();
     stop = std::chrono::high_resolution_clock::now();
     runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
         stop - start).count()) / 1'000'000;

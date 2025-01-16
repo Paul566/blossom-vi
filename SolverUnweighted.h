@@ -14,6 +14,8 @@ class SolverUnweighted {
         explicit SolverUnweighted(const std::vector<std::vector<int> > &adj_list_,
                                   int greedy_init_type_, bool delete_edges_in_cherries_, bool verbose_ = false);
 
+        std::vector<std::pair<int, int>> Matching();
+
         void PrintMatching();
 
         void PrintAdjList();

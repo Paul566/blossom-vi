@@ -38,18 +38,26 @@ SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int> > &adj_lis
     root_of_vertex = std::vector<int>(n, -1);
 }
 
-void SolverUnweighted::PrintMatching() {
-    // TODO make it O(n) not O(m)
-
-    std::cout << "Matching:" << std::endl;
+std::vector<std::pair<int, int>> SolverUnweighted::Matching() {
+    std::vector<std::pair<int, int>> result;
+    result.resize(n / 2);
     for (int vertex = 0; vertex < n; ++vertex) {
-        for (auto edge : adj_list[vertex]) {
-            if (edge->matched) {
-                if (vertex < edge->OtherNode(vertex)) {
-                    std::cout << vertex << " " << edge->OtherNode(vertex) << std::endl;
-                }
+        if (matched_edge[vertex]) {
+            int other_vertex = matched_edge[vertex]->OtherNode(vertex);
+            if (vertex < other_vertex) {
+                result.emplace_back(vertex, other_vertex);
             }
         }
+    }
+    return result;
+}
+
+void SolverUnweighted::PrintMatching() {
+    std::cout << "Matching:" << std::endl;
+
+    auto matching = Matching();
+    for (auto edge : matching) {
+        std::cout << edge.first << " " << edge.second << std::endl;
     }
 }
 
