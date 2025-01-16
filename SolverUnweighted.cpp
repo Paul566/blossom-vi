@@ -39,6 +39,8 @@ SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int> > &adj_lis
 }
 
 void SolverUnweighted::PrintMatching() {
+    // TODO make it O(n) not O(m)
+
     std::cout << "Matching:" << std::endl;
     for (int vertex = 0; vertex < n; ++vertex) {
         for (auto edge : adj_list[vertex]) {
@@ -91,6 +93,7 @@ void SolverUnweighted::Solve() {
     //     stop - start).count()) / 1'000'000 << " seconds" << std::endl;
 
     if (verbose) {
+        PrintAdjList();
         PrintMatching();
     }
 
@@ -245,7 +248,7 @@ bool SolverUnweighted::HandleVertex(const int cur_vertex) {
     return false;
 }
 
-void SolverUnweighted::Augment(std::shared_ptr<Edge> edge_plus_plus, int cur_vertex, int to) {
+void SolverUnweighted::Augment(const std::shared_ptr<Edge>& edge_plus_plus, int cur_vertex, int to) {
     auto [first_vertex, second_vertex] = edge_plus_plus->Vertices();
     auto first_path = PathToRoot(first_vertex);
     auto second_path = PathToRoot(second_vertex);
@@ -256,7 +259,7 @@ void SolverUnweighted::Augment(std::shared_ptr<Edge> edge_plus_plus, int cur_ver
         path.push_back(first_path[i]);
     }
     path.push_back(edge_plus_plus);
-    for (auto edge : second_path) {
+    for (const auto& edge : second_path) {
         path.push_back(edge);
     }
 
@@ -271,7 +274,7 @@ void SolverUnweighted::Augment(std::shared_ptr<Edge> edge_plus_plus, int cur_ver
 std::vector<std::shared_ptr<Edge> > SolverUnweighted::PathToRoot(int vertex_plus) {
     if (!matched_edge[vertex_plus]) {
         // already in a root
-        return std::vector<std::shared_ptr<Edge> >();
+        return {};
     }
 
     if (!plus[vertex_plus]) {
@@ -327,7 +330,7 @@ void SolverUnweighted::AugmentPath(std::vector<std::shared_ptr<Edge> > path) {
     }
 }
 
-void SolverUnweighted::MakeCherryBlossom(std::shared_ptr<Edge> edge_plus_plus) {
+void SolverUnweighted::MakeCherryBlossom(const std::shared_ptr<Edge>& edge_plus_plus) {
     int first_vertex, second_vertex = -1;
     std::tie(first_vertex, second_vertex) = edge_plus_plus->Vertices();
     if (first_vertex == second_vertex) {
@@ -342,7 +345,9 @@ void SolverUnweighted::MakeCherryBlossom(std::shared_ptr<Edge> edge_plus_plus) {
 
     int first_bound, second_bound;
     std::tie(first_bound, second_bound) = PathUpperBounds(first_vertex, second_vertex);
-    // std::cout << "bounds: " << first_bound << " " << second_bound << std::endl;
+    if (verbose) {
+        std::cout << "upper bounds: " << first_bound << " " << second_bound << std::endl;
+    }
 
     UpdatePath(first_vertex, first_bound);
     UpdatePath(second_vertex, second_bound);
@@ -359,28 +364,32 @@ void SolverUnweighted::MakeCherryBlossom(std::shared_ptr<Edge> edge_plus_plus) {
     }
 }
 
-int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) const {
+int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) {
     std::unordered_set<int> visited_first;
+    std::unordered_set<int> visited_second;
     visited_first.insert(first_vertex);
+    visited_second.insert(second_vertex);
 
-    while (matched_edge[first_vertex]) {
+    while ((matched_edge[first_vertex]) && (matched_edge[second_vertex])) {
         first_vertex = matched_edge[first_vertex]->OtherNode(first_vertex);
         first_vertex = minus_parents[first_vertex]->OtherNode(first_vertex);
-        if (first_vertex == second_vertex) {
+        if (visited_second.contains(first_vertex)) {
             return first_vertex;
         }
         visited_first.insert(first_vertex);
-    }
 
-    while (matched_edge[second_vertex]) {
         second_vertex = matched_edge[second_vertex]->OtherNode(second_vertex);
         second_vertex = minus_parents[second_vertex]->OtherNode(second_vertex);
         if (visited_first.contains(second_vertex)) {
             return second_vertex;
         }
+        visited_second.insert(second_vertex);
     }
 
-    return first_vertex;
+    if (!matched_edge[first_vertex]) {
+        return first_vertex;
+    }
+    return second_vertex;
 }
 
 std::pair<int, int> SolverUnweighted::PathUpperBounds(int first_vertex, int second_vertex) {
@@ -409,7 +418,9 @@ void SolverUnweighted::UpdatePath(int lower_vertex, int upper_vertex) {
     int receptacle = cherry_blossoms.Label(upper_vertex);
 
     while (lower_vertex != upper_vertex) {
-        // std::cout << lower_vertex << std::endl;
+        if (verbose) {
+            std::cout << lower_vertex << " " << upper_vertex << std::endl;
+        }
 
         int parent = matched_edge[lower_vertex]->OtherNode(lower_vertex);
         int grandparent = minus_parents[parent]->OtherNode(parent);
@@ -453,7 +464,7 @@ void SolverUnweighted::ClearTree(int root) {
         root_of_vertex[vertex] = -1;
 
         // have to make adjacent plus vertices from other trees growable again
-        for (auto edge : adj_list[vertex]) {
+        for (const auto& edge : adj_list[vertex]) {
             int to = edge->OtherNode(vertex);
             if ((plus[to]) && (root_of_vertex[to] != root)) {
                 growable_vertices.push(to);

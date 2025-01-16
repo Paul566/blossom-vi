@@ -119,7 +119,7 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, in
         auto adj_list = RandomGraph(num_vertices, num_edges, generator);
 
         bool verbose = false;
-        if (i == 2095) {
+        if (i == 77672) {
             verbose = true;
         }
         Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries, verbose);
@@ -171,17 +171,19 @@ int main() {
     int init_type = 1;
     bool delete_edges_in_cherries = true;
 
-    MeasureAll("../tests", init_type, delete_edges_in_cherries);
+    // MeasureAll("../tests", init_type, delete_edges_in_cherries);
+    MeasureTime("../tests/spatial2d-100000-391934.txt", init_type, delete_edges_in_cherries);
+    // MeasureTime("../tests/random-100000-300000.txt", init_type, delete_edges_in_cherries);
 
     // RunSavedTests(init_type, delete_edges_in_cherries);
-    // RunRandomTests(30, 100000, gen, init_type, delete_edges_in_cherries);
+    // RunRandomTests(17, 100000, gen, init_type, delete_edges_in_cherries);
 
     // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
-    // int n = 9;
-    // int m = 18;
+    // int n = 5;
+    // int m = 8;
     // std::string filename_graph = std::to_string(n) + "-" + std::to_string(m) + ".txt";
     // auto adj_list = ReadEdgeList(prefix + filename_graph);
-    // SolverUnweighted solver = SolverUnweighted(adj_list);
+    // SolverUnweighted solver = SolverUnweighted(adj_list, init_type, delete_edges_in_cherries, true);
     // solver.PrintAdjList();
     // solver.Solve();
     // solver.PrintMatching();
