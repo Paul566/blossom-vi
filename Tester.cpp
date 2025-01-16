@@ -15,7 +15,6 @@ Tester::Tester(const std::vector<std::vector<int> > &adj_list_,
     init_time = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
         stop - start).count()) / 1'000'000;
 
-    start = std::chrono::high_resolution_clock::now();
     solver.Solve();
     stop = std::chrono::high_resolution_clock::now();
     runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
