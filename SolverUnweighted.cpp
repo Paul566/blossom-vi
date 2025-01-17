@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <numeric>
 #include <unordered_set>
 
 SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int> > &adj_list_,
@@ -36,11 +37,13 @@ SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int> > &adj_lis
     growable_vertices = std::queue<int>();
     children = std::vector<std::vector<int> >(n, std::vector<int>());
     root_of_vertex = std::vector<int>(n, -1);
+    lca_markers = std::vector<int>(n, -1);
+    lca_count = 0;
 }
 
-std::vector<std::pair<int, int>> SolverUnweighted::Matching() {
-    std::vector<std::pair<int, int>> result;
-    result.resize(n / 2);
+std::vector<std::pair<int, int> > SolverUnweighted::Matching() {
+    std::vector<std::pair<int, int> > result;
+    result.reserve(n / 2);
     for (int vertex = 0; vertex < n; ++vertex) {
         if (matched_edge[vertex]) {
             int other_vertex = matched_edge[vertex]->OtherNode(vertex);
@@ -91,6 +94,54 @@ void SolverUnweighted::PrintTreeData() {
         std::cout << "(is a plus: " << plus[v] << ") ";
         std::cout << std::endl;
     }
+}
+
+void SolverUnweighted::PrintTreeStats() {
+    std::cout << "Tree stats:" << std::endl;
+
+    int num_trees = n - 2 * Matching().size();
+    std::cout << "number of roots: " << num_trees << std::endl;
+    std::cout << "average tree size: " << 1. * n / num_trees << std::endl;
+
+    int num_blossoms = n;
+    for (int vertex = 0; vertex < n; ++vertex) {
+        if (cherry_blossoms.Label(vertex) != vertex) {
+            --num_blossoms;
+        }
+    }
+    std::cout << "number of blossoms: " << num_blossoms << std::endl;
+    std::cout << "average blossom size: " << 1. * n / num_blossoms << std::endl;
+
+    std::vector<int> depths(n, 0);
+    std::queue<int> queue;
+    for (int vertex = 0; vertex < n; ++vertex) {
+        if (!matched_edge[vertex]) {
+            depths[vertex] = 0;
+            queue.push(vertex);
+        }
+    }
+    while (!queue.empty()) {
+        int cur_vertex = queue.front();
+        queue.pop();
+        for (int child : children[cur_vertex]) {
+            depths[child] += depths[cur_vertex] + 1;
+            queue.push(child);
+        }
+    }
+
+    std::cout << "max depth: " << *std::max_element(depths.begin(), depths.end()) << std::endl;
+    std::cout << "average depth: " << 1. * std::accumulate(depths.begin(), depths.end(), 0) / n << std::endl;
+
+    long total_receptacle_depth = 0;
+    int vertices_root_receptacle = 0;
+    for (int vertex = 0; vertex < n; ++vertex) {
+        total_receptacle_depth += depths[cherry_blossoms.Label(vertex)];
+        if (depths[cherry_blossoms.Label(vertex)] == 0) {
+            ++vertices_root_receptacle;
+        }
+    }
+    std::cout << "average depth(receptacle(vertex)): " << 1. * total_receptacle_depth / n << std::endl;
+    std::cout << "fraction of vertices s.t. receptacle(vertex) is a root: " << 1. * vertices_root_receptacle / n << std::endl;
 }
 
 void SolverUnweighted::Solve() {
@@ -237,7 +288,7 @@ bool SolverUnweighted::HandleVertex(const int cur_vertex) {
                         MakeCherryBlossom(edge);
                     } else {
                         if ((delete_edges_in_cherries) && (matched_edge[cur_vertex] != edge) && (minus_parents[
-                                cur_vertex] != edge) && (minus_parents[to] != edge)) {
+                            cur_vertex] != edge) && (minus_parents[to] != edge)) {
                             // if the edge is not anyone's parent, delete it
                             adj_list[cur_vertex][i] = adj_list[cur_vertex].back();
                             adj_list[cur_vertex].pop_back();
@@ -255,7 +306,7 @@ bool SolverUnweighted::HandleVertex(const int cur_vertex) {
     return false;
 }
 
-void SolverUnweighted::Augment(const std::shared_ptr<Edge>& edge_plus_plus, int cur_vertex, int to) {
+void SolverUnweighted::Augment(const std::shared_ptr<Edge> &edge_plus_plus, int cur_vertex, int to) {
     auto [first_vertex, second_vertex] = edge_plus_plus->Vertices();
     auto first_path = PathToRoot(first_vertex);
     auto second_path = PathToRoot(second_vertex);
@@ -266,7 +317,7 @@ void SolverUnweighted::Augment(const std::shared_ptr<Edge>& edge_plus_plus, int 
         path.push_back(first_path[i]);
     }
     path.push_back(edge_plus_plus);
-    for (const auto& edge : second_path) {
+    for (const auto &edge : second_path) {
         path.push_back(edge);
     }
 
@@ -337,7 +388,7 @@ void SolverUnweighted::AugmentPath(std::vector<std::shared_ptr<Edge> > path) {
     }
 }
 
-void SolverUnweighted::MakeCherryBlossom(const std::shared_ptr<Edge>& edge_plus_plus) {
+void SolverUnweighted::MakeCherryBlossom(const std::shared_ptr<Edge> &edge_plus_plus) {
     int first_vertex, second_vertex = -1;
     std::tie(first_vertex, second_vertex) = edge_plus_plus->Vertices();
     if (first_vertex == second_vertex) {
@@ -378,27 +429,22 @@ int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) {
         PrintTreeData();
     }
 
+    ++lca_count;
     first_vertex = cherry_blossoms.Label(first_vertex);
     second_vertex = cherry_blossoms.Label(second_vertex);
 
-    std::unordered_set<int> visited_first;
-    std::unordered_set<int> visited_second;
-    visited_first.insert(first_vertex);
-    visited_second.insert(second_vertex);
+    lca_markers[first_vertex] = lca_count;
+    lca_markers[second_vertex] = lca_count;
 
     while (first_vertex != second_vertex) {
-        // if (verbose) {
-        //     std::cout << "in LCA " << first_vertex << " " << second_vertex << std::endl;
-        // }
-
         if (matched_edge[first_vertex]) {
             first_vertex = matched_edge[first_vertex]->OtherNode(first_vertex);
             first_vertex = minus_parents[first_vertex]->OtherNode(first_vertex);
             first_vertex = cherry_blossoms.Label(first_vertex);
-            if (visited_second.contains(first_vertex)) {
+            if (lca_markers[first_vertex] == lca_count) {
                 return first_vertex;
             }
-            visited_first.insert(first_vertex);
+            lca_markers[first_vertex] = lca_count;
         }
 
         if (matched_edge[second_vertex]) {
@@ -412,10 +458,10 @@ int SolverUnweighted::PlusPlusLCA(int first_vertex, int second_vertex) {
                 std::cout << first_vertex << " " << second_vertex << std::endl;
             }
             second_vertex = cherry_blossoms.Label(second_vertex);
-            if (visited_first.contains(second_vertex)) {
+            if (lca_markers[second_vertex] == lca_count) {
                 return second_vertex;
             }
-            visited_second.insert(second_vertex);
+            lca_markers[second_vertex] = lca_count;
         }
     }
 
@@ -498,7 +544,7 @@ void SolverUnweighted::ClearTree(int root) {
         root_of_vertex[vertex] = -1;
 
         // have to make adjacent plus vertices from other trees growable again
-        for (const auto& edge : adj_list[vertex]) {
+        for (const auto &edge : adj_list[vertex]) {
             int to = edge->OtherNode(vertex);
             if ((plus[to]) && (root_of_vertex[to] != root)) {
                 growable_vertices.push(to);

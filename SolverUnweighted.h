@@ -22,6 +22,8 @@ class SolverUnweighted {
 
         void PrintTreeData();
 
+        void PrintTreeStats();
+
         void Solve();
 
     private:
@@ -34,6 +36,8 @@ class SolverUnweighted {
         std::queue<int> growable_vertices;
         LabeledDisjointSets cherry_blossoms; // labels are receptacles
         std::vector<int> root_of_vertex;
+        std::vector<int> lca_markers;
+        int lca_count;
         bool verbose;
         int greedy_init_type;
         // 0: usual greedy init
