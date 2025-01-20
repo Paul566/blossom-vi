@@ -101,7 +101,14 @@ void SolverUnweighted::PrintTreeStats() {
 
     int num_trees = n - 2 * Matching().size();
     std::cout << "number of roots: " << num_trees << std::endl;
-    std::cout << "average tree size: " << 1. * n / num_trees << std::endl;
+
+    int vertices_in_trees = 0;
+    for (int vertex = 0; vertex < n; ++vertex) {
+        if (root_of_vertex[vertex] != -1) {
+            ++vertices_in_trees;
+        }
+    }
+    std::cout << "average tree size: " << 1. * vertices_in_trees / num_trees << std::endl;
 
     int num_blossoms = n;
     for (int vertex = 0; vertex < n; ++vertex) {
@@ -325,8 +332,8 @@ void SolverUnweighted::Augment(const std::shared_ptr<Edge> &edge_plus_plus, int 
     int second_root = UnmatchedVertex(path.back());
 
     AugmentPath(path);
-    ClearTree(first_root);
-    ClearTree(second_root);
+    ClearTree(first_root, second_root);
+    ClearTree(second_root, first_root);
 }
 
 std::vector<std::shared_ptr<Edge> > SolverUnweighted::PathToRoot(int vertex_plus) {
@@ -369,6 +376,52 @@ void SolverUnweighted::AugmentPath(std::vector<std::shared_ptr<Edge> > path) {
     if (matched_edge[cur_vertex]) {
         throw std::runtime_error("in Augment: start must be unmatched");
     }
+
+    //////////////////////////////////////////////////////////
+    // bool success = false;
+    // int have_minus = false;
+    // int root1 = UnmatchedVertex(path.front());
+    // int root2 = UnmatchedVertex(path.back());
+    // for (auto edge : path) {
+    //     auto [u, v] = edge->Vertices();
+    //     if (!plus[u]) {
+    //         have_minus = true;
+    //         for (auto e : adj_list[u]) {
+    //             int to = e->OtherNode(u);
+    //             std::cout << "other root " << ((root_of_vertex[to] != root1) && (root_of_vertex[to] != root2)) << ", plus " << plus[to] << " ";
+    //             if ((root_of_vertex[to] != root1) && (root_of_vertex[to] != root2) && (plus[to])) {
+    //                 success = true;
+    //             }
+    //         }
+    //     }
+    //     if (!plus[v]) {
+    //         have_minus = true;
+    //         for (auto e : adj_list[v]) {
+    //             int to = e->OtherNode(v);
+    //             if ((root_of_vertex[to] != root1) && (root_of_vertex[to] != root2) && (plus[to])) {
+    //                 success = true;
+    //             }
+    //         }
+    //     }
+    //     if (root_of_vertex[u] != root_of_vertex[v]) {
+    //         for (auto e : adj_list[u]) {
+    //             int to = e->OtherNode(u);
+    //             if ((root_of_vertex[to] != root1) && (root_of_vertex[to] != root2) && (plus[to])) {
+    //                 success = true;
+    //                 break;
+    //             }
+    //         }
+    //         for (auto e : adj_list[v]) {
+    //             int to = e->OtherNode(v);
+    //             if ((root_of_vertex[to] != root1) && (root_of_vertex[to] != root2) && (plus[to])) {
+    //                 success = true;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+    // std::cout << path.size() << " " << success << " " << have_minus << std::endl;
+    //////////////////////////////////////////////////////////
 
     for (int i = 0; i < static_cast<int>(path.size()); ++i) {
         int next_vertex = path[i]->OtherNode(cur_vertex);
@@ -522,7 +575,14 @@ void SolverUnweighted::UpdatePath(int lower_vertex, int upper_vertex) {
     }
 }
 
-void SolverUnweighted::ClearTree(int root) {
+void SolverUnweighted::ClearTree(int root, int other_root) {
+    int num_pluses = 0;
+    int num_minuses = 0;
+    int num_plusminuses = 0;
+    int num_plusplus_edges = 0;
+    int num_minusplus_edges = 0;
+    int num_minusminus_edges = 0;
+
     std::vector<int> tree_vertices;
     std::queue<int> queue;
     queue.push(root);
@@ -536,6 +596,20 @@ void SolverUnweighted::ClearTree(int root) {
     }
 
     for (int vertex : tree_vertices) {
+        //////////////////////////
+        // bool was_minus = minus[vertex];
+        // bool was_plus = plus[vertex];
+        // if ((minus[vertex]) && (!plus[vertex])) {
+        //     ++num_minuses;
+        // }
+        // if ((!minus[vertex]) && (plus[vertex])) {
+        //     ++num_pluses;
+        // }
+        // if ((minus[vertex]) && (plus[vertex])) {
+        //     ++num_plusminuses;
+        // }
+        ///////////////////////
+
         minus_parents[vertex] = nullptr;
         plus[vertex] = false;
         minus[vertex] = false;
@@ -546,11 +620,32 @@ void SolverUnweighted::ClearTree(int root) {
         // have to make adjacent plus vertices from other trees growable again
         for (const auto &edge : adj_list[vertex]) {
             int to = edge->OtherNode(vertex);
-            if ((plus[to]) && (root_of_vertex[to] != root)) {
+            if ((plus[to]) && (root_of_vertex[to] != root) && (root_of_vertex[to] != other_root)) {
+                // this guarantees that to was in another active tree, even if root_of_vertex[to] was set to -1 before
                 growable_vertices.push(to);
             }
+            /////////////////
+            // if ((root_of_vertex[to] != root) && (root_of_vertex[to] != -1) && (root_of_vertex[to] != other_root)) {
+            //     if (was_minus && !was_plus) {
+            //         if (plus[to]) {
+            //             ++num_minusplus_edges;
+            //         } else {
+            //             ++num_minusminus_edges;
+            //         }
+            //     }
+            //     if (was_plus) {
+            //         if (plus[to]) {
+            //             ++num_plusplus_edges;
+            //         }
+            //     }
+            // }
+            ////////////////
         }
     }
+    // std::cout << "ClearTree: " << std::endl;
+    // std::cout << "pluses, minuses, plusminuses: " <<  num_pluses << " " << num_minuses << " " << num_plusminuses << std::endl;
+    // std::cout << "outgoing edges: ++, (pure-)+, (pure-)(pure-): " << num_plusplus_edges << " " << num_minusplus_edges << " " << num_minusminus_edges << std::endl;
+    // std::cout << std::endl;
 }
 
 int SolverUnweighted::UnmatchedVertex(const std::shared_ptr<Edge> &edge) {

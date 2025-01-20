@@ -69,7 +69,7 @@ class SolverUnweighted {
 
         void UpdatePath(int lower_vertex, int upper_vertex);
 
-        void ClearTree(int root);
+        void ClearTree(int root, int other_root);
 
         int UnmatchedVertex(const std::shared_ptr<Edge> &edge);
 };
