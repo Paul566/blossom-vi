@@ -35,9 +35,10 @@ class SolverUnweighted {
         std::vector<bool> minus;
         std::queue<int> growable_vertices;
         LabeledDisjointSets cherry_blossoms; // labels are receptacles
-        std::vector<int> root_of_vertex;
+        std::vector<int> _root_of_vertex;
         std::vector<int> lca_markers;
         int lca_count;
+        std::vector<std::vector<int>> tree_plus_neighbors; // roots remember plus vertices adjacent to their trees
         bool verbose;
         int greedy_init_type;
         // 0: usual greedy init
@@ -63,6 +64,8 @@ class SolverUnweighted {
         // walks up the tree until the lca and makes everyone plusminus,
         // adding the new pluses to the queue and updating parent pointers
 
+        void AddVertex(int new_minus, int parent, std::shared_ptr<Edge> &edge);
+
         int PlusPlusLCA(int first_vertex, int second_vertex);
 
         std::pair<int, int> PathUpperBounds(int first_vertex, int second_vertex);
@@ -72,6 +75,8 @@ class SolverUnweighted {
         void ClearTree(int root, int other_root);
 
         int UnmatchedVertex(const std::shared_ptr<Edge> &edge);
+
+        int RootOfVertex(const int vertex);
 };
 
 #endif
