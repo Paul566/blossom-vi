@@ -22,17 +22,13 @@ class SolverUnweighted {
 
         void PrintTreeData();
 
-        void PrintTreeStats();
-
         void Solve();
 
     private:
         const int n; // the number of vertices
         std::vector<std::shared_ptr<Edge> > matched_edge;
         std::vector<std::shared_ptr<Edge> > minus_parents;
-        std::vector<std::vector<int> > children;
         std::vector<bool> plus;
-        std::vector<bool> minus;
         std::queue<int> growable_vertices;
         LabeledDisjointSets cherry_blossoms; // labels are receptacles
         std::vector<int> _root_of_vertex;
@@ -64,7 +60,7 @@ class SolverUnweighted {
         // walks up the tree until the lca and makes everyone plusminus,
         // adding the new pluses to the queue and updating parent pointers
 
-        void AddVertex(int new_minus, int parent, std::shared_ptr<Edge> &edge);
+        void AddVertex(int new_minus, int parent, const std::shared_ptr<Edge> &edge);
 
         int PlusPlusLCA(int first_vertex, int second_vertex);
 

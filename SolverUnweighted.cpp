@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
-#include <numeric>
-#include <unordered_set>
 #include <utility>
 
 SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int> > &adj_list_,
@@ -34,9 +32,7 @@ SolverUnweighted::SolverUnweighted(const std::vector<std::vector<int> > &adj_lis
 
     minus_parents = std::vector<std::shared_ptr<Edge> >(n, nullptr);
     plus = std::vector<bool>(n, false);
-    minus = std::vector<bool>(n, false);
     growable_vertices = std::queue<int>();
-    children = std::vector<std::vector<int> >(n, std::vector<int>());
     _root_of_vertex = std::vector<int>(n, -1);
     tree_plus_neighbors = std::vector<std::vector<int> >(n, std::vector<int>());
     lca_markers = std::vector<int>(n, -1);
@@ -70,7 +66,7 @@ void SolverUnweighted::PrintAdjList() {
     std::cout << "Adjacency list:" << std::endl;
     for (int vertex = 0; vertex < n; ++vertex) {
         std::cout << vertex << ": ";
-        for (auto edge : adj_list[vertex]) {
+        for (const auto& edge : adj_list[vertex]) {
             std::cout << edge->OtherNode(vertex) << " ";
         }
         std::cout << std::endl;
@@ -88,7 +84,7 @@ void SolverUnweighted::PrintTreeData() {
                 std::cout << "(is root) ";
             }
         }
-        if (minus[v]) {
+        if (minus_parents[v]) {
             std::cout << "(- parent: " << minus_parents[v]->OtherNode(v) << ") ";
         }
         std::cout << "(receptacle: " << cherry_blossoms.Label(v) << ") ";
@@ -105,61 +101,6 @@ void SolverUnweighted::PrintTreeData() {
         queue_copy.pop();
     }
     std::cout << std::endl;
-}
-
-void SolverUnweighted::PrintTreeStats() {
-    std::cout << "Tree stats:" << std::endl;
-
-    int num_trees = n - 2 * Matching().size();
-    std::cout << "number of roots: " << num_trees << std::endl;
-
-    int vertices_in_trees = 0;
-    for (int vertex = 0; vertex < n; ++vertex) {
-        if (RootOfVertex(vertex) != -1) {
-            ++vertices_in_trees;
-        }
-    }
-    std::cout << "average tree size: " << 1. * vertices_in_trees / num_trees << std::endl;
-
-    int num_blossoms = n;
-    for (int vertex = 0; vertex < n; ++vertex) {
-        if (cherry_blossoms.Label(vertex) != vertex) {
-            --num_blossoms;
-        }
-    }
-    std::cout << "number of blossoms: " << num_blossoms << std::endl;
-    std::cout << "average blossom size: " << 1. * n / num_blossoms << std::endl;
-
-    std::vector<int> depths(n, 0);
-    std::queue<int> queue;
-    for (int vertex = 0; vertex < n; ++vertex) {
-        if (!matched_edge[vertex]) {
-            depths[vertex] = 0;
-            queue.push(vertex);
-        }
-    }
-    while (!queue.empty()) {
-        int cur_vertex = queue.front();
-        queue.pop();
-        for (int child : children[cur_vertex]) {
-            depths[child] += depths[cur_vertex] + 1;
-            queue.push(child);
-        }
-    }
-
-    std::cout << "max depth: " << *std::max_element(depths.begin(), depths.end()) << std::endl;
-    std::cout << "average depth: " << 1. * std::accumulate(depths.begin(), depths.end(), 0) / n << std::endl;
-
-    long total_receptacle_depth = 0;
-    int vertices_root_receptacle = 0;
-    for (int vertex = 0; vertex < n; ++vertex) {
-        total_receptacle_depth += depths[cherry_blossoms.Label(vertex)];
-        if (depths[cherry_blossoms.Label(vertex)] == 0) {
-            ++vertices_root_receptacle;
-        }
-    }
-    std::cout << "average depth(receptacle(vertex)): " << 1. * total_receptacle_depth / n << std::endl;
-    std::cout << "fraction of vertices s.t. receptacle(vertex) is a root: " << 1. * vertices_root_receptacle / n << std::endl;
 }
 
 void SolverUnweighted::Solve() {
@@ -277,27 +218,32 @@ void SolverUnweighted::GreedyInit() {
 }
 
 bool SolverUnweighted::HandleVertex(const int cur_vertex) {
-    if ((RootOfVertex(cur_vertex) == -1) || (!plus[cur_vertex])) {
+    if (!plus[cur_vertex]) {
+        return false;
+    }
+    int cur_root = RootOfVertex(cur_vertex);
+    if (cur_root == -1) {
         // the vertex is in the queue but its tree was deleted earlier
         return false;
     }
 
     for (int i = 0; i < static_cast<int>(adj_list[cur_vertex].size()); ++i) {
-        auto edge = adj_list[cur_vertex][i];
-        int to = edge->OtherNode(cur_vertex);
+        // auto edge = adj_list[cur_vertex][i];
+        int to = adj_list[cur_vertex][i]->OtherNode(cur_vertex);
+        int to_root = RootOfVertex(to);
 
-        if ((RootOfVertex(to) == -1) && (matched_edge[to])) {
+        if ((to_root == -1) && (matched_edge[to])) {
             // to is not in the tree yet
-            AddVertex(to, cur_vertex, edge);
+            AddVertex(to, cur_vertex, adj_list[cur_vertex][i]);
         } else {
             // to is in the tree
             if (plus[to]) {
-                if (RootOfVertex(cur_vertex) == RootOfVertex(to)) {
+                if (cur_root == to_root) {
                     if (!cherry_blossoms.SameSet(cur_vertex, to)) {
-                        MakeCherryBlossom(edge);
+                        MakeCherryBlossom(adj_list[cur_vertex][i]);
                     } else {
-                        if ((delete_edges_in_cherries) && (matched_edge[cur_vertex] != edge) && (minus_parents[
-                            cur_vertex] != edge) && (minus_parents[to] != edge)) {
+                        if ((delete_edges_in_cherries) && (matched_edge[cur_vertex] != adj_list[cur_vertex][i]) && (minus_parents[
+                            cur_vertex] != adj_list[cur_vertex][i]) && (minus_parents[to] != adj_list[cur_vertex][i])) {
                             // if the edge is not anyone's parent, delete it
                             adj_list[cur_vertex][i] = adj_list[cur_vertex].back();
                             adj_list[cur_vertex].pop_back();
@@ -305,11 +251,11 @@ bool SolverUnweighted::HandleVertex(const int cur_vertex) {
                         }
                     }
                 } else {
-                    Augment(edge, cur_vertex, to);
+                    Augment(adj_list[cur_vertex][i], cur_vertex, to);
                     return true;
                 }
             } else {
-                tree_plus_neighbors[RootOfVertex(to)].push_back(cur_vertex);
+                tree_plus_neighbors[to_root].push_back(cur_vertex);
             }
         }
     }
@@ -381,52 +327,6 @@ void SolverUnweighted::AugmentPath(std::vector<std::shared_ptr<Edge> > path) {
         throw std::runtime_error("in Augment: start must be unmatched");
     }
 
-    //////////////////////////////////////////////////////////
-    // bool success = false;
-    // int have_minus = false;
-    // int root1 = UnmatchedVertex(path.front());
-    // int root2 = UnmatchedVertex(path.back());
-    // for (auto edge : path) {
-    //     auto [u, v] = edge->Vertices();
-    //     if (!plus[u]) {
-    //         have_minus = true;
-    //         for (auto e : adj_list[u]) {
-    //             int to = e->OtherNode(u);
-    //             std::cout << "other root " << ((root_of_vertex[to] != root1) && (root_of_vertex[to] != root2)) << ", plus " << plus[to] << " ";
-    //             if ((root_of_vertex[to] != root1) && (root_of_vertex[to] != root2) && (plus[to])) {
-    //                 success = true;
-    //             }
-    //         }
-    //     }
-    //     if (!plus[v]) {
-    //         have_minus = true;
-    //         for (auto e : adj_list[v]) {
-    //             int to = e->OtherNode(v);
-    //             if ((root_of_vertex[to] != root1) && (root_of_vertex[to] != root2) && (plus[to])) {
-    //                 success = true;
-    //             }
-    //         }
-    //     }
-    //     if (root_of_vertex[u] != root_of_vertex[v]) {
-    //         for (auto e : adj_list[u]) {
-    //             int to = e->OtherNode(u);
-    //             if ((root_of_vertex[to] != root1) && (root_of_vertex[to] != root2) && (plus[to])) {
-    //                 success = true;
-    //                 break;
-    //             }
-    //         }
-    //         for (auto e : adj_list[v]) {
-    //             int to = e->OtherNode(v);
-    //             if ((root_of_vertex[to] != root1) && (root_of_vertex[to] != root2) && (plus[to])) {
-    //                 success = true;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
-    // std::cout << path.size() << " " << success << " " << have_minus << std::endl;
-    //////////////////////////////////////////////////////////
-
     for (int i = 0; i < static_cast<int>(path.size()); ++i) {
         int next_vertex = path[i]->OtherNode(cur_vertex);
 
@@ -471,35 +371,27 @@ void SolverUnweighted::MakeCherryBlossom(const std::shared_ptr<Edge> &edge_plus_
 
     if (first_vertex != first_bound) {
         // first_vertex is not a root
-        minus[first_vertex] = true;
         minus_parents[first_vertex] = edge_plus_plus;
     }
     if (second_vertex != second_bound) {
         // second_vertex is not a root
-        minus[second_vertex] = true;
         minus_parents[second_vertex] = edge_plus_plus;
     }
 }
 
-void SolverUnweighted::AddVertex(int new_minus, int parent, std::shared_ptr<Edge> &edge) {
+void SolverUnweighted::AddVertex(int new_minus, int parent, const std::shared_ptr<Edge> &edge) {
     int next_plus = matched_edge[new_minus]->OtherNode(new_minus);
 
-    minus[new_minus] = true;
     plus[new_minus] = false;
 
     plus[next_plus] = true;
-    minus[next_plus] = false;
 
     minus_parents[new_minus] = edge;
     minus_parents[next_plus] = nullptr;
 
-    children[new_minus].clear();
-    children[next_plus].clear();
     cherry_blossoms.Detach(new_minus);
     cherry_blossoms.Detach(next_plus);
 
-    children[parent].push_back(new_minus);
-    children[new_minus].push_back(next_plus);
     _root_of_vertex[new_minus] = RootOfVertex(parent);
     _root_of_vertex[next_plus] = RootOfVertex(parent);
 
@@ -596,7 +488,7 @@ void SolverUnweighted::UpdatePath(int lower_vertex, int upper_vertex) {
         }
 
         if (grandparent != upper_vertex) {
-            minus[grandparent] = true;
+            // minus[grandparent] = true;
             minus_parents[grandparent] = minus_parents[parent];
         }
 
