@@ -12,10 +12,6 @@ LabeledDisjointSets::LabeledDisjointSets(int size) {
 }
 
 int LabeledDisjointSets::Representative(int element) {
-    if ((element < 0) || (element >= static_cast<int>(ranks.size()))) {
-        throw std::runtime_error("element not in disjoint sets");
-    }
-
     int grandparent = element;
     while (parents[grandparent] != grandparent) {
         grandparent = parents[grandparent];
@@ -67,7 +63,6 @@ void LabeledDisjointSets::Unite(int first, int second, int new_label) {
 }
 
 void LabeledDisjointSets::Detach(const int element) {
-    // TODO this should not be here later
     parents[element] = element;
     labels[element] = element;
     ranks[element] = 0;
