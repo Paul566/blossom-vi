@@ -89,12 +89,12 @@ void RunSavedTests(int init_type, bool delete_edges_in_cherries) {
 
             auto adj_list = ReadEdgeList(prefix + filename_graph);
 
-            // SolverUnweighted solver = SolverUnweighted(adj_list);
-            // solver.Solve();
-            // solver.PrintMatching();
-            // solver.PrintAdjList();
+            bool verbose = false;
+            if ((n == 9) && (m == 14)) {
+                verbose = true;
+            }
 
-            Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries);
+            Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries, verbose);
             std::cout << "runtime: " << tester.runtime << " seconds" << std::endl;
             if (!tester.Validate()) {
                 throw std::runtime_error("test failed");
@@ -132,11 +132,30 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, in
     std::cout << "All tests passed!\n";
 }
 
-void MeasureTime(const std::string& path, int init_type, bool delete_edges_in_cherries) {
-    auto adj_list = ReadEdgeList(path);
-    Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries);
-    std::cout << "runtime: " << tester.runtime << " seconds" << std::endl;
-    std::cout << "runtime/init_time ratio: " << tester.runtime / tester.init_time << std::endl;
+void MeasureTime(const std::string& path, int init_type, bool delete_edges_in_cherries, int num_iter=1) {
+    std::cout << std::setprecision(3);
+
+    std::vector<double> runtimes;
+    runtimes.reserve(num_iter);
+    std::vector<double> init_times;
+    init_times.reserve(num_iter);
+
+    for (int i = 0; i < num_iter; ++i) {
+        auto adj_list = ReadEdgeList(path);
+        Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries);
+        runtimes.push_back(tester.runtime);
+        init_times.push_back(tester.init_time);
+    }
+
+    std::cout << "runtimes:\t\t\t\t\t";
+    for (int i = 0; i < num_iter; ++i) {
+        std::cout << runtimes[i] << "\t";
+    }
+    std::cout << "\nruntime/init_time ratios:\t";
+    for (int i = 0; i < num_iter; ++i) {
+        std::cout << (runtimes[i] / init_times[i]) << "\t";
+    }
+    std::cout << "\naverage runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / num_iter << std::endl;
 }
 
 std::vector<std::string> AllFiles(const std::string& directory_path) {
@@ -168,19 +187,22 @@ void MeasureAll(const std::string& directory_path, int init_type, bool delete_ed
 
 int main() {
     std::mt19937 gen(239);
-    int init_type = 1;
-    bool delete_edges_in_cherries = false;
+    int init_type = 0;
+    bool delete_edges_in_cherries = true;
 
-    MeasureAll("../tests", init_type, delete_edges_in_cherries);
-    // MeasureTime("../tests/spatial2d-100000-391934.txt", init_type, delete_edges_in_cherries);
+    // MeasureAll("../tests", init_type, delete_edges_in_cherries);
+    // MeasureTime("../tests/spatial2d-100000-391934.txt", init_type, delete_edges_in_cherries, 10);
+    MeasureTime("../tests/honeycomb-127253-252502.txt", init_type, delete_edges_in_cherries, 10);
+    // MeasureTime("../tests/barabasi-albert-3-100000-299994.txt", init_type, delete_edges_in_cherries, 10);
     // MeasureTime("../tests/random-100000-300000.txt", init_type, delete_edges_in_cherries);
+    // MeasureTime("../tests/random-3-regular-100000-150000.txt", init_type, delete_edges_in_cherries);
 
     // RunSavedTests(init_type, delete_edges_in_cherries);
     // RunRandomTests(50, 100000, gen, init_type, delete_edges_in_cherries);
 
     // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
-    // int n = 5;
-    // int m = 8;
+    // int n = 6;
+    // int m = 7;
     // std::string filename_graph = std::to_string(n) + "-" + std::to_string(m) + ".txt";
     // auto adj_list = ReadEdgeList(prefix + filename_graph);
     // SolverUnweighted solver = SolverUnweighted(adj_list, init_type, delete_edges_in_cherries, true);
