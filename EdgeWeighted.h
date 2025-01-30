@@ -7,10 +7,10 @@ class EdgeWeighted {
 public:
     bool matched;
     int weight;
-    int slack;
+    int slack_quadrupled;
 
     EdgeWeighted(const std::shared_ptr<Node> head_, const std::shared_ptr<Node> tail_,
-                 const int weight_) : head(head_), tail(tail_), weight(weight_), slack(weight_) {
+                 const int weight_) : head(head_), tail(tail_), weight(weight_), slack_quadrupled(4 * weight_) {
         matched = false;
     }
 
