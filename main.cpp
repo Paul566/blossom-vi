@@ -9,6 +9,7 @@
 
 #include "SolverUnweighted.h"
 #include "Tester.h"
+#include "SolverWeighted.h"
 
 void PrintVector(const std::vector<int> &numbers) {
     for (const int number : numbers) {
@@ -17,7 +18,7 @@ void PrintVector(const std::vector<int> &numbers) {
     std::cout << std::endl;
 }
 
-std::vector<std::vector<int>> ReadEdgeList(const std::string &path) {
+std::vector<std::vector<int> > ReadUnweightedEdgeList(const std::string &path) {
     std::vector<std::vector<int> > adj_list;
     std::fstream input_file(path);
 
@@ -51,14 +52,16 @@ std::vector<std::vector<int>> ReadEdgeList(const std::string &path) {
     return adj_list;
 }
 
-std::vector<std::vector<int>> RandomGraph(const int num_vertices, const int num_edges, std::mt19937 &generator) {
-    std::vector<std::vector<int>> adj_list(num_vertices, std::vector<int>());
+std::vector<std::vector<int> > RandomUnweightedGraph(const int num_vertices,
+                                                     const int num_edges,
+                                                     std::mt19937 &generator) {
+    std::vector<std::vector<int> > adj_list(num_vertices, std::vector<int>());
 
     if (static_cast<long>(num_edges) > static_cast<long>(num_vertices) * static_cast<long>(num_vertices - 1) / 2) {
         throw std::runtime_error("In RandomGraph: too many edges");
     }
 
-    std::set<std::pair<int, int>> edges;
+    std::set<std::pair<int, int> > edges;
 
     std::uniform_int_distribution<> dist(0, num_vertices - 1);
     while (edges.size() < static_cast<size_t>(num_edges)) {
@@ -78,7 +81,30 @@ std::vector<std::vector<int>> RandomGraph(const int num_vertices, const int num_
     return adj_list;
 }
 
-void RunSavedTests(int init_type, bool delete_edges_in_cherries) {
+std::vector<std::tuple<int, int, int> > RandomWeightedGraph(const int num_vertices,
+                                                            const int num_edges,
+                                                            std::mt19937 &generator,
+                                                            const int weight_min,
+                                                            const int weight_max) {
+    // returns the edge list
+    std::vector<std::tuple<int, int, int> > edge_list;
+
+    std::uniform_int_distribution<> dist_weight(weight_min, weight_max);
+
+    auto adj_list = RandomUnweightedGraph(num_vertices, num_edges, generator);
+    for (int vertex = 0; vertex < num_vertices; ++vertex) {
+        for (int to : adj_list[vertex]) {
+            if (to > vertex) {
+                int weight = dist_weight(generator);
+                edge_list.emplace_back(vertex, to, weight);
+            }
+        }
+    }
+
+    return edge_list;
+}
+
+void RunSavedUnweightedTests(int init_type, bool delete_edges_in_cherries) {
     const std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
 
     for (int n = 3; n <= 15; ++n) {
@@ -87,7 +113,7 @@ void RunSavedTests(int init_type, bool delete_edges_in_cherries) {
 
             std::cout << filename_graph << ":" << std::endl;
 
-            auto adj_list = ReadEdgeList(prefix + filename_graph);
+            auto adj_list = ReadUnweightedEdgeList(prefix + filename_graph);
 
             bool verbose = false;
             if ((n == 9) && (m == 14)) {
@@ -106,7 +132,11 @@ void RunSavedTests(int init_type, bool delete_edges_in_cherries) {
     std::cout << "All tests passed!\n";
 }
 
-void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, int init_type, bool delete_edges_in_cherries) {
+void RunRandomUnweightedTests(int max_vertices,
+                              int num_tests,
+                              std::mt19937 &generator,
+                              int init_type,
+                              bool delete_edges_in_cherries) {
     std::uniform_int_distribution<> dist_vertices(1, max_vertices);
 
     for (int i = 0; i < num_tests; ++i) {
@@ -116,7 +146,7 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, in
         std::uniform_int_distribution<> dist_edges(0, num_vertices * (num_vertices - 1) / 2);
         int num_edges = dist_edges(generator);
 
-        auto adj_list = RandomGraph(num_vertices, num_edges, generator);
+        auto adj_list = RandomUnweightedGraph(num_vertices, num_edges, generator);
 
         bool verbose = false;
         if (i == 14080) {
@@ -132,7 +162,7 @@ void RunRandomTests(int max_vertices, int num_tests, std::mt19937 &generator, in
     std::cout << "All tests passed!\n";
 }
 
-void MeasureTime(const std::string& path, int init_type, bool delete_edges_in_cherries, int num_iter=1) {
+void MeasureUnweightedTime(const std::string &path, int init_type, bool delete_edges_in_cherries, int num_iter = 1) {
     std::cout << std::setprecision(3);
 
     std::vector<double> runtimes;
@@ -141,7 +171,7 @@ void MeasureTime(const std::string& path, int init_type, bool delete_edges_in_ch
     init_times.reserve(num_iter);
 
     for (int i = 0; i < num_iter; ++i) {
-        auto adj_list = ReadEdgeList(path);
+        auto adj_list = ReadUnweightedEdgeList(path);
         Tester tester = Tester(adj_list, init_type, delete_edges_in_cherries);
         runtimes.push_back(tester.runtime);
         init_times.push_back(tester.init_time);
@@ -158,16 +188,16 @@ void MeasureTime(const std::string& path, int init_type, bool delete_edges_in_ch
     std::cout << "\naverage runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / num_iter << std::endl;
 }
 
-std::vector<std::string> AllFiles(const std::string& directory_path) {
+std::vector<std::string> AllFiles(const std::string &directory_path) {
     std::vector<std::string> files;
 
     try {
-        for (const auto& entry : std::filesystem::directory_iterator(directory_path)) {
+        for (const auto &entry : std::filesystem::directory_iterator(directory_path)) {
             if (std::filesystem::is_regular_file(entry.status())) {
                 files.push_back(entry.path().string());
             }
         }
-    } catch (const std::filesystem::filesystem_error& e) {
+    } catch (const std::filesystem::filesystem_error &e) {
         std::cerr << "Cannot access directory: " << e.what() << std::endl;
     }
 
@@ -176,39 +206,20 @@ std::vector<std::string> AllFiles(const std::string& directory_path) {
     return files;
 }
 
-void MeasureAll(const std::string& directory_path, int init_type, bool delete_edges_in_cherries) {
+void MeasureAllUnweighted(const std::string &directory_path, int init_type, bool delete_edges_in_cherries) {
     auto files = AllFiles(directory_path);
-    for (const auto& file : files) {
+    for (const auto &file : files) {
         std::cout << file << std::endl;
-        MeasureTime(file, init_type, delete_edges_in_cherries);
+        MeasureUnweightedTime(file, init_type, delete_edges_in_cherries);
         std::cout << std::endl;
     }
 }
 
 int main() {
     std::mt19937 gen(239);
-    int init_type = 0;
-    bool delete_edges_in_cherries = true;
+    auto edge_list = RandomWeightedGraph(5, 8, gen, 0, 10);
 
-    // MeasureAll("../tests", init_type, delete_edges_in_cherries);
-    // MeasureTime("../tests/spatial2d-100000-391934.txt", init_type, delete_edges_in_cherries, 10);
-    MeasureTime("../tests/honeycomb-127253-252502.txt", init_type, delete_edges_in_cherries, 10);
-    // MeasureTime("../tests/barabasi-albert-3-100000-299994.txt", init_type, delete_edges_in_cherries, 10);
-    // MeasureTime("../tests/random-100000-300000.txt", init_type, delete_edges_in_cherries);
-    // MeasureTime("../tests/random-3-regular-100000-150000.txt", init_type, delete_edges_in_cherries);
-
-    // RunSavedTests(init_type, delete_edges_in_cherries);
-    // RunRandomTests(50, 100000, gen, init_type, delete_edges_in_cherries);
-
-    // std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
-    // int n = 6;
-    // int m = 7;
-    // std::string filename_graph = std::to_string(n) + "-" + std::to_string(m) + ".txt";
-    // auto adj_list = ReadEdgeList(prefix + filename_graph);
-    // SolverUnweighted solver = SolverUnweighted(adj_list, init_type, delete_edges_in_cherries, true);
-    // solver.PrintAdjList();
-    // solver.Solve();
-    // solver.PrintMatching();
+    auto solver = SolverWeighted(edge_list);
 
     return 0;
 }
