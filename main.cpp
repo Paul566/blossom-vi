@@ -104,6 +104,26 @@ std::vector<std::tuple<int, int, int> > RandomWeightedGraph(const int num_vertic
     return edge_list;
 }
 
+std::vector<std::tuple<int, int, int> > RandomWeightedClique(const int num_vertices,
+                                                            std::mt19937 &generator,
+                                                            const int weight_min,
+                                                            const int weight_max) {
+    // returns the edge list
+    std::vector<std::tuple<int, int, int> > edge_list;
+    edge_list.reserve(num_vertices * (num_vertices - 1) / 2);
+
+    std::uniform_int_distribution<> dist_weight(weight_min, weight_max);
+
+    for (int vertex = 0; vertex < num_vertices; ++vertex) {
+        for (int to = vertex + 1; to < num_vertices; ++to) {
+            int weight = dist_weight(generator);
+            edge_list.emplace_back(vertex, to, weight);
+        }
+    }
+
+    return edge_list;
+}
+
 void RunSavedUnweightedTests(int init_type, bool delete_edges_in_cherries) {
     const std::string prefix = std::filesystem::current_path().string() + "/../tests/random-graphs/";
 
@@ -217,9 +237,23 @@ void MeasureAllUnweighted(const std::string &directory_path, int init_type, bool
 
 int main() {
     std::mt19937 gen(239);
-    auto edge_list = RandomWeightedGraph(5, 8, gen, 0, 10);
+    auto edge_list = RandomWeightedClique(6, gen, 0, 5);
 
     auto solver = SolverWeighted(edge_list);
+    solver.PrintElementaryAdjList();
+    solver.FindMinPerfectMatching();
+    solver.PrintElementaryAdjList();
+
+    auto roots = solver.Roots();
+    for (const auto& root : roots) {
+        std::cout << root->index << std::endl;
+    }
+
+    auto matching = solver.Matching();
+    std::cout << "Matching of size " << matching.size() << ":" << std::endl;
+    for (auto pair : matching) {
+        std::cout << pair.first << " " << pair.second << std::endl;
+    }
 
     return 0;
 }
