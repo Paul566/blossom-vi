@@ -38,6 +38,7 @@ void SolverWeighted::FindMinPerfectMatching() {
     auto roots = Roots();
     Tree tree = Tree(roots.front());
 
+    // TODO don't forget to dissolve blossoms in the end
 }
 
 void SolverWeighted::PrintElementaryAdjList() {
@@ -45,7 +46,7 @@ void SolverWeighted::PrintElementaryAdjList() {
     for (const auto& vertex : elementary_nodes) {
         std::cout << vertex->index << ": y_v = " << vertex->DualVariableQuadrupled() / 4. << ", ";
         for (const auto& edge : vertex->neighbors) {
-            std::cout << "(" << edge->OtherElementary(vertex)->index << ", " << edge->weight << ", " << edge->slack_quadrupled / 4. << ", " << edge->matched << ") ";
+            std::cout << "(" << edge->OtherElementary(vertex)->index << ", " << edge->weight << ", " << edge->slack_quadrupled / 4. << ", " << edge->Matched() << ") ";
         }
         std::cout << std::endl;
     }
@@ -85,9 +86,7 @@ void SolverWeighted::GreedyInit() {
 
         if (!smallest_slack_edge->OtherElementary(vertex)->matched_edge) {
             // if the other vertex is also unmatched, match the edge
-            smallest_slack_edge->matched = true;
-            vertex->matched_edge = smallest_slack_edge;
-            smallest_slack_edge->OtherElementary(vertex)->matched_edge = smallest_slack_edge;
+            smallest_slack_edge->MakeMatched();
         }
     }
 }

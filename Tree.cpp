@@ -2,6 +2,7 @@
 #include <unordered_set>
 #include "Tree.h"
 
+#include <algorithm>
 
 Tree::Tree(const std::shared_ptr<Node> &root_) {
     if (root_->index == -1) {
@@ -11,7 +12,7 @@ Tree::Tree(const std::shared_ptr<Node> &root_) {
     root = root_;
 }
 
-void Tree::Grow(const std::shared_ptr<EdgeWeighted>& edge) {
+void Tree::Grow(const std::shared_ptr<EdgeWeighted> &edge) {
     auto [parent, child] = edge->VerticesTopBlossoms();
     if (child->tree_root == root) {
         std::swap(parent, child);
@@ -39,22 +40,26 @@ void Tree::Grow(const std::shared_ptr<EdgeWeighted>& edge) {
     grandchild->plus = true;
 }
 
-void Tree::Shrink(const std::shared_ptr<EdgeWeighted>& edge_plus_plus) {
+void Tree::Shrink(const std::shared_ptr<EdgeWeighted> &edge_plus_plus) const {
     auto lca = LCA(edge_plus_plus);
 
-    std::vector<std::shared_ptr<Node>> blossom_vertices;
+    std::vector<std::shared_ptr<EdgeWeighted>> blossom_edges;
     auto [first, second] = edge_plus_plus->VerticesTopBlossoms();
+
     while (first != lca) {
-        blossom_vertices.push_back(first);
+        blossom_edges.push_back(first->tree_parent);
         first = first->tree_parent->OtherBlossom(first);
     }
+    std::reverse(blossom_edges.begin(), blossom_edges.end());
+
+    blossom_edges.push_back(edge_plus_plus);
+
     while (second != lca) {
-        blossom_vertices.push_back(second);
+        blossom_edges.push_back(second->tree_parent);
         second = second->tree_parent->OtherBlossom(second);
     }
-    blossom_vertices.push_back(lca);
 
-    Node blossom(blossom_vertices);
+    Node blossom(blossom_edges, lca);
 }
 
 void Tree::Expand(const std::shared_ptr<Node> &supervertex) {
@@ -74,19 +79,60 @@ void Tree::Expand(const std::shared_ptr<Node> &supervertex) {
         throw std::runtime_error("In Tree::Expand: the supervertex has to have zero dual variable");
     }
 
-    for (const auto& blossom_child : supervertex->children_blossom) {
-        blossom_child->parent_blossom = nullptr;
-    }
-
+    supervertex->Dissolve();
 }
 
-std::shared_ptr<Node> Tree::LCA(const std::shared_ptr<EdgeWeighted>& edge_plus_plus) const {
+void Tree::Augment(const std::shared_ptr<EdgeWeighted> &edge) {
+    // TODO change it when moving to multiple trees
+    auto [parent, child] = edge->VerticesTopBlossoms();
+    if (child->tree_root) {
+        std::swap(parent, child);
+    }
+    if (child->tree_root) {
+        throw std::runtime_error("In Tree::Augment: child must be not in a tree");
+    }
+    if (child->matched_edge) {
+        throw std::runtime_error("In Tree::Augment: child must be unmatched");
+    }
+
+    auto path = PathToRoot(parent);
+    edge->MakeMatched();
+    bool match = false;
+    for (auto edge_path : path) {
+        if (match) {
+            edge_path->MakeMatched();
+        } else {
+            edge_path->MakeUnmatched();
+        }
+        match = !match;
+    }
+
+    DissolveTree();
+}
+
+void Tree::DissolveTree() {
+    std::vector<std::shared_ptr<Node>> all_vertices;
+    // TODO get all_vertices
+    // TODO delete tree_parents and tree_children and tree_roots and plus and minus
+}
+
+std::vector<std::shared_ptr<EdgeWeighted>> Tree::PathToRoot(std::shared_ptr<Node> vertex) const {
+    std::vector<std::shared_ptr<EdgeWeighted>> path;
+    while (vertex->tree_parent) {
+        path.push_back(vertex->tree_parent);
+        vertex = vertex->tree_parent->OtherBlossom(vertex);
+    }
+
+    return path;
+}
+
+std::shared_ptr<Node> Tree::LCA(const std::shared_ptr<EdgeWeighted> &edge_plus_plus) const {
     // TODO can be made better
     auto [first, second] = edge_plus_plus->VerticesTopBlossoms();
 
     auto root_blossom = root->TopBlossom();
 
-    std::unordered_set<std::shared_ptr<Node>> visited;
+    std::unordered_set<std::shared_ptr<Node> > visited;
     visited.insert(first);
     while (first != root_blossom) {
         first = first->tree_parent->OtherBlossom(first);
@@ -107,14 +153,14 @@ std::shared_ptr<EdgeWeighted> Tree::MinSlackEdgeFromPlus() const {
     int min_slack = INT_MAX;
     std::shared_ptr<EdgeWeighted> min_slack_edge = nullptr;
 
-    std::queue<std::shared_ptr<Node>> queue;
+    std::queue<std::shared_ptr<Node> > queue;
     queue.push(root);
     while (!queue.empty()) {
         std::shared_ptr<Node> node = queue.front();
         queue.pop();
 
         if (node->plus) {
-            for (const auto& edge : node->neighbors) {
+            for (const auto &edge : node->neighbors) {
                 if (edge->slack_quadrupled < min_slack) {
                     min_slack = edge->slack_quadrupled;
                     min_slack_edge = edge;
@@ -122,7 +168,7 @@ std::shared_ptr<EdgeWeighted> Tree::MinSlackEdgeFromPlus() const {
             }
         }
 
-        for (const auto& child : node->tree_children) {
+        for (const auto &child : node->tree_children) {
             queue.push(child->OtherBlossom(node));
         }
     }
