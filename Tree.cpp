@@ -12,7 +12,7 @@ Tree::Tree(const std::shared_ptr<Node> &root_) {
     root = root_;
 }
 
-void Tree::Grow(const std::shared_ptr<EdgeWeighted> &edge) {
+void Tree::Grow(const std::shared_ptr<EdgeWeighted> &edge) const {
     auto [parent, child] = edge->VerticesTopBlossoms();
     if (child->tree_root == root) {
         std::swap(parent, child);
@@ -59,10 +59,10 @@ void Tree::Shrink(const std::shared_ptr<EdgeWeighted> &edge_plus_plus) const {
         second = second->tree_parent->OtherBlossom(second);
     }
 
-    Node blossom(blossom_edges, lca);
+    Node blossom(blossom_edges);
 }
 
-void Tree::Expand(const std::shared_ptr<Node> &supervertex) {
+void Tree::Expand(const std::shared_ptr<Node> &supervertex) const {
     if (supervertex->tree_root != root) {
         throw std::runtime_error("In Tree::Expand: supervertex is not in this tree");
     }
@@ -98,7 +98,7 @@ void Tree::Augment(const std::shared_ptr<EdgeWeighted> &edge) {
     auto path = PathToRoot(parent);
     edge->MakeMatched();
     bool match = false;
-    for (auto edge_path : path) {
+    for (const auto& edge_path : path) {
         if (match) {
             edge_path->MakeMatched();
         } else {
@@ -110,13 +110,30 @@ void Tree::Augment(const std::shared_ptr<EdgeWeighted> &edge) {
     DissolveTree();
 }
 
-void Tree::DissolveTree() {
+void Tree::DissolveTree() const {
     std::vector<std::shared_ptr<Node>> all_vertices;
-    // TODO get all_vertices
-    // TODO delete tree_parents and tree_children and tree_roots and plus and minus
+
+    std::queue<std::shared_ptr<Node>> queue;
+    queue.push(root->TopBlossom());
+    while (!queue.empty()) {
+        auto cur_vertex = queue.front();
+        queue.pop();
+        all_vertices.push_back(cur_vertex);
+        for (const auto& child : cur_vertex->tree_children) {
+            queue.push(child->OtherBlossom(cur_vertex));
+        }
+    }
+
+    for (const auto& vertex : all_vertices) {
+        vertex->tree_root = nullptr;
+        vertex->tree_children.clear();
+        vertex->tree_parent = nullptr;
+        vertex->plus = false;
+        vertex->minus = false;
+    }
 }
 
-std::vector<std::shared_ptr<EdgeWeighted>> Tree::PathToRoot(std::shared_ptr<Node> vertex) const {
+std::vector<std::shared_ptr<EdgeWeighted>> Tree::PathToRoot(std::shared_ptr<Node> vertex) {
     std::vector<std::shared_ptr<EdgeWeighted>> path;
     while (vertex->tree_parent) {
         path.push_back(vertex->tree_parent);
