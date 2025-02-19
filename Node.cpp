@@ -208,6 +208,10 @@ void Node::IncreaseDualVariableQuadrupled(const int increment) {
 
     for (const auto& edge : neighbors) {
         edge->slack_quadrupled -= increment;
+
+        if (edge->slack_quadrupled < 0) {
+            throw std::runtime_error("In IncreaseDualVariableQuadrupled: got a negative slack edge");
+        }
     }
 }
 

@@ -18,9 +18,19 @@ class Tree {
 
         void Augment(const std::shared_ptr<EdgeWeighted> &edge);
 
-        std::shared_ptr<EdgeWeighted> MinSlackEdgeFromPlus() const;
+        bool MakePrimalUpdate();
+
+        void MakeDualUpdate();
 
     private:
+        std::shared_ptr<EdgeWeighted> MinSlackEdgeFromPlus() const;
+
+        std::shared_ptr<Node> ExpandableBlossom();
+
+        std::shared_ptr<Node> MinYMinusBlossom();
+
+        void ChangeDualVariables(int increment) const;
+
         std::shared_ptr<Node> LCA(const std::shared_ptr<EdgeWeighted> &edge_plus_plus) const;
 
         void DissolveTree() const;
