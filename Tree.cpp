@@ -3,6 +3,7 @@
 #include "Tree.h"
 
 #include <algorithm>
+#include <iostream>
 
 Tree::Tree(const std::shared_ptr<Node> &root_) {
     if (root_->index == -1) {
@@ -10,6 +11,8 @@ Tree::Tree(const std::shared_ptr<Node> &root_) {
     }
 
     root = root_;
+    root->plus = true;
+    root->tree_root = root;
 }
 
 void Tree::Grow(const std::shared_ptr<EdgeWeighted> &edge) const {
@@ -17,6 +20,8 @@ void Tree::Grow(const std::shared_ptr<EdgeWeighted> &edge) const {
     if (child->tree_root == root) {
         std::swap(parent, child);
     }
+
+    std::cout << "grow " << parent->index << " " << child->index << std::endl;
 
     if (parent->tree_root != root) {
         throw std::runtime_error("In Tree::Grow: parent vertex is not in this tree");
@@ -34,8 +39,9 @@ void Tree::Grow(const std::shared_ptr<EdgeWeighted> &edge) const {
     child->tree_root = root;
     child->minus = true;
 
-    auto grandchild = child->matched_edge->OtherBlossom(child);
+    const auto grandchild = child->matched_edge->OtherBlossom(child);
     grandchild->tree_parent = child->matched_edge;
+    child->tree_children = {child->matched_edge};
     grandchild->tree_root = root;
     grandchild->plus = true;
 }
@@ -84,6 +90,8 @@ void Tree::Expand(const std::shared_ptr<Node> &supervertex) const {
 
 void Tree::Augment(const std::shared_ptr<EdgeWeighted> &edge) {
     // TODO change it when moving to multiple trees
+    std::cout << "augment" << std::endl;
+
     auto [parent, child] = edge->VerticesTopBlossoms();
     if (child->tree_root) {
         std::swap(parent, child);
@@ -155,7 +163,10 @@ void Tree::MakeDualUpdate() {
     auto edge_min_slack = MinSlackEdgeFromPlus();
     auto blossom_min_var = MinYMinusBlossom();
 
-    int increment_quadrupled = blossom_min_var->DualVariableQuadrupled();
+    int increment_quadrupled = INT32_MAX;
+    if (blossom_min_var) {
+        increment_quadrupled = blossom_min_var->DualVariableQuadrupled();
+    }
 
     auto [first, second] = edge_min_slack->VerticesTopBlossoms();
     if ((first->tree_root == root) && (second->tree_root == root) && (first->plus) && (second->plus)) {
@@ -265,6 +276,10 @@ std::shared_ptr<EdgeWeighted> Tree::MinSlackEdgeFromPlus() const {
         for (const auto &child : node->tree_children) {
             queue.push(child->OtherBlossom(node));
         }
+    }
+
+    if (!min_slack_edge) {
+        throw std::runtime_error("In MinSlackEdgeFromPlus: edge from plus not found");
     }
 
     return min_slack_edge;

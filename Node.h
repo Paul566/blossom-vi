@@ -6,7 +6,7 @@
 
 class EdgeWeighted;
 
-class Node {
+class Node : public std::enable_shared_from_this<Node> {
     public:
         const int index; // -1 if it is a supernode (blossom)
         std::vector<std::shared_ptr<EdgeWeighted> > neighbors;

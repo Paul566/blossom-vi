@@ -59,7 +59,7 @@ Node::Node(std::vector<std::shared_ptr<EdgeWeighted>> blossom_edges) : index(-1)
         if (vertex->parent_blossom) {
             throw std::runtime_error("In Node: some vertex is not a top blossom");
         }
-        vertex->parent_blossom = std::shared_ptr<Node>(this);
+        vertex->parent_blossom = shared_from_this();
     }
 
     // find tree_root
@@ -109,8 +109,8 @@ Node::Node(std::vector<std::shared_ptr<EdgeWeighted>> blossom_edges) : index(-1)
 }
 
 std::shared_ptr<Node> Node::TopBlossom() {
-    if (parent_blossom == nullptr) {
-        return std::shared_ptr<Node>(this);
+    if (!parent_blossom) {
+        return shared_from_this();
     }
     return parent_blossom->TopBlossom();
 }
@@ -120,7 +120,7 @@ std::shared_ptr<Node> Node::NextToTopBlossom() {
         throw std::runtime_error("In NextToTopBlossom: this must not be a top blossom");
     }
 
-    auto cur_vertex = std::shared_ptr<Node>(this);
+    auto cur_vertex = shared_from_this();
     while (cur_vertex->parent_blossom->parent_blossom) {
         cur_vertex = cur_vertex->parent_blossom;
     }
@@ -170,7 +170,7 @@ void Node::RotateReceptacle(const std::shared_ptr<Node> &new_receptacle) const {
         throw std::runtime_error("In RotateReceptacle: the vertex must be a blossom");
     }
 
-    auto cur_vertex = new_receptacle->blossom_brother_clockwise->OtherMaxDistinctBlossom(cur_vertex);
+    auto cur_vertex = new_receptacle->blossom_brother_clockwise->OtherMaxDistinctBlossom(new_receptacle);
     bool match = false;
     while (cur_vertex != new_receptacle) {
         if (match) {
@@ -186,7 +186,7 @@ void Node::RotateReceptacle(const std::shared_ptr<Node> &new_receptacle) const {
 bool Node::Ancestor(const std::shared_ptr<Node> &potential_ancestor) {
     // returns true if potential_ancestor is an ancestor of this
 
-    if (potential_ancestor == std::shared_ptr<Node>(this)) {
+    if (potential_ancestor == shared_from_this()) {
         return true;
     }
     if (!parent_blossom) {
@@ -242,7 +242,7 @@ std::shared_ptr<Node> Node::ReceptacleChild() {
     }
 
     auto [vertex_receptacle, vertex_out] = matched_edge->VerticesElementary();
-    if (vertex_out->Ancestor(std::shared_ptr<Node>(this))) {
+    if (vertex_out->Ancestor(shared_from_this())) {
         std::swap(vertex_receptacle, vertex_out);
     }
 
@@ -260,7 +260,7 @@ std::shared_ptr<Node> Node::TreeElderChild() {
     }
 
     auto [vertex_elder, vertex_out] = matched_edge->VerticesElementary();
-    if (vertex_out->Ancestor(std::shared_ptr<Node>(this))) {
+    if (vertex_out->Ancestor(shared_from_this())) {
         std::swap(vertex_elder, vertex_out);
     }
 
@@ -327,7 +327,7 @@ void Node::UpdateElderChildTreeParent() {
     elder_child->tree_parent = parent_edge;
     auto parent_vertex = parent_edge->OtherBlossom(elder_child);
     for (auto & tree_child_candidate : parent_vertex->tree_children) {
-        if (tree_child_candidate == std::shared_ptr<Node>(this)) {
+        if (tree_child_candidate->OtherBlossom(parent_vertex) == shared_from_this()) {
             tree_child_candidate = parent_edge;
             break;
         }

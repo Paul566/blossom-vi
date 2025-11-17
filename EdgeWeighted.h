@@ -5,7 +5,7 @@
 
 #include "Node.h"
 
-class EdgeWeighted {
+class EdgeWeighted : public std::enable_shared_from_this<EdgeWeighted>  {
 public:
     int weight;
     int slack_quadrupled;
@@ -30,12 +30,14 @@ public:
         const auto lca = LCABlossom();
         auto first = head;
         auto second = tail;
+        first->matched_edge = shared_from_this();
+        second->matched_edge = shared_from_this();
         while (first->parent_blossom != lca) {
-            first->matched_edge = std::shared_ptr<EdgeWeighted>(this);
+            first->matched_edge = shared_from_this();
             first = first->parent_blossom;
         }
         while (second->parent_blossom != lca) {
-            second->matched_edge = std::shared_ptr<EdgeWeighted>(this);
+            second->matched_edge = shared_from_this();
             second = second->parent_blossom;
         }
     }
@@ -55,7 +57,7 @@ public:
         throw std::runtime_error("In EdgeWeighted::OtherElementary: vertex is neither head nor tail");
     }
 
-    std::shared_ptr<Node> OtherBlossom(const std::shared_ptr<Node> &vertex) const {
+    std::shared_ptr<Node> OtherBlossom(const std::shared_ptr<Node> &vertex) {
         auto vertex_top = vertex->TopBlossom();
         auto head_top = head->TopBlossom();
         auto tail_top = tail->TopBlossom();

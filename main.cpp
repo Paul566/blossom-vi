@@ -236,18 +236,13 @@ void MeasureAllUnweighted(const std::string &directory_path, int init_type, bool
 }
 
 int main() {
-    std::mt19937 gen(239);
-    auto edge_list = RandomWeightedClique(6, gen, 0, 5);
+    std::mt19937 gen(239566);
+    auto edge_list = RandomWeightedClique(4, gen, 0, 5);
 
     auto solver = SolverWeighted(edge_list);
     solver.PrintElementaryAdjList();
     solver.FindMinPerfectMatching();
     solver.PrintElementaryAdjList();
-
-    auto roots = solver.Roots();
-    for (const auto& root : roots) {
-        std::cout << root->index << std::endl;
-    }
 
     auto matching = solver.Matching();
     std::cout << "Matching of size " << matching.size() << ":" << std::endl;

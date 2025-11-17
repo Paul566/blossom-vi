@@ -35,10 +35,26 @@ SolverWeighted::SolverWeighted(const std::vector<std::tuple<int, int, int>> &edg
 void SolverWeighted::FindMinPerfectMatching() {
     GreedyInit();
 
-    auto roots = Roots();
-    Tree tree = Tree(roots.front());
+    PrintElementaryAdjList();
 
-    // TODO don't forget to dissolve blossoms in the end
+    for (auto root : elementary_nodes) {
+        if (root->matched_edge) {
+            continue;
+        }
+
+        auto tree = Tree(root);
+        while (!root->matched_edge) {
+            while (tree.MakePrimalUpdate()) {
+            }
+            tree.MakeDualUpdate();
+        }
+    }
+
+    std::cout << "Quadrupled dual objective: " << DualObjectiveQuadrupled() << std::endl;
+
+    DissolveBlossoms();
+
+    std::cout << "Quadrupled primal objective: " << PrimalObjectiveQuadrupled() << std::endl;
 }
 
 void SolverWeighted::PrintElementaryAdjList() {
@@ -123,4 +139,60 @@ std::vector<std::pair<int, int>> SolverWeighted::Matching() {
     }
 
     return matching;
+}
+
+int SolverWeighted::DualObjectiveQuadrupled() {
+    int objective = 0;
+
+    std::unordered_set<std::shared_ptr<Node>> all_nodes;
+    for (auto vertex : elementary_nodes) {
+        auto cur_vertex = vertex;
+        all_nodes.insert(cur_vertex);
+        objective += cur_vertex->DualVariableQuadrupled();
+
+        while (cur_vertex->parent_blossom) {
+            cur_vertex = cur_vertex->parent_blossom;
+            if (all_nodes.contains(cur_vertex)) {
+                break;
+            }
+            all_nodes.insert(cur_vertex);
+            objective += cur_vertex->DualVariableQuadrupled();
+        }
+    }
+
+    return objective;
+}
+
+int SolverWeighted::PrimalObjectiveQuadrupled() const {
+    int objective = 0;
+
+    for (auto vertex : elementary_nodes) {
+        if (!vertex->matched_edge) {
+            throw std::runtime_error("In PrimalObjectiveQuadrupled: matching is not perfect");
+        }
+        objective += vertex->matched_edge->weight;
+    }
+
+    return objective * 2;
+}
+
+void SolverWeighted::DissolveBlossoms() {
+    for (auto vertex : elementary_nodes) {
+        DestroyBlossomTopDown(vertex->TopBlossom());
+    }
+}
+
+void SolverWeighted::DestroyBlossomTopDown(const std::shared_ptr<Node> &blossom) {
+    if (blossom->parent_blossom) {
+        throw std::runtime_error("In DestroyBlossomTopDown: blossom must be a top blossom");
+    }
+
+    if (blossom->index != -1) { // we are at an elementary vertex
+        return;
+    }
+
+    blossom->Dissolve();
+    for (auto child : blossom->children_blossom) {
+        DestroyBlossomTopDown(child);
+    }
 }

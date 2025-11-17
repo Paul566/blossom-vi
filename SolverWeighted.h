@@ -21,6 +21,14 @@ public:
 
 private:
     std::vector<std::shared_ptr<Node>> elementary_nodes;
+
+    int DualObjectiveQuadrupled();
+
+    int PrimalObjectiveQuadrupled() const;
+
+    void DissolveBlossoms();
+
+    static void DestroyBlossomTopDown(const std::shared_ptr<Node> &blossom);
 };
 
 #endif //SOLVER_H
