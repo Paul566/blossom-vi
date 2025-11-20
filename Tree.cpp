@@ -27,11 +27,11 @@ void Tree::Grow(EdgeWeighted &edge) const {
         std::swap(parent, child);
     }
 
-    std::cout << "grow " << parent->index << " " << child->index << " " << child->matched_edge->OtherEnd(*child).index
-        << std::endl;
+    // std::cout << "grow " << parent->index << " " << child->index << " " << child->matched_edge->OtherEnd(*child).index
+    // << std::endl;
 
     if (parent->index == 5 && child->index == -1) {
-        std::cout << "a;lkjfds" << std::endl;
+        // std::cout << "a;lkjfds" << std::endl;
     }
 
     if (parent->tree_root != root) {
@@ -62,11 +62,7 @@ void Tree::Shrink(EdgeWeighted &edge_plus_plus) const {
     const Node *first = &endpoints.first;
     const Node *second = &endpoints.second;
 
-    std::cout << "shrink " << first->index << " " << second->index << std::endl;
-
-    if (first->index == 4 && second->index == -1) {
-        std::cout << "sa;ldfkj" << std::endl;
-    }
+    // std::cout << "shrink " << first->index << " " << second->index << std::endl;
 
     const Node &lca = LCA(edge_plus_plus);
 
@@ -89,7 +85,7 @@ void Tree::Shrink(EdgeWeighted &edge_plus_plus) const {
 }
 
 void Tree::Expand(Node &blossom) const {
-    std::cout << "expand" << std::endl;
+    // std::cout << "expand" << std::endl;
 
     if (blossom.tree_root != root) {
         throw std::runtime_error("In Tree::Expand: supervertex is not in this tree");
@@ -111,7 +107,6 @@ void Tree::Expand(Node &blossom) const {
     std::list<Node>::iterator it = (*iter_to_self)[&blossom];
     iter_to_self->erase(&blossom);
     blossom_storage->erase(it);
-
 }
 
 void Tree::Augment(EdgeWeighted &edge) {
@@ -124,10 +119,10 @@ void Tree::Augment(EdgeWeighted &edge) {
         std::swap(parent, child);
     }
 
-    std::cout << "augment " << parent->index << " " << child->index << std::endl;
+    // std::cout << "augment " << parent->index << " " << child->index << std::endl;
 
     if (parent->index == -1 && child->index == 4) {
-        std::cout << "da;lskjf" << std::endl;
+        // std::cout << "da;lskjf" << std::endl;
     }
 
     if (child->tree_root) {
@@ -250,7 +245,7 @@ void Tree::DissolveTree() {
 }
 
 std::vector<EdgeWeighted *> Tree::PathToRoot(const Node &vertex) {
-    // std::cout << "path to root" << std::endl;
+    // // std::cout << "path to root" << std::endl;
 
     if (vertex.blossom_parent) {
         throw std::runtime_error("In Tree::PathToRoot: vertex is not a top blossom");

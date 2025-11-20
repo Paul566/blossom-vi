@@ -238,13 +238,15 @@ void MeasureAllUnweighted(const std::string &directory_path, int init_type, bool
 int main() {
     std::mt19937 gen(239);
     for (int i = 0; i < 1000; ++i) {
-        auto edge_list = RandomWeightedClique(100, gen, 0, 5);
+        auto edge_list = RandomWeightedClique(100, gen, 0, 1000);
 
         auto solver = SolverWeighted(edge_list);
         // solver.PrintElementaryAdjList();
         solver.FindMinPerfectMatching();
 
-        if (solver.DualObjectiveQuadrupled() != solver.PrimalObjectiveQuadrupled()) {
+        std::cout << i << " " << solver.primal_objective << " " << solver.dual_objective << std::endl;
+
+        if (solver.dual_objective != solver.primal_objective) {
             solver.PrintElementaryAdjList();
             throw std::runtime_error("");
         }

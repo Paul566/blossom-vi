@@ -10,6 +10,9 @@
 
 class SolverWeighted {
     public:
+        int64_t primal_objective;
+        int64_t dual_objective;
+
         explicit SolverWeighted(const std::vector<std::tuple<int, int, int> > &edge_list_);
 
         void FindMinPerfectMatching();
@@ -22,10 +25,6 @@ class SolverWeighted {
 
         std::vector<std::pair<int, int> > Matching() const;
 
-        int DualObjectiveQuadrupled() const;
-
-        int PrimalObjectiveQuadrupled() const;
-
     private:
         std::list<Node> elementary_nodes_list; // never reallocated after initialization
         std::vector<std::list<Node>::iterator> elementary_iters;
@@ -37,6 +36,10 @@ class SolverWeighted {
         // TODO maybe make all nodes live inside a single std::list
 
         void DestroyBlossoms();
+
+        int64_t DualObjectiveQuadrupled() const;
+
+        int64_t PrimalObjective() const;
 };
 
 #endif //SOLVER_H
