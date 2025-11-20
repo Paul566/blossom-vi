@@ -7,8 +7,8 @@
 #include <random>
 #include <set>
 
-#include "SolverUnweighted.h"
-#include "Tester.h"
+#include "unweighted/SolverUnweighted.h"
+#include "unweighted/Tester.h"
 #include "SolverWeighted.h"
 
 void PrintVector(const std::vector<int> &numbers) {
@@ -236,18 +236,25 @@ void MeasureAllUnweighted(const std::string &directory_path, int init_type, bool
 }
 
 int main() {
-    std::mt19937 gen(239566);
-    auto edge_list = RandomWeightedClique(4, gen, 0, 5);
+    std::mt19937 gen(239);
+    for (int i = 0; i < 1000; ++i) {
+        auto edge_list = RandomWeightedClique(100, gen, 0, 5);
 
-    auto solver = SolverWeighted(edge_list);
-    solver.PrintElementaryAdjList();
-    solver.FindMinPerfectMatching();
-    solver.PrintElementaryAdjList();
+        auto solver = SolverWeighted(edge_list);
+        // solver.PrintElementaryAdjList();
+        solver.FindMinPerfectMatching();
 
-    auto matching = solver.Matching();
-    std::cout << "Matching of size " << matching.size() << ":" << std::endl;
-    for (auto pair : matching) {
-        std::cout << pair.first << " " << pair.second << std::endl;
+        if (solver.DualObjectiveQuadrupled() != solver.PrimalObjectiveQuadrupled()) {
+            solver.PrintElementaryAdjList();
+            throw std::runtime_error("");
+        }
+        // solver.PrintElementaryAdjList();
+
+        // std::vector<std::pair<int, int>> matching = solver.Matching();
+        // std::cout << "Matching of size " << matching.size() << ":" << std::endl;
+        // for (const auto &[first_index, second_index] : matching) {
+        //     std::cout << first_index << " " << second_index << std::endl;
+        // }
     }
 
     return 0;

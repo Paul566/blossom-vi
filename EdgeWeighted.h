@@ -1,162 +1,117 @@
 #ifndef EDGEWEIGHTED_H
 #define EDGEWEIGHTED_H
 
-#include <unordered_set>
+#include <iostream>
+#include <stdexcept>
+#include <vector>
 
 #include "Node.h"
 
-class EdgeWeighted : public std::enable_shared_from_this<EdgeWeighted>  {
-public:
-    int weight;
-    int slack_quadrupled;
+class EdgeWeighted {
+    public:
+        const int weight;
+        bool matched;
+        int slack_quadrupled;
 
-    EdgeWeighted(const std::shared_ptr<Node> head_, const std::shared_ptr<Node> tail_,
-                 const int weight_) : head(head_), tail(tail_), weight(weight_), slack_quadrupled(4 * weight_) {
-        matched = false;
-    }
-
-    bool Matched() const {
-        return matched;
-    }
-
-    void MakeUnmatched() {
-        matched = false;
-    }
-
-    void MakeMatched() {
-        matched = true;
-
-        // now update the matched_edge of the vertices
-        const auto lca = LCABlossom();
-        auto first = head;
-        auto second = tail;
-        first->matched_edge = shared_from_this();
-        second->matched_edge = shared_from_this();
-        while (first->parent_blossom != lca) {
-            first->matched_edge = shared_from_this();
-            first = first->parent_blossom;
-        }
-        while (second->parent_blossom != lca) {
-            second->matched_edge = shared_from_this();
-            second = second->parent_blossom;
-        }
-    }
-
-    std::shared_ptr<Node> OtherElementary(const std::shared_ptr<Node> &vertex) const {
-        if (vertex->index == -1) {
-            throw std::runtime_error("In EdgeWeighted::OtherElementary: vertex must be elementary");
+        EdgeWeighted(Node &head_, Node &tail_, const int weight_) : weight(weight_), matched(false),
+                                                                    slack_quadrupled(4 * weight_) {
+            head_stack.push_back(&head_);
+            tail_stack.push_back(&tail_);
         }
 
-        if (vertex == head) {
-            return tail;
-        }
-        if (vertex == tail) {
-            return head;
-        }
+        EdgeWeighted(const EdgeWeighted &other) = delete;
+        EdgeWeighted(EdgeWeighted &&other) = delete;
+        EdgeWeighted &operator=(const EdgeWeighted &other) = delete;
+        EdgeWeighted &operator=(EdgeWeighted &&other) = delete;
 
-        throw std::runtime_error("In EdgeWeighted::OtherElementary: vertex is neither head nor tail");
-    }
-
-    std::shared_ptr<Node> OtherBlossom(const std::shared_ptr<Node> &vertex) {
-        auto vertex_top = vertex->TopBlossom();
-        auto head_top = head->TopBlossom();
-        auto tail_top = tail->TopBlossom();
-
-        if (head_top == tail_top) {
-            throw std::runtime_error("In OtherBlossom: top blossoms are the same, you must call OtherMaxDistinctBlossom instead");
+        std::pair<Node &, Node &> Endpoints() const {
+            return {*head_stack.back(), *tail_stack.back()};
         }
 
-        if (vertex_top == head_top) {
-            return tail_top;
-        }
-        if (vertex_top == tail_top) {
-            return head_top;
+        std::pair<Node &, Node &> ElementaryEndpoints() const {
+            return {*head_stack.front(), *tail_stack.front()};
         }
 
-        throw std::runtime_error("In EdgeWeighted::OtherBlossom: vertex.TopBlossom is not in the edge");
-    }
-
-    std::shared_ptr<Node> OtherMaxDistinctBlossom(const std::shared_ptr<Node> &vertex) const {
-        auto [head_max, tail_max] = VerticesMaxDistinctBlossoms();
-
-        if (vertex->Ancestor(head_max)) {
-            return tail_max;
-        }
-        if (vertex->Ancestor(tail_max)) {
-            return head_max;
-        }
-
-        throw std::runtime_error("In EdgeWeighted::OtherBlossom: vertex is not an ancestor of either of VerticesMaxDistinctBlossoms");
-    }
-
-    std::pair<std::shared_ptr<Node>, std::shared_ptr<Node>> VerticesElementary() const {
-        return {head, tail};
-    }
-
-    std::pair<std::shared_ptr<Node>, std::shared_ptr<Node>> VerticesTopBlossoms() const {
-        return {head->TopBlossom(), tail->TopBlossom()};
-    }
-
-    std::pair<std::shared_ptr<Node>, std::shared_ptr<Node>> VerticesMaxDistinctBlossoms() const {
-        // returns blossoms u, v, containing the edge such that
-        // either both u, v are top blossoms, or
-        // u and v share a parent blossom
-
-        auto lca = LCABlossom();
-
-        if (lca == nullptr) { // top blossoms of head and tail are distinct
-            return VerticesTopBlossoms();
-        }
-
-        auto first = head;
-        auto second = tail;
-        while (first->parent_blossom != lca) {
-            first = first->parent_blossom;
-        }
-        while (second->parent_blossom != lca) {
-            second = second->parent_blossom;
-        }
-
-        if (first == second) {
-            throw std::runtime_error("In VerticesMaxDistinctBlossoms: first == second");
-        }
-        if (first->parent_blossom != second->parent_blossom) {
-            throw std::runtime_error("In VerticesMaxDistinctBlossoms: the parent is not common");
-        }
-
-        return {first, second};
-    }
-
-private:
-    const std::shared_ptr<Node> head, tail;
-
-    bool matched;
-
-    std::shared_ptr<Node> LCABlossom() const {
-        // returns nullptr if head and tail are in distinct top blossoms
-
-        auto first = head;
-        auto second = tail;
-
-        std::unordered_set<std::shared_ptr<Node>> visited;
-        visited.insert(first);
-        while (first->parent_blossom) {
-            first = first->parent_blossom;
-            visited.insert(first);
-        }
-
-        if (visited.contains(second)) {
-            throw std::runtime_error("In LCABlossom: second is an ancestor of first");
-        }
-
-        while (second->parent_blossom) {
-            second = second->parent_blossom;
-            if (visited.contains(second)) {
-                return second;
+        Node &OtherEnd(const Node &vertex) const {
+            if (head_stack.empty() || tail_stack.empty()) {
+                throw std::runtime_error("In OtherEnd: invalid edge");
             }
+            if (&vertex == tail_stack.back()) {
+                return *head_stack.back();
+            }
+            if (&vertex == head_stack.back()) {
+                return *tail_stack.back();
+            }
+            throw std::runtime_error("EdgeWeighted::OtherEnd: vertex is not on top of either stack");
         }
-        return nullptr;
-    }
+
+        Node &OtherElementaryEnd(const Node &vertex) const {
+            if (vertex.index == -1) {
+                throw std::runtime_error("In OtherElementaryEnd: vertex must be elementary");
+            }
+            if (&vertex == tail_stack.front()) {
+                return *head_stack.front();
+            }
+            if (&vertex == head_stack.front()) {
+                return *tail_stack.front();
+            }
+            throw std::runtime_error("EdgeWeighted::OtherEnd: vertex is not in the front of either stack");
+        }
+
+        Node &DeeperNode(const Node &vertex) const {
+            // returns a node that is a blossom child of vertex and is adjacent to this edge
+            if (&vertex == tail_stack.back()) {
+                if (tail_stack.size() < 2) {
+                    throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is at the bottom of the stack");
+                }
+                return *tail_stack[tail_stack.size() - 2];
+            }
+            if (&vertex == head_stack.back()) {
+                if (head_stack.size() < 2) {
+                    throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is at the bottom of the stack");
+                }
+                return *head_stack[head_stack.size() - 2];
+            }
+            throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is not on top of either stack");
+        }
+
+        void UpdateAfterShrink(const Node &vertex) {
+            if (vertex.blossom_parent == nullptr) {
+                throw std::runtime_error("EdgeWeighted::UpdateAfterShrink: vertex has no blossom parent");
+            }
+            if (&vertex == tail_stack.back()) {
+                tail_stack.push_back(vertex.blossom_parent);
+                return;
+            }
+            if (&vertex == head_stack.back()) {
+                head_stack.push_back(vertex.blossom_parent);
+                return;
+            }
+
+            const auto [head, tail] = ElementaryEndpoints();
+            std::cout << "EdgeWeighted::UpdateAfterShrink: edge: " << head.index << " " << tail.index << std::endl;
+            std::cout << "vertex: " << vertex.index << std::endl;
+            throw std::runtime_error("EdgeWeighted::UpdateAfterShrink: vertex is not on top of either stack");
+        }
+
+        void UpdateAfterDissolve(const Node &vertex) {
+            if (&vertex == tail_stack.back()) {
+                tail_stack.pop_back();
+                return;
+            }
+            if (&vertex == head_stack.back()) {
+                head_stack.pop_back();
+                return;
+            }
+            throw std::runtime_error("EdgeWeighted::UpdateAfterDissolve: vertex is not on top of either stack");
+        }
+
+    private:
+        std::vector<Node *> head_stack;
+        std::vector<Node *> tail_stack;
+        // stack tops: current top blossoms or children of the blossom that contains this edge
+        // in other words, maximal blossoms that contain the elementary endpoints but don't contain the entire edge
+        // stack bottoms: elementary nodes
 };
 
 #endif //EDGEWEIGHTED_H

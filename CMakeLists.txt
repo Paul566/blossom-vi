@@ -4,17 +4,18 @@ project(blossom_vi)
 set(CMAKE_CXX_STANDARD 20)
 
 add_executable(blossom_vi main.cpp
-        Edge.h
-        SolverUnweighted.h
-        SolverUnweighted.cpp
-        Tester.h
-        Tester.cpp
-        LabeledDisjointSets.h
-        LabeledDisjointSets.cpp
+        unweighted/Edge.h
+        unweighted/SolverUnweighted.h
+        unweighted/SolverUnweighted.cpp
+        unweighted/Tester.h
+        unweighted/Tester.cpp
+        unweighted/LabeledDisjointSets.h
+        unweighted/LabeledDisjointSets.cpp
         Node.h
         Node.cpp
         EdgeWeighted.h
         SolverWeighted.h
         SolverWeighted.cpp
         Tree.h
-        Tree.cpp)
+        Tree.cpp
+        unweighted/Tester.cpp)

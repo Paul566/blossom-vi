@@ -2,11 +2,12 @@
 #include "Tree.h"
 
 #include <iostream>
+#include <unordered_set>
 
-
-SolverWeighted::SolverWeighted(const std::vector<std::tuple<int, int, int>> &edge_list_) {
+SolverWeighted::SolverWeighted(const std::vector<std::tuple<int, int, int> > &edge_list_) {
+    // measure n
     int n = 0;
-    for (const auto &edge : edge_list_) {
+    for (const std::tuple<int, int, int> &edge : edge_list_) {
         if (std::get<0>(edge) > n) {
             n = std::get<0>(edge);
         }
@@ -16,53 +17,59 @@ SolverWeighted::SolverWeighted(const std::vector<std::tuple<int, int, int>> &edg
     }
     ++n;
 
-    elementary_nodes = std::vector<std::shared_ptr<Node>>();
-    elementary_nodes.reserve(n);
-    for (int index = 0; index < n; ++index) {
-        Node node = Node(index);
-        auto node_ptr = std::make_shared<Node>(node);
-        elementary_nodes.push_back(node_ptr);
+    elementary_iters.reserve(n);
+    for (int i = 0; i < n; ++i) {
+        elementary_nodes_list.emplace_back(i);
+        elementary_iters.push_back(std::prev(elementary_nodes_list.end()));
     }
 
-    for (const auto &edge : edge_list_) {
-        EdgeWeighted edge_weighted = EdgeWeighted(elementary_nodes[std::get<0>(edge)], elementary_nodes[std::get<1>(edge)], std::get<2>(edge));
-        auto edge_ptr = std::make_shared<EdgeWeighted>(edge_weighted);
-        elementary_nodes[std::get<0>(edge)]->neighbors.push_back(edge_ptr);
-        elementary_nodes[std::get<1>(edge)]->neighbors.push_back(edge_ptr);
+    for (const std::tuple<int, int, int> &edge : edge_list_) {
+        edges.emplace_back(*elementary_iters[std::get<0>(edge)],
+                           *elementary_iters[std::get<1>(edge)],
+                           std::get<2>(edge));
+        elementary_iters[std::get<0>(edge)]->neighbors.push_back(&edges.back());
+        elementary_iters[std::get<1>(edge)]->neighbors.push_back(&edges.back());
     }
 }
 
 void SolverWeighted::FindMinPerfectMatching() {
     GreedyInit();
 
-    PrintElementaryAdjList();
+    // PrintElementaryAdjList();
 
-    for (auto root : elementary_nodes) {
-        if (root->matched_edge) {
+    for (Node &root : elementary_nodes_list) {
+        if (root.matched_edge) {
             continue;
         }
 
-        auto tree = Tree(root);
-        while (!root->matched_edge) {
-            while (tree.MakePrimalUpdate()) {
+        // trees.emplace_back(&root, &blossoms);
+        // Tree & tree = trees.back();
+        Tree tree(&root, &blossoms, &iter_to_self);
+        bool is_augmented = false;
+        while (!is_augmented) {
+            while (tree.MakePrimalUpdate(&is_augmented)) {
             }
-            tree.MakeDualUpdate();
+            if (!is_augmented) {
+                tree.MakeDualUpdate();
+            }
         }
     }
 
     std::cout << "Quadrupled dual objective: " << DualObjectiveQuadrupled() << std::endl;
+    std::cout << "Matching size: " << Matching().size() << std::endl;
 
-    DissolveBlossoms();
+    DestroyBlossoms();
 
     std::cout << "Quadrupled primal objective: " << PrimalObjectiveQuadrupled() << std::endl;
 }
 
-void SolverWeighted::PrintElementaryAdjList() {
+void SolverWeighted::PrintElementaryAdjList() const {
     std::cout << "Adjacency list (to, weight, slack, matched):" << std::endl;
-    for (const auto& vertex : elementary_nodes) {
-        std::cout << vertex->index << ": y_v = " << vertex->DualVariableQuadrupled() / 4. << ", ";
-        for (const auto& edge : vertex->neighbors) {
-            std::cout << "(" << edge->OtherElementary(vertex)->index << ", " << edge->weight << ", " << edge->slack_quadrupled / 4. << ", " << edge->Matched() << ") ";
+    for (const Node &vertex : elementary_nodes_list) {
+        std::cout << vertex.index << ": y_v = " << vertex.DualVariableQuadrupled() / 4. << ", ";
+        for (const EdgeWeighted *edge : vertex.neighbors) {
+            std::cout << "(" << edge->OtherElementaryEnd(vertex).index << ", " << edge->weight << ", " << edge->
+                slack_quadrupled / 4. << ", " << edge->matched << ") ";
         }
         std::cout << std::endl;
     }
@@ -70,94 +77,79 @@ void SolverWeighted::PrintElementaryAdjList() {
 
 void SolverWeighted::GreedyInit() {
     // first, make all the slacks non-negative
-    for (const auto& vertex : elementary_nodes) {
-        if (vertex->neighbors.empty()) {
+    for (Node &vertex : elementary_nodes_list) {
+        if (vertex.neighbors.empty()) {
             continue;
         }
 
-        int min_weight = vertex->neighbors.front()->weight;
-        for (const auto& edge : vertex->neighbors) {
+        int min_weight = vertex.neighbors.front()->weight;
+        for (const EdgeWeighted *edge : vertex.neighbors) {
             if (edge->weight < min_weight) {
                 min_weight = edge->weight;
             }
         }
 
-        vertex->IncreaseDualVariableQuadrupled(min_weight * 2);
+        vertex.IncreaseDualVariableQuadrupled(min_weight * 2);
     }
 
-    for (const auto& vertex : elementary_nodes) {
-        if ((vertex->matched_edge) || (vertex->neighbors.empty())) {
+    for (Node &vertex : elementary_nodes_list) {
+        if ((vertex.matched_edge) || (vertex.neighbors.empty())) {
             continue;
         }
 
-        std::shared_ptr<EdgeWeighted> smallest_slack_edge = vertex->neighbors.front();
-        for (const auto& edge : vertex->neighbors) {
+        EdgeWeighted *smallest_slack_edge = vertex.neighbors.front();
+        for (EdgeWeighted *edge : vertex.neighbors) {
             if (edge->slack_quadrupled < smallest_slack_edge->slack_quadrupled) {
                 smallest_slack_edge = edge;
             }
         }
 
-        int smallest_slack_quadrupled = smallest_slack_edge->slack_quadrupled;
-        vertex->IncreaseDualVariableQuadrupled(smallest_slack_quadrupled);
+        const int smallest_slack_quadrupled = smallest_slack_edge->slack_quadrupled;
+        vertex.IncreaseDualVariableQuadrupled(smallest_slack_quadrupled);
 
-        if (!smallest_slack_edge->OtherElementary(vertex)->matched_edge) {
+        if (!smallest_slack_edge->OtherEnd(vertex).matched_edge) {
             // if the other vertex is also unmatched, match the edge
-            smallest_slack_edge->MakeMatched();
+            smallest_slack_edge->matched = true;
+            vertex.matched_edge = smallest_slack_edge;
+            smallest_slack_edge->OtherEnd(vertex).matched_edge = smallest_slack_edge;
         }
     }
 }
 
-std::vector<std::shared_ptr<Node>> SolverWeighted::Roots() {
-    std::vector<std::shared_ptr<Node>> roots;
+std::vector<int> SolverWeighted::RootIndices() const {
+    std::vector<int> roots;
 
-    for (const auto& vertex : elementary_nodes) {
-        if (vertex->parent_blossom) {
-            throw std::runtime_error("Roots() must be called if there are no supernodes");
-        }
-
-        if (!vertex->matched_edge) {
-            roots.push_back(vertex);
+    for (const Node & node : elementary_nodes_list) {
+        if (!node.matched_edge) {
+            roots.push_back(node.index);
         }
     }
 
     return roots;
 }
 
-std::vector<std::pair<int, int>> SolverWeighted::Matching() {
-    std::vector<std::pair<int, int>> matching;
-    matching.reserve(elementary_nodes.size() / 2);
+std::vector<std::pair<int, int> > SolverWeighted::Matching() const {
+    std::vector<std::pair<int, int> > matching;
+    matching.reserve(elementary_nodes_list.size() / 2);
 
-    for (const auto& vertex : elementary_nodes) {
-        if (!vertex->matched_edge) {
-            throw std::runtime_error("In Matching(): Matching is not perfect");
-        }
-
-        auto to = vertex->matched_edge->OtherElementary(vertex);
-        if (to > vertex) {
-            matching.emplace_back(vertex->index, to->index);
+    for (const EdgeWeighted & edge : edges) {
+        if (edge.matched) {
+            auto [head, tail] = edge.ElementaryEndpoints();
+            matching.emplace_back(head.index, tail.index);
         }
     }
 
     return matching;
 }
 
-int SolverWeighted::DualObjectiveQuadrupled() {
+int SolverWeighted::DualObjectiveQuadrupled() const {
     int objective = 0;
 
-    std::unordered_set<std::shared_ptr<Node>> all_nodes;
-    for (auto vertex : elementary_nodes) {
-        auto cur_vertex = vertex;
-        all_nodes.insert(cur_vertex);
-        objective += cur_vertex->DualVariableQuadrupled();
-
-        while (cur_vertex->parent_blossom) {
-            cur_vertex = cur_vertex->parent_blossom;
-            if (all_nodes.contains(cur_vertex)) {
-                break;
-            }
-            all_nodes.insert(cur_vertex);
-            objective += cur_vertex->DualVariableQuadrupled();
-        }
+    for (const Node &vertex : elementary_nodes_list) {
+        objective += vertex.DualVariableQuadrupled();
+    }
+    for (const Node &vertex : blossoms) {
+        objective += vertex.DualVariableQuadrupled();
     }
 
     return objective;
@@ -166,33 +158,26 @@ int SolverWeighted::DualObjectiveQuadrupled() {
 int SolverWeighted::PrimalObjectiveQuadrupled() const {
     int objective = 0;
 
-    for (auto vertex : elementary_nodes) {
-        if (!vertex->matched_edge) {
-            throw std::runtime_error("In PrimalObjectiveQuadrupled: matching is not perfect");
+    for (const EdgeWeighted & edge : edges) {
+        if (edge.matched) {
+            objective += edge.weight;
         }
-        objective += vertex->matched_edge->weight;
     }
 
-    return objective * 2;
+    return objective * 4;
 }
 
-void SolverWeighted::DissolveBlossoms() {
-    for (auto vertex : elementary_nodes) {
-        DestroyBlossomTopDown(vertex->TopBlossom());
-    }
-}
-
-void SolverWeighted::DestroyBlossomTopDown(const std::shared_ptr<Node> &blossom) {
-    if (blossom->parent_blossom) {
-        throw std::runtime_error("In DestroyBlossomTopDown: blossom must be a top blossom");
+void SolverWeighted::DestroyBlossoms() {
+    if (Matching().size() * 2 != elementary_nodes_list.size()) {
+        throw std::runtime_error("In SolverWeighted: must only destroy blossoms after a perfect matching is found");
     }
 
-    if (blossom->index != -1) { // we are at an elementary vertex
-        return;
-    }
+    // TODO maybe write guarantees that we are really going top down
+    for (auto it = blossoms.rbegin(); it != blossoms.rend(); ++it) {
+        if (it->blossom_parent) {
+            throw std::runtime_error("In SolverWeighted::RotateMatchingInsideBlossoms: not going top down");
+        }
 
-    blossom->Dissolve();
-    for (auto child : blossom->children_blossom) {
-        DestroyBlossomTopDown(child);
+        it->Dissolve();
     }
 }
