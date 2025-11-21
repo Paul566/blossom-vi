@@ -8,7 +8,7 @@ class EdgeWeighted;
 
 class Node {
     public:
-        const int index; // -1 if it is a supernode (blossom)
+        const int index; // >=n if it is a supernode (blossom)
         std::vector<EdgeWeighted *> neighbors;
         EdgeWeighted *matched_edge;
 
@@ -27,7 +27,7 @@ class Node {
 
         explicit Node(int index_);
 
-        explicit Node(const std::vector<EdgeWeighted *> &blossom_edges);
+        explicit Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_);
 
         Node(const Node &other) = delete;
         Node(Node &&other) = delete;

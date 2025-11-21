@@ -80,7 +80,8 @@ void Tree::Shrink(EdgeWeighted &edge_plus_plus) const {
         second = &second->tree_parent->OtherEnd(*second);
     }
 
-    blossom_storage->emplace_back(blossom_edges);
+    const int max_blossom_index = blossom_storage->back().index;
+    blossom_storage->emplace_back(blossom_edges, max_blossom_index + 1);
     (*iter_to_self)[&blossom_storage->back()] = std::prev(blossom_storage->end());
 }
 

@@ -240,7 +240,7 @@ int main() {
     for (int i = 0; i < 1000; ++i) {
         auto edge_list = RandomWeightedClique(100, gen, 0, 1000);
 
-        auto solver = SolverWeighted(edge_list);
+        auto solver = SolverWeighted(edge_list, {.verbose = true});
         // solver.PrintElementaryAdjList();
         solver.FindMinPerfectMatching();
 

@@ -5,8 +5,9 @@
 #include <stdint.h>
 #include <unordered_set>
 
-SolverWeighted::SolverWeighted(const std::vector<std::tuple<int, int, int> > &edge_list_) : primal_objective(INT64_MAX),
-    dual_objective(0) {
+SolverWeighted::SolverWeighted(const std::vector<std::tuple<int, int, int> > &edge_list_,
+                               const SolverParams &params_) : primal_objective(INT64_MAX),
+                                                              dual_objective(0), params{params_} {
     // measure n
     int n = 0;
     for (const std::tuple<int, int, int> &edge : edge_list_) {
@@ -57,20 +58,23 @@ void SolverWeighted::FindMinPerfectMatching() {
         }
     }
 
-    // std::cout << "Quadrupled dual objective: " << DualObjectiveQuadrupled() << std::endl;
-    // std::cout << "Matching size: " << Matching().size() << std::endl;
-
     int64_t quadrupled_dual = DualObjectiveQuadrupled();
     if (quadrupled_dual % 4 != 0) {
         throw std::runtime_error("Dual objective not integer");
     }
     dual_objective = quadrupled_dual / 4;
 
+    if (params.verbose) {
+        std::cout << "Dual objective:\t\t" << dual_objective << std::endl;
+    }
+
     DestroyBlossoms();
 
     primal_objective = PrimalObjective();
 
-    // std::cout << "Quadrupled primal objective: " << PrimalObjectiveQuadrupled() << std::endl;
+    if (params.verbose) {
+        std::cout << "Primal objective:\t" << primal_objective << std::endl;
+    }
 }
 
 void SolverWeighted::PrintElementaryAdjList() const {
@@ -150,6 +154,13 @@ std::vector<std::pair<int, int> > SolverWeighted::Matching() const {
     }
 
     return matching;
+}
+
+const std::vector<std::tuple<int, int, std::vector<int>>>& SolverWeighted::DualCertificate() const {
+    if (!params.compute_dual_certificate) {
+        throw std::runtime_error("In SolverWeighted::DualCertificate: params.compute_dual_certificate is false");
+    }
+    return dual_certificate;
 }
 
 int64_t SolverWeighted::DualObjectiveQuadrupled() const {

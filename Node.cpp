@@ -17,7 +17,7 @@ Node::Node(const int index_) : index(index_) {
     blossom_brother_anticlockwise = nullptr;
 }
 
-Node::Node(const std::vector<EdgeWeighted *> &blossom_edges) : index(-1) {
+Node::Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_) : index(index_) {
     // blossom_edges need to be consecutive and start and end at the receptacle
 
     if (blossom_edges.size() % 2 == 0) {
@@ -110,7 +110,7 @@ Node &Node::TopBlossom() {
 }
 
 void Node::Dissolve() {
-    if (index != -1) {
+    if (blossom_children.empty()) {
         throw std::runtime_error("In Dissolve: can't dissolve an elementary vertex");
     }
     if (!matched_edge) {
@@ -142,7 +142,7 @@ void Node::Dissolve() {
 void Node::RotateReceptacle(Node *new_receptacle) const {
     // update the structure of matched edges inside the blossom and at the new receptacle
 
-    if (index != -1) {
+    if (blossom_children.empty()) {
         throw std::runtime_error("In RotateReceptacle: the vertex must be a blossom");
     }
     if (new_receptacle->blossom_parent != this) {
