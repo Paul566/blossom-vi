@@ -29,6 +29,7 @@ class SolverWeighted {
         std::vector<std::pair<int, int> > Matching() const;
 
         const std::vector<std::tuple<int, int, int>>& DualCertificate() const;
+        // (index, quadrupled dual variable, index of the blossom parent or -1)
 
     private:
         std::list<Node> elementary_nodes_list; // never reallocated after initialization
