@@ -63,6 +63,9 @@ void SolverWeighted::FindMinPerfectMatching() {
         throw std::runtime_error("Dual objective not integer");
     }
     dual_objective = quadrupled_dual / 4;
+    if (params.compute_dual_certificate) {
+        ComputeDualCertificate();
+    }
 
     if (params.verbose) {
         std::cout << "Dual objective:\t\t" << dual_objective << std::endl;
@@ -156,7 +159,7 @@ std::vector<std::pair<int, int> > SolverWeighted::Matching() const {
     return matching;
 }
 
-const std::vector<std::tuple<int, int, std::vector<int>>>& SolverWeighted::DualCertificate() const {
+const std::vector<std::tuple<int, int, int>>& SolverWeighted::DualCertificate() const {
     if (!params.compute_dual_certificate) {
         throw std::runtime_error("In SolverWeighted::DualCertificate: params.compute_dual_certificate is false");
     }
@@ -186,6 +189,32 @@ int64_t SolverWeighted::PrimalObjective() const {
     }
 
     return objective;
+}
+
+void SolverWeighted::ComputeDualCertificate() {
+    // can be called only before we destroy the blossoms in the end
+
+    if (!dual_certificate.empty()) {
+        throw std::runtime_error("Dual certificate is already non-empty");
+    }
+
+    std::unordered_map<Node *, int> vtx_to_index;
+
+    dual_certificate.reserve(elementary_nodes_list.size() + blossoms.size());
+    int index = 0;
+    for (Node & vertex : elementary_nodes_list) {
+        dual_certificate.emplace_back(index, vertex.DualVariableQuadrupled(), -1);
+        vtx_to_index[&vertex] = index;
+        ++index;
+    }
+    for (Node & blossom : blossoms) {
+        dual_certificate.emplace_back(index, blossom.DualVariableQuadrupled(), -1);
+        vtx_to_index[&blossom] = index;
+        for (Node * child : blossom.blossom_children) {
+            std::get<2>(dual_certificate[vtx_to_index[child]]) = index;
+        }
+        ++index;
+    }
 }
 
 void SolverWeighted::DestroyBlossoms() {

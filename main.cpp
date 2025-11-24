@@ -10,6 +10,7 @@
 #include "unweighted/SolverUnweighted.h"
 #include "unweighted/Tester.h"
 #include "SolverWeighted.h"
+#include "TesterWeighted.h"
 
 void PrintVector(const std::vector<int> &numbers) {
     for (const int number : numbers) {
@@ -236,28 +237,9 @@ void MeasureAllUnweighted(const std::string &directory_path, int init_type, bool
 }
 
 int main() {
-    std::mt19937 gen(239);
-    for (int i = 0; i < 1000; ++i) {
-        auto edge_list = RandomWeightedClique(100, gen, 0, 1000);
-
-        auto solver = SolverWeighted(edge_list, {.verbose = true});
-        // solver.PrintElementaryAdjList();
-        solver.FindMinPerfectMatching();
-
-        std::cout << i << " " << solver.primal_objective << " " << solver.dual_objective << std::endl;
-
-        if (solver.dual_objective != solver.primal_objective) {
-            solver.PrintElementaryAdjList();
-            throw std::runtime_error("");
-        }
-        // solver.PrintElementaryAdjList();
-
-        // std::vector<std::pair<int, int>> matching = solver.Matching();
-        // std::cout << "Matching of size " << matching.size() << ":" << std::endl;
-        // for (const auto &[first_index, second_index] : matching) {
-        //     std::cout << first_index << " " << second_index << std::endl;
-        // }
-    }
+    // std::mt19937 gen(239);
+    TesterWeighted tester(true, 239);
+    tester.RunRandomCliques(100, -1000, 1000, 1000, false);
 
     return 0;
 }

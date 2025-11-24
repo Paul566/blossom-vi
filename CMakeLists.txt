@@ -18,4 +18,5 @@ add_executable(blossom_vi main.cpp
         SolverWeighted.cpp
         Tree.h
         Tree.cpp
-        unweighted/Tester.cpp)
+        TesterWeighted.h
+        TesterWeighted.cpp)
