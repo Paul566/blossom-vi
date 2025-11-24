@@ -18,7 +18,7 @@ class Tree {
         Tree &operator=(const Tree &other) = delete;
         Tree &operator=(Tree &&other) = delete;
 
-        void Grow(EdgeWeighted &edge) const;
+        void Grow(EdgeWeighted &edge);
 
         void Shrink(EdgeWeighted &edge_plus_plus) const;
 
@@ -34,6 +34,8 @@ class Tree {
         std::list<Node> *blossom_storage;
         std::unordered_map<Node *, std::list<Node>::iterator> * iter_to_self;
 
+        // void AugmentFromNode(Node &vertex);
+
         EdgeWeighted &MinSlackEdgeFromPlus() const;
 
         Node *ExpandableBlossom();
@@ -42,7 +44,7 @@ class Tree {
 
         void ChangeDualVariables(int increment) const;
 
-        Node &LCA(EdgeWeighted &edge_plus_plus) const;
+        Node &LCA(const EdgeWeighted &edge_plus_plus) const;
 
         void DissolveTree();
 

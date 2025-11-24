@@ -5,6 +5,7 @@
 #include <vector>
 
 class EdgeWeighted;
+class Tree;
 
 class Node {
     public:
@@ -23,7 +24,7 @@ class Node {
         bool minus;
         EdgeWeighted *tree_parent;
         std::vector<EdgeWeighted *> tree_children;
-        Node *tree_root; // tree_root is always an elementary vertex (maybe inside a blossom)
+        Tree *tree;
 
         explicit Node(int index_);
 

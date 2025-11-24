@@ -10,7 +10,7 @@ Node::Node(const int index_) : index(index_) {
     blossom_parent = nullptr;
     matched_edge = nullptr;
     tree_parent = nullptr;
-    tree_root = nullptr;
+    tree = nullptr;
     plus = false;
     minus = false;
     blossom_brother_clockwise = nullptr;
@@ -93,9 +93,9 @@ Node::Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_) : index
     }
 
     // find tree_root
-    tree_root = blossom_children.front()->tree_root;
+    tree = blossom_children.front()->tree;
     for (const auto &vertex : blossom_children) {
-        if (vertex->tree_root != tree_root) {
+        if (vertex->tree != tree) {
             throw std::runtime_error("In Node: not all the vertices have the same tree_root");
         }
     }
@@ -122,7 +122,7 @@ void Node::Dissolve() {
 
     RotateReceptacle(&matched_edge->DeeperNode(*this));
 
-    if (tree_root) {
+    if (tree) {
         UpdateInternalTreeStructure();
     } else {
         ClearInternalTreeStructure();
@@ -222,7 +222,7 @@ void Node::UpdateInternalTreeStructure() {
     bool is_plus = false;
     while (cur_vertex != &receptacle) {
         cur_vertex->tree_parent = prev_edge;
-        cur_vertex->tree_root = tree_root;
+        cur_vertex->tree = tree;
         cur_vertex->tree_children = {next_edge(cur_vertex)};
         cur_vertex->plus = is_plus;
         cur_vertex->minus = !is_plus;
@@ -232,7 +232,7 @@ void Node::UpdateInternalTreeStructure() {
         is_plus = !is_plus;
     }
     cur_vertex->tree_parent = prev_edge;
-    cur_vertex->tree_root = tree_root;
+    cur_vertex->tree = tree;
     cur_vertex->tree_children = {matched_edge};
     cur_vertex->plus = false;
     cur_vertex->minus = true;
@@ -241,7 +241,7 @@ void Node::UpdateInternalTreeStructure() {
     cur_vertex = &next_edge(cur_vertex)->OtherEnd(*cur_vertex);
     while (cur_vertex != &elder_child) {
         cur_vertex->tree_parent = nullptr;
-        cur_vertex->tree_root = nullptr;
+        cur_vertex->tree = nullptr;
         cur_vertex->tree_children.clear();
         cur_vertex->plus = false;
         cur_vertex->minus = false;
@@ -254,7 +254,7 @@ void Node::UpdateInternalTreeStructure() {
 void Node::ClearInternalTreeStructure() const {
     for (Node * child_blossom : blossom_children) {
         child_blossom->tree_parent = nullptr;
-        child_blossom->tree_root = nullptr;
+        child_blossom->tree = nullptr;
         child_blossom->tree_children.clear();
         child_blossom->plus = false;
         child_blossom->minus = false;

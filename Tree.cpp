@@ -16,44 +16,40 @@ Tree::Tree(Node *root_,
     }
 
     root->plus = true;
-    root->tree_root = root;
+    root->tree = this;
 }
 
-void Tree::Grow(EdgeWeighted &edge) const {
+void Tree::Grow(EdgeWeighted &edge) {
     auto endpoints = edge.Endpoints();
     Node *parent = &endpoints.first;
     Node *child = &endpoints.second;
-    if (child->tree_root == root) {
+    if (child->tree == this) {
         std::swap(parent, child);
     }
 
     // std::cout << "grow " << parent->index << " " << child->index << " " << child->matched_edge->OtherEnd(*child).index
     // << std::endl;
 
-    if (parent->index == 5 && child->index == -1) {
-        // std::cout << "a;lkjfds" << std::endl;
-    }
-
-    if (parent->tree_root != root) {
+    if (parent->tree != this) {
         throw std::runtime_error("In Tree::Grow: parent vertex is not in this tree");
     }
     if (!parent->plus) {
         throw std::runtime_error("In Tree::Grow: parent is not a plus");
     }
-    if (child->tree_root) {
+    if (child->tree) {
         throw std::runtime_error("In Tree::Grow: child vertex is not free");
     }
 
     parent->tree_children.push_back(&edge);
 
     child->tree_parent = &edge;
-    child->tree_root = root;
+    child->tree = this;
     child->minus = true;
 
     Node &grandchild = child->matched_edge->OtherEnd(*child);
     grandchild.tree_parent = child->matched_edge;
     child->tree_children = {child->matched_edge};
-    grandchild.tree_root = root;
+    grandchild.tree = this;
     grandchild.plus = true;
 }
 
@@ -88,7 +84,7 @@ void Tree::Shrink(EdgeWeighted &edge_plus_plus) const {
 void Tree::Expand(Node &blossom) const {
     // std::cout << "expand" << std::endl;
 
-    if (blossom.tree_root != root) {
+    if (blossom.tree != this) {
         throw std::runtime_error("In Tree::Expand: supervertex is not in this tree");
     }
     if (blossom.index != -1) {
@@ -111,26 +107,11 @@ void Tree::Expand(Node &blossom) const {
 }
 
 void Tree::Augment(EdgeWeighted &edge) {
-    // TODO change it when moving to multiple trees
-
     auto endpoints = edge.Endpoints();
     Node *parent = &endpoints.first;
     Node *child = &endpoints.second;
-    if (child->tree_root) {
+    if (child->tree != this) {
         std::swap(parent, child);
-    }
-
-    // std::cout << "augment " << parent->index << " " << child->index << std::endl;
-
-    if (parent->index == -1 && child->index == 4) {
-        // std::cout << "da;lskjf" << std::endl;
-    }
-
-    if (child->tree_root) {
-        throw std::runtime_error("In Tree::Augment: child must be not in a tree");
-    }
-    if (child->matched_edge) {
-        throw std::runtime_error("In Tree::Augment: child must be unmatched");
     }
 
     Node::MakeMatched(edge);
@@ -159,16 +140,16 @@ bool Tree::MakePrimalUpdate(bool *is_augmented) {
         auto endpoints = edge_min_slack.Endpoints();
         Node *vertex_in_tree = &endpoints.first;
         Node *vertex_other = &endpoints.second;
-        if (vertex_in_tree->tree_root != root) {
+        if (vertex_in_tree->tree != this) {
             std::swap(vertex_in_tree, vertex_other);
         }
 
-        if (vertex_other->tree_root == root) {
+        if (vertex_other->tree == this) {
             Shrink(edge_min_slack);
             return true;
         }
 
-        if ((!vertex_other->tree_root) && (vertex_other->matched_edge)) {
+        if ((!vertex_other->tree) && (vertex_other->matched_edge)) {
             Grow(edge_min_slack);
             return true;
         }
@@ -203,7 +184,7 @@ void Tree::MakeDualUpdate() {
     }
 
     auto [first, second] = edge_min_slack.Endpoints();
-    if ((first.tree_root == root) && (second.tree_root == root) && (first.plus) && (second.plus)) {
+    if ((first.tree == this) && (second.tree == this) && (first.plus) && (second.plus)) {
         if (edge_min_slack.slack_quadrupled % 2 != 0) {
             throw std::runtime_error("In MakeDualUpdate: a ++ edge with odd quadrupled slack");
         }
@@ -237,7 +218,7 @@ void Tree::DissolveTree() {
     }
 
     for (Node *vertex : all_vertices) {
-        vertex->tree_root = nullptr;
+        vertex->tree = nullptr;
         vertex->tree_children.clear();
         vertex->tree_parent = nullptr;
         vertex->plus = false;
@@ -269,7 +250,7 @@ std::vector<EdgeWeighted *> Tree::PathToRoot(const Node &vertex) {
     return path;
 }
 
-Node &Tree::LCA(EdgeWeighted &edge_plus_plus) const {
+Node &Tree::LCA(const EdgeWeighted &edge_plus_plus) const {
     // TODO can be made better
     auto endpoints = edge_plus_plus.Endpoints();
     Node *first = &endpoints.first;
@@ -294,6 +275,21 @@ Node &Tree::LCA(EdgeWeighted &edge_plus_plus) const {
     return root_blossom;
 }
 
+/*void Tree::AugmentFromNode(Node &vertex) {
+    bool match = false;
+    const std::vector<EdgeWeighted *> path = PathToRoot(vertex);
+    for (EdgeWeighted *edge_from_path : path) {
+        if (match) {
+            Node::MakeMatched(*edge_from_path);
+        } else {
+            Node::MakeUnmatched(*edge_from_path);
+        }
+        match = !match;
+    }
+
+    DissolveTree();
+}*/
+
 EdgeWeighted &Tree::MinSlackEdgeFromPlus() const {
     // returns a (+, smth) edge with minimal slack that is not an edge in the tree
     // TODO refactor into min slack edges of different types
@@ -309,7 +305,7 @@ EdgeWeighted &Tree::MinSlackEdgeFromPlus() const {
 
         if (node->plus) {
             for (EdgeWeighted *edge : node->neighbors) {
-                if ((edge->OtherEnd(*node).minus) && (edge->OtherEnd(*node).tree_root == root)) {
+                if ((edge->OtherEnd(*node).minus) && (edge->OtherEnd(*node).tree == this)) {
                     // this is a (+, -) edge inside the tree
                     continue;
                 }
