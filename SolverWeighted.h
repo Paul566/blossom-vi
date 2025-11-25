@@ -36,13 +36,19 @@ class SolverWeighted {
         std::vector<std::list<Node>::iterator> elementary_iters;
         std::list<EdgeWeighted> edges; // never reallocated after initialization
         std::list<Node> blossoms;
+        std::unordered_map<Node *, std::list<Node>::iterator> iter_to_blossom;
         std::list<Tree> trees;
-        std::unordered_map<Node *, std::list<Node>::iterator> iter_to_self;
+        std::unordered_map<Tree *, std::list<Tree>::iterator> iter_to_tree;
         // TODO store the iterators in some other way
+        // TODO consider std::vector<std::unique_ptr<Obj>> instead of std::list<Obj>
 
         std::vector<std::tuple<int, int, int>> dual_certificate;
         // (index, quadrupled dual variable, index of the blossom parent or -1)
         // dual_certificate is empty unless params.compute_dual_certificate is true
+
+        void MakeDualUpdates();
+
+        void MakePrimalUpdates();
 
         void DestroyBlossoms();
 
@@ -55,6 +61,8 @@ class SolverWeighted {
         void GreedyInit();
 
         std::vector<int> RootIndices() const;
+
+        int OptimalSingleDelta() const;
 };
 
 #endif //SOLVER_H

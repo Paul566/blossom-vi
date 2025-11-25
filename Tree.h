@@ -11,12 +11,36 @@ class Tree {
     public:
         Node *root; // must be an elementary vertex
 
-        Tree(Node *root_, std::list<Node> *blossom_storage_, std::unordered_map<Node *, std::list<Node>::iterator> * iter_to_self_);
+        Tree(Node *root_,
+             std::list<Node> *blossom_storage_,
+             std::unordered_map<Node *, std::list<Node>::iterator> *iter_to_self_,
+             int num_elementary_nodes_);
 
         Tree(const Tree &other) = delete;
         Tree(Tree &&other) = delete;
         Tree &operator=(const Tree &other) = delete;
         Tree &operator=(Tree &&other) = delete;
+
+        void PrintTree();
+
+        Tree *MakePrimalUpdates();
+
+        void ChangeDualVariables(int increment) const;
+
+        int PlusEmptySlack() const;
+
+        int PlusPlusExternalSlack() const;
+
+        int PlusPlusInternalSlack() const;
+
+        int PlusMinusExternalSlack() const;
+
+        int MinMinusBlossomVariable() const;
+
+    private:
+        const int num_elementary_nodes; // TODO get rid of this field
+        std::list<Node> *blossom_storage;
+        std::unordered_map<Node *, std::list<Node>::iterator> *iter_to_self;
 
         void Grow(EdgeWeighted &edge);
 
@@ -24,25 +48,17 @@ class Tree {
 
         void Expand(Node &blossom) const;
 
-        void Augment(EdgeWeighted &edge);
+        Tree *Augment(EdgeWeighted &edge);
 
-        bool MakePrimalUpdate(bool * is_augmented);
+        void AugmentFromNode(Node &vertex);
 
-        void MakeDualUpdate();
+        EdgeWeighted *GrowableEdge() const;
 
-    private:
-        std::list<Node> *blossom_storage;
-        std::unordered_map<Node *, std::list<Node>::iterator> * iter_to_self;
+        EdgeWeighted *AugmentableEdge() const;
 
-        // void AugmentFromNode(Node &vertex);
-
-        EdgeWeighted &MinSlackEdgeFromPlus() const;
+        EdgeWeighted *ShrinkableEdge() const;
 
         Node *ExpandableBlossom();
-
-        Node *MinYMinusBlossom() const;
-
-        void ChangeDualVariables(int increment) const;
 
         Node &LCA(const EdgeWeighted &edge_plus_plus) const;
 

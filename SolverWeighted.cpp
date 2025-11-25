@@ -38,26 +38,21 @@ SolverWeighted::SolverWeighted(const std::vector<std::tuple<int, int, int> > &ed
 void SolverWeighted::FindMinPerfectMatching() {
     GreedyInit();
 
-    // PrintElementaryAdjList();
-
+    // initialize trees
     for (Node &root : elementary_nodes_list) {
         if (root.matched_edge) {
             continue;
         }
-
-        // trees.emplace_back(&root, &blossoms);
-        // Tree & tree = trees.back();
-        Tree tree(&root, &blossoms, &iter_to_self);
-        bool is_augmented = false;
-        while (!is_augmented) {
-            while (tree.MakePrimalUpdate(&is_augmented)) {
-            }
-            if (!is_augmented) {
-                tree.MakeDualUpdate();
-            }
-        }
+        trees.emplace_back(&root, &blossoms, &iter_to_blossom, static_cast<int>(elementary_nodes_list.size()));
+        iter_to_tree[&trees.back()] = std::prev(trees.end());
     }
 
+    while (!trees.empty()) {
+        MakePrimalUpdates();
+        MakeDualUpdates();
+    }
+
+    // compute the objectives and recover the matching
     int64_t quadrupled_dual = DualObjectiveQuadrupled();
     if (quadrupled_dual % 4 != 0) {
         throw std::runtime_error("Dual objective not integer");
@@ -66,7 +61,6 @@ void SolverWeighted::FindMinPerfectMatching() {
     if (params.compute_dual_certificate) {
         ComputeDualCertificate();
     }
-
     if (params.verbose) {
         std::cout << "Dual objective:\t\t" << dual_objective << std::endl;
     }
@@ -145,6 +139,41 @@ std::vector<int> SolverWeighted::RootIndices() const {
     return roots;
 }
 
+int SolverWeighted::OptimalSingleDelta() const {
+    // returns the dual variable increment in the single delta approach
+
+    int delta = INT32_MAX;
+
+    for (const Tree & tree : trees) {
+        int plus_empty = tree.PlusEmptySlack();
+        int plus_plus_external = tree.PlusPlusExternalSlack();
+        int plus_plus_internal = tree.PlusPlusInternalSlack();
+        int blossom_var = tree.MinMinusBlossomVariable();
+
+        if (plus_plus_internal < INT32_MAX && plus_plus_internal % 2 != 0) {
+            throw std::runtime_error("PlusPlusInternalSlack is not divisible by 2");
+        }
+        if (plus_plus_external < INT32_MAX && plus_plus_external % 2 != 0) {
+            throw std::runtime_error("PlusPlusExternalSlack is not divisible by 2");
+        }
+
+        if (plus_empty < delta) {
+            delta = plus_empty;
+        }
+        if (plus_plus_external / 2 < delta) {
+            delta = plus_plus_external / 2;
+        }
+        if (plus_plus_internal / 2 < delta) {
+            delta = plus_plus_internal / 2;
+        }
+        if (blossom_var < delta) {
+            delta = blossom_var;
+        }
+    }
+
+    return delta;
+}
+
 std::vector<std::pair<int, int> > SolverWeighted::Matching() const {
     std::vector<std::pair<int, int> > matching;
     matching.reserve(elementary_nodes_list.size() / 2);
@@ -159,9 +188,10 @@ std::vector<std::pair<int, int> > SolverWeighted::Matching() const {
     return matching;
 }
 
-const std::vector<std::tuple<int, int, int>>& SolverWeighted::DualCertificate() const {
+const std::vector<std::tuple<int, int, int> > &SolverWeighted::DualCertificate() const {
     if (!params.compute_dual_certificate) {
-        throw std::runtime_error("In SolverWeighted::DualCertificate: params.compute_dual_certificate is false");
+        throw std::runtime_error(
+            "In SolverWeighted::DualCertificate: params.compute_dual_certificate is false, so the dual certificate was not computed");
     }
     return dual_certificate;
 }
@@ -202,18 +232,82 @@ void SolverWeighted::ComputeDualCertificate() {
 
     dual_certificate.reserve(elementary_nodes_list.size() + blossoms.size());
     int index = 0;
-    for (Node & vertex : elementary_nodes_list) {
+    for (Node &vertex : elementary_nodes_list) {
         dual_certificate.emplace_back(index, vertex.DualVariableQuadrupled(), -1);
         vtx_to_index[&vertex] = index;
         ++index;
     }
-    for (Node & blossom : blossoms) {
+    for (Node &blossom : blossoms) {
         dual_certificate.emplace_back(index, blossom.DualVariableQuadrupled(), -1);
         vtx_to_index[&blossom] = index;
-        for (Node * child : blossom.blossom_children) {
+        for (Node *child : blossom.blossom_children) {
             std::get<2>(dual_certificate[vtx_to_index[child]]) = index;
         }
         ++index;
+    }
+}
+
+void SolverWeighted::MakeDualUpdates() {
+    // makes the dual updates for the whole collection of the trees
+
+    int delta = OptimalSingleDelta();
+
+    if (params.verbose) {
+        std::cout << "dual progress: " << delta << " number of trees: " << trees.size() << std::endl;
+    }
+
+    for (Tree & tree : trees) {
+        tree.ChangeDualVariables(delta);
+    }
+
+    if (params.verbose) {
+        std::cout << "after dual update:" << std::endl;
+        PrintElementaryAdjList();
+    }
+
+    if (delta == 0) {
+        std::cout << "ldsakjf" << std::endl;
+    }
+}
+
+void SolverWeighted::MakePrimalUpdates() {
+    // makes primal updates for the whole collection of the trees
+
+    if (params.verbose) {
+        std::cout << "making primal updates" << std::endl;
+        PrintElementaryAdjList();
+        std::cout << "trees before:" << std::endl;
+        for (Tree & tree : trees) {
+            tree.PrintTree();
+            std::cout << std::endl;
+        }
+    }
+
+    auto it = trees.begin();
+    while (it != trees.end()) {
+        auto next_it = std::next(it);
+
+        Tree * augmented_tree = it->MakePrimalUpdates();
+        if (augmented_tree) {
+            if (next_it == iter_to_tree[augmented_tree]) {
+                next_it = std::next(next_it);
+            }
+
+            trees.erase(it);
+            trees.erase(iter_to_tree[augmented_tree]);
+        }
+
+        it = next_it;
+    }
+
+    if (params.verbose) {
+        std::cout << "state after:" << std::endl;
+        PrintElementaryAdjList();
+        std::cout << "trees after:" << std::endl;
+        for (Tree & tree : trees) {
+            tree.PrintTree();
+            std::cout << std::endl;
+        }
     }
 }
 
@@ -222,7 +316,7 @@ void SolverWeighted::DestroyBlossoms() {
         throw std::runtime_error("In SolverWeighted: must only destroy blossoms after a perfect matching is found");
     }
 
-    // TODO maybe write guarantees that we are really going top down
+    // TODO maybe assert that we are really going top down
     for (auto it = blossoms.rbegin(); it != blossoms.rend(); ++it) {
         if (it->blossom_parent) {
             throw std::runtime_error("In SolverWeighted::RotateMatchingInsideBlossoms: not going top down");

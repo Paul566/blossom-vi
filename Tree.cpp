@@ -6,12 +6,15 @@
 #include <cstdint>
 #include <iostream>
 #include <list>
+#include <stack>
 
 Tree::Tree(Node *root_,
            std::list<Node> *blossom_storage_,
-           std::unordered_map<Node *, std::list<Node>::iterator> *iter_to_self_) : root(root_),
-    blossom_storage(blossom_storage_), iter_to_self(iter_to_self_) {
-    if (root_->index == -1) {
+           std::unordered_map<Node *, std::list<Node>::iterator> *iter_to_self_,
+           int num_elementary_nodes_) : root(root_),
+                                        blossom_storage(blossom_storage_), iter_to_self(iter_to_self_),
+                                        num_elementary_nodes(num_elementary_nodes_) {
+    if (!root->blossom_children.empty()) {
         throw std::runtime_error("In Tree: root must be elementary");
     }
 
@@ -28,7 +31,7 @@ void Tree::Grow(EdgeWeighted &edge) {
     }
 
     // std::cout << "grow " << parent->index << " " << child->index << " " << child->matched_edge->OtherEnd(*child).index
-    // << std::endl;
+    //     << std::endl;
 
     if (parent->tree != this) {
         throw std::runtime_error("In Tree::Grow: parent vertex is not in this tree");
@@ -76,8 +79,11 @@ void Tree::Shrink(EdgeWeighted &edge_plus_plus) const {
         second = &second->tree_parent->OtherEnd(*second);
     }
 
-    const int max_blossom_index = blossom_storage->back().index;
-    blossom_storage->emplace_back(blossom_edges, max_blossom_index + 1);
+    int next_blossom_index = num_elementary_nodes;
+    if (!blossom_storage->empty()) {
+        next_blossom_index = blossom_storage->back().index + 1;
+    }
+    blossom_storage->emplace_back(blossom_edges, next_blossom_index);
     (*iter_to_self)[&blossom_storage->back()] = std::prev(blossom_storage->end());
 }
 
@@ -87,7 +93,7 @@ void Tree::Expand(Node &blossom) const {
     if (blossom.tree != this) {
         throw std::runtime_error("In Tree::Expand: supervertex is not in this tree");
     }
-    if (blossom.index != -1) {
+    if (blossom.blossom_children.empty()) {
         throw std::runtime_error("In Tree::Expand: supervertex must be not elementary");
     }
     if (blossom.blossom_parent) {
@@ -106,100 +112,139 @@ void Tree::Expand(Node &blossom) const {
     blossom_storage->erase(it);
 }
 
-void Tree::Augment(EdgeWeighted &edge) {
+Tree *Tree::Augment(EdgeWeighted &edge) {
+    // std::cout << "augmenting edge with slack " << edge.slack_quadrupled << std::endl;
+
     auto endpoints = edge.Endpoints();
     Node *parent = &endpoints.first;
     Node *child = &endpoints.second;
-    if (child->tree != this) {
+    if (parent->tree != this) {
         std::swap(parent, child);
     }
 
+    if (parent->tree != this) {
+        throw std::runtime_error("In Augment: parent vertex is not in this tree");
+    }
+
     Node::MakeMatched(edge);
+    // std::cout << "make matched " << parent->index << " " << child->index << std::endl;
 
-    bool match = false;
-    const std::vector<EdgeWeighted *> path = PathToRoot(*parent);
-    for (EdgeWeighted *edge_from_path : path) {
-        if (match) {
-            Node::MakeMatched(*edge_from_path);
+    AugmentFromNode(*parent);
+    Tree *other_tree = child->tree;
+    other_tree->AugmentFromNode(*child);
+
+    return other_tree;
+}
+
+void Tree::PrintTree() {
+    std::cout << "Tree structure:" << std::endl;
+    std::cout << "Root: " << root->index << std::endl;
+
+    struct Frame {
+        const Node *node;
+        std::string prefix; // prefix to print before connector / node value
+        bool hasConnector; // whether to print "├── " or "└── " before the node value
+        bool isLast; // if hasConnector==true, whether this node is the last sibling
+    };
+
+    std::vector<Frame> stack;
+    stack.push_back({&root->TopBlossom(), "", false, false});
+
+    while (!stack.empty()) {
+        Frame f = stack.back();
+        stack.pop_back();
+
+        if (f.hasConnector) {
+            std::cout << f.prefix << (f.isLast ? "└── " : "├── ");
         } else {
-            Node::MakeUnmatched(*edge_from_path);
+            std::cout << f.prefix; // usually empty for root
         }
-        match = !match;
-    }
+        std::cout << f.node->index << '\n';
 
-    DissolveTree();
+        const std::vector<EdgeWeighted *> &ch = f.node->tree_children;
+        for (int i = static_cast<int>(ch.size()) - 1; i >= 0; --i) {
+            bool childIsLast = (i == static_cast<int>(ch.size()) - 1);
+
+            std::string childPrefix = f.prefix;
+            if (f.hasConnector) {
+                childPrefix += (f.isLast ? "    " : "│   ");
+            }
+
+            stack.push_back({&ch[i]->OtherEnd(*f.node), childPrefix, true, childIsLast});
+        }
+    }
 }
 
-bool Tree::MakePrimalUpdate(bool *is_augmented) {
-    // tries to make a primal update, returns true if a non-augmentation update was made
+Tree *Tree::MakePrimalUpdates() {
+    // makes primal updates while we can, or until an augmentation was made
+    // returns a pointer to the other tree in case of augmentation
 
-    // TODO when you will have multiple trees, consider the case of a (+,-) edge for edge_min_slack
-
-    EdgeWeighted &edge_min_slack = MinSlackEdgeFromPlus();
-    if (edge_min_slack.slack_quadrupled == 0) {
-        auto endpoints = edge_min_slack.Endpoints();
-        Node *vertex_in_tree = &endpoints.first;
-        Node *vertex_other = &endpoints.second;
-        if (vertex_in_tree->tree != this) {
-            std::swap(vertex_in_tree, vertex_other);
-        }
-
-        if (vertex_other->tree == this) {
-            Shrink(edge_min_slack);
-            return true;
-        }
-
-        if ((!vertex_other->tree) && (vertex_other->matched_edge)) {
-            Grow(edge_min_slack);
-            return true;
-        }
-
-        if (!vertex_other->matched_edge) {
-            // TODO change when multiple trees
-            *is_augmented = true;
-            Augment(edge_min_slack);
-            return false;
-        }
+    if (root->TopBlossom().tree == nullptr) {
+        throw std::runtime_error("In Tree::MakePrimalUpdates: we are in the deleted tree");
     }
 
-    Node *expandable_blossom = ExpandableBlossom();
+    bool success = true;
+    while (success) {
+        // TODO experiment with the order of the operations
 
-    if (expandable_blossom == nullptr) {
-        return false;
+        EdgeWeighted *augmentable_edge = AugmentableEdge();
+        if (augmentable_edge) {
+            Tree *other = Augment(*augmentable_edge);
+            return other;
+        }
+
+        EdgeWeighted *growable_edge = GrowableEdge();
+        if (growable_edge) {
+            Grow(*growable_edge);
+            continue;
+        }
+
+        EdgeWeighted *shrinkable_edge = ShrinkableEdge();
+        if (shrinkable_edge) {
+            Shrink(*shrinkable_edge);
+            continue;
+        }
+
+        Node *expandable_blossom = ExpandableBlossom();
+        if (expandable_blossom) {
+            Expand(*expandable_blossom);
+            continue;
+        }
+
+        success = false;
     }
 
-    Expand(*expandable_blossom);
-    return true;
+    return nullptr;
 }
 
-void Tree::MakeDualUpdate() {
-    // TODO this will change with multiple trees
-
-    EdgeWeighted &edge_min_slack = MinSlackEdgeFromPlus();
-    const Node *blossom_min_var = MinYMinusBlossom();
-
-    int increment_quadrupled = INT32_MAX;
-    if (blossom_min_var) {
-        increment_quadrupled = blossom_min_var->DualVariableQuadrupled();
-    }
-
-    auto [first, second] = edge_min_slack.Endpoints();
-    if ((first.tree == this) && (second.tree == this) && (first.plus) && (second.plus)) {
-        if (edge_min_slack.slack_quadrupled % 2 != 0) {
-            throw std::runtime_error("In MakeDualUpdate: a ++ edge with odd quadrupled slack");
-        }
-
-        if (increment_quadrupled > edge_min_slack.slack_quadrupled / 2) {
-            increment_quadrupled = edge_min_slack.slack_quadrupled / 2;
-        }
-    } else {
-        if (increment_quadrupled > edge_min_slack.slack_quadrupled) {
-            increment_quadrupled = edge_min_slack.slack_quadrupled;
-        }
-    }
-
-    ChangeDualVariables(increment_quadrupled);
-}
+// void Tree::MakeDualUpdate() {
+//     // TODO this will change with multiple trees
+//
+//     EdgeWeighted &edge_min_slack = MinSlackEdgeFromPlus();
+//     const Node *blossom_min_var = MinYMinusBlossom();
+//
+//     int increment_quadrupled = INT32_MAX;
+//     if (blossom_min_var) {
+//         increment_quadrupled = blossom_min_var->DualVariableQuadrupled();
+//     }
+//
+//     auto [first, second] = edge_min_slack.Endpoints();
+//     if ((first.tree == this) && (second.tree == this) && (first.plus) && (second.plus)) {
+//         if (edge_min_slack.slack_quadrupled % 2 != 0) {
+//             throw std::runtime_error("In MakeDualUpdate: a ++ edge with odd quadrupled slack");
+//         }
+//
+//         if (increment_quadrupled > edge_min_slack.slack_quadrupled / 2) {
+//             increment_quadrupled = edge_min_slack.slack_quadrupled / 2;
+//         }
+//     } else {
+//         if (increment_quadrupled > edge_min_slack.slack_quadrupled) {
+//             increment_quadrupled = edge_min_slack.slack_quadrupled;
+//         }
+//     }
+//
+//     ChangeDualVariables(increment_quadrupled);
+// }
 
 void Tree::DissolveTree() {
     // clears the tree structure from the nodes
@@ -275,28 +320,32 @@ Node &Tree::LCA(const EdgeWeighted &edge_plus_plus) const {
     return root_blossom;
 }
 
-/*void Tree::AugmentFromNode(Node &vertex) {
+void Tree::AugmentFromNode(Node &vertex) {
+    // std::cout << "augment from node " << vertex.index << std::endl;
+
+    if (vertex.tree != this) {
+        throw std::runtime_error("In Tree::AugmentFromNode: vertex is not in this tree");
+    }
+
     bool match = false;
     const std::vector<EdgeWeighted *> path = PathToRoot(vertex);
     for (EdgeWeighted *edge_from_path : path) {
         if (match) {
             Node::MakeMatched(*edge_from_path);
+            // std::cout << "make matched " << edge_from_path->ElementaryEndpoints().first.index << " " << edge_from_path->
+            //     ElementaryEndpoints().second.index << std::endl;
         } else {
             Node::MakeUnmatched(*edge_from_path);
+            // std::cout << "make unmatched " << edge_from_path->ElementaryEndpoints().first.index << " " << edge_from_path
+            //     ->ElementaryEndpoints().second.index << std::endl;
         }
         match = !match;
     }
 
     DissolveTree();
-}*/
+}
 
-EdgeWeighted &Tree::MinSlackEdgeFromPlus() const {
-    // returns a (+, smth) edge with minimal slack that is not an edge in the tree
-    // TODO refactor into min slack edges of different types
-
-    int min_slack = INT32_MAX;
-    EdgeWeighted *min_slack_edge = nullptr;
-
+EdgeWeighted *Tree::GrowableEdge() const {
     std::queue<Node *> queue;
     queue.push(&root->TopBlossom());
     while (!queue.empty()) {
@@ -305,17 +354,33 @@ EdgeWeighted &Tree::MinSlackEdgeFromPlus() const {
 
         if (node->plus) {
             for (EdgeWeighted *edge : node->neighbors) {
-                if ((edge->OtherEnd(*node).minus) && (edge->OtherEnd(*node).tree == this)) {
-                    // this is a (+, -) edge inside the tree
-                    continue;
+                if ((edge->slack_quadrupled == 0) && (edge->OtherEnd(*node).tree == nullptr)) {
+                    return edge;
                 }
+            }
+        }
 
-                if (edge->slack_quadrupled < min_slack) {
-                    min_slack = edge->slack_quadrupled;
-                    min_slack_edge = edge;
+        for (const EdgeWeighted *child : node->tree_children) {
+            queue.push(&child->OtherEnd(*node));
+        }
+    }
 
-                    if (min_slack == 0) {
-                        return *min_slack_edge;
+    return nullptr;
+}
+
+EdgeWeighted *Tree::AugmentableEdge() const {
+    std::queue<Node *> queue;
+    queue.push(&root->TopBlossom());
+    while (!queue.empty()) {
+        const Node *node = queue.front();
+        queue.pop();
+
+        if (node->plus) {
+            for (EdgeWeighted *edge : node->neighbors) {
+                if (edge->slack_quadrupled == 0) {
+                    Node &other_end = edge->OtherEnd(*node);
+                    if ((other_end.tree != this) && (other_end.plus) && (other_end.tree != nullptr)) {
+                        return edge;
                     }
                 }
             }
@@ -326,11 +391,33 @@ EdgeWeighted &Tree::MinSlackEdgeFromPlus() const {
         }
     }
 
-    if (!min_slack_edge) {
-        throw std::runtime_error("No perfect matching exists (In MinSlackEdgeFromPlus: edge from plus not found)");
+    return nullptr;
+}
+
+EdgeWeighted *Tree::ShrinkableEdge() const {
+    std::queue<Node *> queue;
+    queue.push(&root->TopBlossom());
+    while (!queue.empty()) {
+        const Node *node = queue.front();
+        queue.pop();
+
+        if (node->plus) {
+            for (EdgeWeighted *edge : node->neighbors) {
+                if (edge->slack_quadrupled == 0) {
+                    Node &other_end = edge->OtherEnd(*node);
+                    if ((other_end.tree == this) && (other_end.plus)) {
+                        return edge;
+                    }
+                }
+            }
+        }
+
+        for (const EdgeWeighted *child : node->tree_children) {
+            queue.push(&child->OtherEnd(*node));
+        }
     }
 
-    return *min_slack_edge;
+    return nullptr;
 }
 
 Node *Tree::ExpandableBlossom() {
@@ -343,7 +430,7 @@ Node *Tree::ExpandableBlossom() {
         Node *node = queue.front();
         queue.pop();
 
-        if ((node->minus) && (node->index == -1) && (node->DualVariableQuadrupled() == 0)) {
+        if ((node->minus) && (!node->blossom_children.empty()) && (node->DualVariableQuadrupled() == 0)) {
             return node;
         }
 
@@ -353,32 +440,6 @@ Node *Tree::ExpandableBlossom() {
     }
 
     return nullptr;
-}
-
-Node *Tree::MinYMinusBlossom() const {
-    // returns a blossom that is a minus and has minimal dual variable
-    // if there are no minus blossoms, returns nullptr
-
-    Node *answer = nullptr;
-    int min_variable = INT32_MAX;
-
-    std::queue<Node *> queue;
-    queue.push(&root->TopBlossom());
-    while (!queue.empty()) {
-        Node *node = queue.front();
-        queue.pop();
-
-        if ((node->minus) && (node->index == -1) && (node->DualVariableQuadrupled() < min_variable)) {
-            min_variable = node->DualVariableQuadrupled();
-            answer = node;
-        }
-
-        for (const EdgeWeighted *child : node->tree_children) {
-            queue.push(&child->OtherEnd(*node));
-        }
-    }
-
-    return answer;
 }
 
 void Tree::ChangeDualVariables(const int increment) const {
@@ -398,4 +459,145 @@ void Tree::ChangeDualVariables(const int increment) const {
             queue.push(&child->OtherEnd(*node));
         }
     }
+}
+
+int Tree::PlusEmptySlack() const {
+    // returns the minimal quadrupled slack of a (+, empty) edge
+
+    if (root->TopBlossom().tree == nullptr) {
+        throw std::runtime_error("In Tree::MakePrimalUpdates: we are in the deleted tree");
+    }
+
+    int answer = INT32_MAX;
+
+    std::queue<Node *> queue;
+    queue.push(&root->TopBlossom());
+    while (!queue.empty()) {
+        const Node *node = queue.front();
+        queue.pop();
+
+        if (node->plus) {
+            for (EdgeWeighted *edge : node->neighbors) {
+                if ((edge->slack_quadrupled < answer) && (edge->OtherEnd(*node).tree == nullptr)) {
+                    answer = edge->slack_quadrupled;
+                }
+            }
+        }
+
+        for (const EdgeWeighted *child : node->tree_children) {
+            queue.push(&child->OtherEnd(*node));
+        }
+    }
+
+    return answer;
+}
+
+int Tree::PlusPlusExternalSlack() const {
+    // returns the minimal quadrupled slack of a (+, +) edge, where the other vertex is in another tree
+    int answer = INT32_MAX;
+
+    std::queue<Node *> queue;
+    queue.push(&root->TopBlossom());
+    while (!queue.empty()) {
+        const Node *node = queue.front();
+        queue.pop();
+
+        if (node->plus) {
+            for (EdgeWeighted *edge : node->neighbors) {
+                if (edge->slack_quadrupled < answer) {
+                    Node &other_end = edge->OtherEnd(*node);
+                    if ((other_end.tree != this) && (other_end.plus) && (other_end.tree != nullptr)) {
+                        answer = edge->slack_quadrupled;
+                    }
+                }
+            }
+        }
+
+        for (const EdgeWeighted *child : node->tree_children) {
+            queue.push(&child->OtherEnd(*node));
+        }
+    }
+
+    return answer;
+}
+
+int Tree::PlusPlusInternalSlack() const {
+    // returns the minimal quadrupled slack of a (+, +) edge, where the other vertex is in the same tree
+    int answer = INT32_MAX;
+
+    std::queue<Node *> queue;
+    queue.push(&root->TopBlossom());
+    while (!queue.empty()) {
+        const Node *node = queue.front();
+        queue.pop();
+
+        if (node->plus) {
+            for (EdgeWeighted *edge : node->neighbors) {
+                if (edge->slack_quadrupled < answer) {
+                    Node &other_end = edge->OtherEnd(*node);
+                    if ((other_end.tree == this) && (other_end.plus)) {
+                        answer = edge->slack_quadrupled;
+                    }
+                }
+            }
+        }
+
+        for (const EdgeWeighted *child : node->tree_children) {
+            queue.push(&child->OtherEnd(*node));
+        }
+    }
+
+    return answer;
+}
+
+int Tree::PlusMinusExternalSlack() const {
+    // returns the minimal quadrupled slack of a (+, -) edge, where the other vertex is in another tree
+    int answer = INT32_MAX;
+
+    std::queue<Node *> queue;
+    queue.push(&root->TopBlossom());
+    while (!queue.empty()) {
+        const Node *node = queue.front();
+        queue.pop();
+
+        if (node->plus) {
+            for (EdgeWeighted *edge : node->neighbors) {
+                if (edge->slack_quadrupled < answer) {
+                    Node &other_end = edge->OtherEnd(*node);
+                    if ((other_end.tree != this) && (other_end.minus)) {
+                        answer = edge->slack_quadrupled;
+                    }
+                }
+            }
+        }
+
+        for (const EdgeWeighted *child : node->tree_children) {
+            queue.push(&child->OtherEnd(*node));
+        }
+    }
+
+    return answer;
+}
+
+int Tree::MinMinusBlossomVariable() const {
+    // returns the minimum quadrupled dual variable of a (-) non-elementary blossom
+
+    int answer = INT32_MAX;
+
+    std::queue<Node *> queue;
+    queue.push(&root->TopBlossom());
+    while (!queue.empty()) {
+        Node *node = queue.front();
+        queue.pop();
+
+        if ((node->minus) && (!node->blossom_children.empty()) && (node->DualVariableQuadrupled() < answer)) {
+            answer = node->DualVariableQuadrupled();
+        }
+
+        for (const EdgeWeighted *child : node->tree_children) {
+            queue.push(&child->OtherEnd(*node));
+        }
+    }
+
+    return answer;
 }
