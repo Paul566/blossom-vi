@@ -6,15 +6,15 @@
 #include <vector>
 
 #include "Node.h"
+#include "Tree.h"
 
 class EdgeWeighted {
     public:
         const int weight;
         bool matched;
-        int slack_quadrupled;
 
         EdgeWeighted(Node &head_, Node &tail_, const int weight_) : weight(weight_), matched(false),
-                                                                    slack_quadrupled(4 * weight_) {
+                                                                    slack_quadrupled_amortized(4 * weight_) {
             head_stack.push_back(&head_);
             tail_stack.push_back(&tail_);
         }
@@ -23,6 +23,11 @@ class EdgeWeighted {
         EdgeWeighted(EdgeWeighted &&other) = delete;
         EdgeWeighted &operator=(const EdgeWeighted &other) = delete;
         EdgeWeighted &operator=(EdgeWeighted &&other) = delete;
+
+        int SlackQuadrupled() const {
+            return slack_quadrupled_amortized - head_stack.back()->DualVariableQuadrupled() -
+                tail_stack.back()->DualVariableQuadrupled();
+        }
 
         std::pair<Node &, Node &> Endpoints() const {
             return {*head_stack.back(), *tail_stack.back()};
@@ -79,6 +84,11 @@ class EdgeWeighted {
             if (vertex.blossom_parent == nullptr) {
                 throw std::runtime_error("EdgeWeighted::UpdateAfterShrink: vertex has no blossom parent");
             }
+            if (vertex.tree == nullptr) {
+                throw std::runtime_error("EdgeWeighted::UpdateAfterShrink: vertex is not in a tree");
+            }
+
+            slack_quadrupled_amortized -= vertex.DualVariableQuadrupled();
             if (&vertex == tail_stack.back()) {
                 tail_stack.push_back(vertex.blossom_parent);
                 return;
@@ -97,16 +107,19 @@ class EdgeWeighted {
         void UpdateAfterDissolve(const Node &vertex) {
             if (&vertex == tail_stack.back()) {
                 tail_stack.pop_back();
+                slack_quadrupled_amortized += tail_stack.back()->DualVariableQuadrupled();
                 return;
             }
             if (&vertex == head_stack.back()) {
                 head_stack.pop_back();
+                slack_quadrupled_amortized += head_stack.back()->DualVariableQuadrupled();
                 return;
             }
             throw std::runtime_error("EdgeWeighted::UpdateAfterDissolve: vertex is not on top of either stack");
         }
 
     private:
+        int slack_quadrupled_amortized;
         std::vector<Node *> head_stack;
         std::vector<Node *> tail_stack;
         // stack tops: current top blossoms or children of the blossom that contains this edge

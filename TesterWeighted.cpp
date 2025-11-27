@@ -18,7 +18,10 @@ void TesterWeighted::RunRandomCliques(int num_vertices, int weight_min, int weig
     init_times.reserve(num_iter);
 
     for (int i = 0; i < num_iter; ++i) {
-        std::cout << "iter " << i << std::endl;
+        std::cout << "------------------------------------------------------------\niter " << i << std::endl;
+        if (i == 95) {
+            std::cout << "a;ldsfj" << std::endl;
+        }
 
         std::vector<std::tuple<int, int, int> > edge_list = RandomCliqueFixedSize(num_vertices, weight_min, weight_max);
 
@@ -78,17 +81,17 @@ void TesterWeighted::Verify(const std::vector<std::tuple<int, int, int> > &edge_
     std::vector<std::vector<std::pair<int, int> > > adj_list = AdjList(edge_list);
 
     if (!IsPerfectMatching(adj_list, matching)) {
-        solver.PrintElementaryAdjList();
+        solver.PrintGraph();
         throw std::runtime_error("Not a perfect matching");
     }
 
     if (!IsCorrectDualSolution(adj_list, dual_solution)) {
-        solver.PrintElementaryAdjList();
+        solver.PrintGraph();
         throw std::runtime_error("Not a correct dual solution");
     }
 
     if (4 * PrimalObjective(adj_list, matching) != QuadrupledDualObjective(adj_list, dual_solution)) {
-        solver.PrintElementaryAdjList();
+        solver.PrintGraph();
         throw std::runtime_error("The dual objective is not equal the primal objective");
     }
 }

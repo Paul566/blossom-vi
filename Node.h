@@ -10,6 +10,7 @@ class Tree;
 class Node {
     public:
         const int index; // >=n if it is a supernode (blossom)
+        int dual_var_quadrupled_amortized;
         std::vector<EdgeWeighted *> neighbors;
         EdgeWeighted *matched_edge;
 
@@ -27,7 +28,6 @@ class Node {
         Tree *tree;
 
         explicit Node(int index_);
-
         explicit Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_);
 
         Node(const Node &other) = delete;
@@ -35,27 +35,21 @@ class Node {
         Node &operator=(const Node &other) = delete;
         Node &operator=(Node &&other) = delete;
 
+        int DualVariableQuadrupled() const;
+
         Node &TopBlossom();
 
         void Dissolve();
-
         void RotateReceptacle(Node *new_receptacle) const;
-
-        int DualVariableQuadrupled() const;
-
-        void IncreaseDualVariableQuadrupled(int increment);
+        void ClearDuringTreeDissolve();
 
         static void MakeMatched(EdgeWeighted & edge);
-
         static void MakeUnmatched(EdgeWeighted & edge);
 
     private:
-        int dual_variable_quadrupled;
-
-        Node &SharedNode(const EdgeWeighted &first_edge, const EdgeWeighted &second_edge);
+        static Node &SharedNode(const EdgeWeighted &first_edge, const EdgeWeighted &second_edge);
 
         void UpdateInternalTreeStructure();
-
         void ClearInternalTreeStructure() const;
 };
 

@@ -4,12 +4,16 @@
 #include <list>
 #include <unordered_map>
 
-#include "EdgeWeighted.h"
-#include "Node.h"
+// #include "EdgeWeighted.h"
+// #include "Node.h"
+class EdgeWeighted;
+class Node;
 
 class Tree {
     public:
         Node *root; // must be an elementary vertex
+        // TODO maybe the top blossom of the root makes more sense here
+        int dual_var_quadrupled;
 
         Tree(Node *root_,
              std::list<Node> *blossom_storage_,
@@ -24,8 +28,6 @@ class Tree {
         void PrintTree();
 
         Tree *MakePrimalUpdates();
-
-        void ChangeDualVariables(int increment) const;
 
         int PlusEmptySlack() const;
 
@@ -43,21 +45,15 @@ class Tree {
         std::unordered_map<Node *, std::list<Node>::iterator> *iter_to_self;
 
         void Grow(EdgeWeighted &edge);
-
-        void Shrink(EdgeWeighted &edge_plus_plus) const;
-
+        void Shrink(EdgeWeighted &edge_plus_plus) const;    // TODO maybe remove/tie parallel edges after shrinking
         void Expand(Node &blossom) const;
-
         Tree *Augment(EdgeWeighted &edge);
 
         void AugmentFromNode(Node &vertex);
 
         EdgeWeighted *GrowableEdge() const;
-
         EdgeWeighted *AugmentableEdge() const;
-
         EdgeWeighted *ShrinkableEdge() const;
-
         Node *ExpandableBlossom();
 
         Node &LCA(const EdgeWeighted &edge_plus_plus) const;

@@ -4,9 +4,10 @@
 #include <unordered_set>
 
 #include "EdgeWeighted.h"
+#include "Tree.h"
 
 Node::Node(const int index_) : index(index_) {
-    dual_variable_quadrupled = 0;
+    dual_var_quadrupled_amortized = 0;
     blossom_parent = nullptr;
     matched_edge = nullptr;
     tree_parent = nullptr;
@@ -24,7 +25,6 @@ Node::Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_) : index
         throw std::runtime_error("In Node: blossom has to have an odd number of vertices");
     }
 
-    dual_variable_quadrupled = 0;
     blossom_parent = nullptr;
     plus = true; // after Shrink, we must be a plus
     minus = false;
@@ -44,12 +44,17 @@ Node::Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_) : index
         cur_vertex->blossom_brother_anticlockwise = edge;
     }
 
-    // update the blossom_parent of the children
+    // update blossom_parent and dual_var_quadrupled_amortized of the children
     for (Node *vertex : blossom_children) {
         if (vertex->blossom_parent) {
             throw std::runtime_error("In Node: some child node already has a parent");
         }
         vertex->blossom_parent = this;
+        if (vertex->plus) {
+            vertex->dual_var_quadrupled_amortized += vertex->tree->dual_var_quadrupled;
+        } else {
+            vertex->dual_var_quadrupled_amortized -= vertex->tree->dual_var_quadrupled;
+        }
     }
 
     std::unordered_set<Node *> blossom_set;
@@ -99,6 +104,9 @@ Node::Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_) : index
             throw std::runtime_error("In Node: not all the vertices have the same tree_root");
         }
     }
+
+    dual_var_quadrupled_amortized = -tree->dual_var_quadrupled;
+    // the true dual variable must be zero
 }
 
 Node &Node::TopBlossom() {
@@ -124,6 +132,14 @@ void Node::Dissolve() {
 
     if (tree) {
         UpdateInternalTreeStructure();
+        for (Node * child : blossom_children) {
+            if (child->plus) {
+                child->dual_var_quadrupled_amortized -= tree->dual_var_quadrupled;
+            }
+            if (child->minus) {
+                child->dual_var_quadrupled_amortized += tree->dual_var_quadrupled;
+            }
+        }
     } else {
         ClearInternalTreeStructure();
     }
@@ -166,19 +182,32 @@ void Node::RotateReceptacle(Node *new_receptacle) const {
 }
 
 int Node::DualVariableQuadrupled() const {
-    return dual_variable_quadrupled;
+    if (tree == nullptr) {
+        return dual_var_quadrupled_amortized;
+    }
+    if (blossom_parent) {
+        return dual_var_quadrupled_amortized;
+    }
+    if (plus) {
+        return dual_var_quadrupled_amortized + tree->dual_var_quadrupled;
+    }
+    return dual_var_quadrupled_amortized - tree->dual_var_quadrupled;
 }
 
-void Node::IncreaseDualVariableQuadrupled(const int increment) {
+void Node::ClearDuringTreeDissolve() {
     if (blossom_parent) {
-        throw std::runtime_error("In IncreaseDualVariableQuadrupled: the vertex is not a top blossom");
+        throw std::runtime_error("ClearDuringTreeDissolve can only be called for top blossoms");
     }
-
-    dual_variable_quadrupled += increment;
-
-    for (EdgeWeighted *edge : neighbors) {
-        edge->slack_quadrupled -= increment;
+    if (plus) {
+        dual_var_quadrupled_amortized += tree->dual_var_quadrupled;
+    } else {
+        dual_var_quadrupled_amortized -= tree->dual_var_quadrupled;
     }
+    tree = nullptr;
+    tree_children.clear();
+    tree_parent = nullptr;
+    plus = false;
+    minus = false;
 }
 
 Node &Node::SharedNode(const EdgeWeighted &first_edge, const EdgeWeighted &second_edge) {

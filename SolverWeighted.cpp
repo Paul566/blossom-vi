@@ -74,13 +74,34 @@ void SolverWeighted::FindMinPerfectMatching() {
     }
 }
 
-void SolverWeighted::PrintElementaryAdjList() const {
+void SolverWeighted::PrintGraph() const {
     std::cout << "Adjacency list (to, weight, slack, matched):" << std::endl;
     for (const Node &vertex : elementary_nodes_list) {
-        std::cout << vertex.index << ": y_v = " << vertex.DualVariableQuadrupled() / 4. << ", ";
+        std::cout << vertex.index << ": y_v = " << vertex.DualVariableQuadrupled() / 4.;
+        if (vertex.blossom_parent) {
+            std::cout << " blossom_parent: " << vertex.blossom_parent->index << std::endl;
+            continue;
+        }
         for (const EdgeWeighted *edge : vertex.neighbors) {
-            std::cout << "(" << edge->OtherElementaryEnd(vertex).index << ", " << edge->weight << ", " << edge->
-                slack_quadrupled / 4. << ", " << edge->matched << ") ";
+            std::cout << " (" << edge->OtherEnd(vertex).index << ", " << edge->weight << ", " << edge->
+                SlackQuadrupled() / 4. << ", " << edge->matched << ")";
+        }
+        std::cout << std::endl;
+    }
+    for (const Node &vertex : blossoms) {
+        std::cout << vertex.index << ": y_v = " << vertex.DualVariableQuadrupled() / 4. << ", blossom_children: ";
+        for (const Node * child : vertex.blossom_children) {
+            std::cout << child->index << " ";
+        }
+
+        if (vertex.blossom_parent) {
+            std::cout << "blossom_parent: " << vertex.blossom_parent->index << std::endl;
+            continue;
+        }
+
+        for (const EdgeWeighted *edge : vertex.neighbors) {
+            std::cout << "(" << edge->OtherEnd(vertex).index << ", " << edge->weight << ", " << edge->
+                SlackQuadrupled() / 4. << ", " << edge->matched << ") ";
         }
         std::cout << std::endl;
     }
@@ -100,7 +121,7 @@ void SolverWeighted::GreedyInit() {
             }
         }
 
-        vertex.IncreaseDualVariableQuadrupled(min_weight * 2);
+        vertex.dual_var_quadrupled_amortized += min_weight * 2;
     }
 
     for (Node &vertex : elementary_nodes_list) {
@@ -110,13 +131,13 @@ void SolverWeighted::GreedyInit() {
 
         EdgeWeighted *smallest_slack_edge = vertex.neighbors.front();
         for (EdgeWeighted *edge : vertex.neighbors) {
-            if (edge->slack_quadrupled < smallest_slack_edge->slack_quadrupled) {
+            if (edge->SlackQuadrupled() < smallest_slack_edge->SlackQuadrupled()) {
                 smallest_slack_edge = edge;
             }
         }
 
-        const int smallest_slack_quadrupled = smallest_slack_edge->slack_quadrupled;
-        vertex.IncreaseDualVariableQuadrupled(smallest_slack_quadrupled);
+        const int smallest_slack_quadrupled = smallest_slack_edge->SlackQuadrupled();
+        vertex.dual_var_quadrupled_amortized += smallest_slack_quadrupled;
 
         if (!smallest_slack_edge->OtherEnd(vertex).matched_edge) {
             // if the other vertex is also unmatched, match the edge
@@ -257,12 +278,12 @@ void SolverWeighted::MakeDualUpdates() {
     }
 
     for (Tree & tree : trees) {
-        tree.ChangeDualVariables(delta);
+        tree.dual_var_quadrupled += delta;
     }
 
     if (params.verbose) {
         std::cout << "after dual update:" << std::endl;
-        PrintElementaryAdjList();
+        PrintGraph();
     }
 
     if (delta == 0) {
@@ -275,7 +296,7 @@ void SolverWeighted::MakePrimalUpdates() {
 
     if (params.verbose) {
         std::cout << "making primal updates" << std::endl;
-        PrintElementaryAdjList();
+        PrintGraph();
         std::cout << "trees before:" << std::endl;
         for (Tree & tree : trees) {
             tree.PrintTree();
@@ -285,6 +306,10 @@ void SolverWeighted::MakePrimalUpdates() {
 
     auto it = trees.begin();
     while (it != trees.end()) {
+        if (params.verbose) {
+            PrintGraph();
+        }
+
         auto next_it = std::next(it);
 
         Tree * augmented_tree = it->MakePrimalUpdates();
@@ -302,7 +327,7 @@ void SolverWeighted::MakePrimalUpdates() {
 
     if (params.verbose) {
         std::cout << "state after:" << std::endl;
-        PrintElementaryAdjList();
+        PrintGraph();
         std::cout << "trees after:" << std::endl;
         for (Tree & tree : trees) {
             tree.PrintTree();

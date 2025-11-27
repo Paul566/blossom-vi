@@ -24,7 +24,7 @@ class SolverWeighted {
 
         void FindMinPerfectMatching();
 
-        void PrintElementaryAdjList() const;
+        void PrintGraph() const;
 
         std::vector<std::pair<int, int> > Matching() const;
 
@@ -32,9 +32,9 @@ class SolverWeighted {
         // (index, quadrupled dual variable, index of the blossom parent or -1)
 
     private:
-        std::list<Node> elementary_nodes_list; // never reallocated after initialization
+        std::list<Node> elementary_nodes_list;
         std::vector<std::list<Node>::iterator> elementary_iters;
-        std::list<EdgeWeighted> edges; // never reallocated after initialization
+        std::list<EdgeWeighted> edges;
         std::list<Node> blossoms;
         std::unordered_map<Node *, std::list<Node>::iterator> iter_to_blossom;
         std::list<Tree> trees;
