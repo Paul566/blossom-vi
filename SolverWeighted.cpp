@@ -40,7 +40,7 @@ void SolverWeighted::FindMinPerfectMatching() {
 
     // initialize trees
     for (Node &root : elementary_nodes_list) {
-        if (root.matched_edge) {
+        if (root.IsMatched()) {
             continue;
         }
         trees.emplace_back(&root, &blossoms, &iter_to_blossom, static_cast<int>(elementary_nodes_list.size()));
@@ -77,87 +77,22 @@ void SolverWeighted::FindMinPerfectMatching() {
 void SolverWeighted::PrintGraph() const {
     std::cout << "Adjacency list (to, weight, slack, matched):" << std::endl;
     for (const Node &vertex : elementary_nodes_list) {
-        std::cout << vertex.index << ": y_v = " << vertex.DualVariableQuadrupled() / 4.;
-        if (vertex.blossom_parent) {
-            std::cout << " blossom_parent: " << vertex.blossom_parent->index << std::endl;
-            continue;
-        }
-        for (const EdgeWeighted *edge : vertex.neighbors) {
-            std::cout << " (" << edge->OtherEnd(vertex).index << ", " << edge->weight << ", " << edge->
-                SlackQuadrupled() / 4. << ", " << edge->matched << ")";
-        }
-        std::cout << std::endl;
+        vertex.PrintNode();
     }
     for (const Node &vertex : blossoms) {
-        std::cout << vertex.index << ": y_v = " << vertex.DualVariableQuadrupled() / 4. << ", blossom_children: ";
-        for (const Node * child : vertex.blossom_children) {
-            std::cout << child->index << " ";
-        }
-
-        if (vertex.blossom_parent) {
-            std::cout << "blossom_parent: " << vertex.blossom_parent->index << std::endl;
-            continue;
-        }
-
-        for (const EdgeWeighted *edge : vertex.neighbors) {
-            std::cout << "(" << edge->OtherEnd(vertex).index << ", " << edge->weight << ", " << edge->
-                SlackQuadrupled() / 4. << ", " << edge->matched << ") ";
-        }
-        std::cout << std::endl;
+        vertex.PrintNode();
     }
 }
 
 void SolverWeighted::GreedyInit() {
     // first, make all the slacks non-negative
     for (Node &vertex : elementary_nodes_list) {
-        if (vertex.neighbors.empty()) {
-            continue;
-        }
-
-        int min_weight = vertex.neighbors.front()->weight;
-        for (const EdgeWeighted *edge : vertex.neighbors) {
-            if (edge->weight < min_weight) {
-                min_weight = edge->weight;
-            }
-        }
-
-        vertex.dual_var_quadrupled_amortized += min_weight * 2;
+        vertex.MakeSlackNonnegativeInInit();
     }
 
     for (Node &vertex : elementary_nodes_list) {
-        if ((vertex.matched_edge) || (vertex.neighbors.empty())) {
-            continue;
-        }
-
-        EdgeWeighted *smallest_slack_edge = vertex.neighbors.front();
-        for (EdgeWeighted *edge : vertex.neighbors) {
-            if (edge->SlackQuadrupled() < smallest_slack_edge->SlackQuadrupled()) {
-                smallest_slack_edge = edge;
-            }
-        }
-
-        const int smallest_slack_quadrupled = smallest_slack_edge->SlackQuadrupled();
-        vertex.dual_var_quadrupled_amortized += smallest_slack_quadrupled;
-
-        if (!smallest_slack_edge->OtherEnd(vertex).matched_edge) {
-            // if the other vertex is also unmatched, match the edge
-            smallest_slack_edge->matched = true;
-            vertex.matched_edge = smallest_slack_edge;
-            smallest_slack_edge->OtherEnd(vertex).matched_edge = smallest_slack_edge;
-        }
+        vertex.InitVarGreedily();
     }
-}
-
-std::vector<int> SolverWeighted::RootIndices() const {
-    std::vector<int> roots;
-
-    for (const Node &node : elementary_nodes_list) {
-        if (!node.matched_edge) {
-            roots.push_back(node.index);
-        }
-    }
-
-    return roots;
 }
 
 int SolverWeighted::OptimalSingleDelta() const {
@@ -261,7 +196,7 @@ void SolverWeighted::ComputeDualCertificate() {
     for (Node &blossom : blossoms) {
         dual_certificate.emplace_back(index, blossom.DualVariableQuadrupled(), -1);
         vtx_to_index[&blossom] = index;
-        for (Node *child : blossom.blossom_children) {
+        for (Node *child : blossom.BlossomChildren()) {
             std::get<2>(dual_certificate[vtx_to_index[child]]) = index;
         }
         ++index;
@@ -343,7 +278,7 @@ void SolverWeighted::DestroyBlossoms() {
 
     // TODO maybe assert that we are really going top down
     for (auto it = blossoms.rbegin(); it != blossoms.rend(); ++it) {
-        if (it->blossom_parent) {
+        if (!it->IsTopBlossom()) {
             throw std::runtime_error("In SolverWeighted::RotateMatchingInsideBlossoms: not going top down");
         }
 

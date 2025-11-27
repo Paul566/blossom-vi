@@ -56,11 +56,7 @@ class Tree {
         EdgeWeighted *ShrinkableEdge() const;
         Node *ExpandableBlossom();
 
-        Node &LCA(const EdgeWeighted &edge_plus_plus) const;
-
         void DissolveTree();
-
-        static std::vector<EdgeWeighted *> PathToRoot(const Node &vertex);
 };
 
 #endif //TREE_H

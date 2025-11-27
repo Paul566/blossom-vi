@@ -60,8 +60,6 @@ class SolverWeighted {
 
         void GreedyInit();
 
-        std::vector<int> RootIndices() const;
-
         int OptimalSingleDelta() const;
 };
 

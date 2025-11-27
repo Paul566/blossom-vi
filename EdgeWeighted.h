@@ -81,20 +81,20 @@ class EdgeWeighted {
         }
 
         void UpdateAfterShrink(const Node &vertex) {
-            if (vertex.blossom_parent == nullptr) {
+            if (vertex.IsTopBlossom()) {
                 throw std::runtime_error("EdgeWeighted::UpdateAfterShrink: vertex has no blossom parent");
             }
-            if (vertex.tree == nullptr) {
+            if (!vertex.IsInSomeTree()) {
                 throw std::runtime_error("EdgeWeighted::UpdateAfterShrink: vertex is not in a tree");
             }
 
             slack_quadrupled_amortized -= vertex.DualVariableQuadrupled();
             if (&vertex == tail_stack.back()) {
-                tail_stack.push_back(vertex.blossom_parent);
+                tail_stack.push_back(vertex.BlossomParent());
                 return;
             }
             if (&vertex == head_stack.back()) {
-                head_stack.push_back(vertex.blossom_parent);
+                head_stack.push_back(vertex.BlossomParent());
                 return;
             }
 

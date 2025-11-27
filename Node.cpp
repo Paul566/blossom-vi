@@ -117,6 +117,105 @@ Node &Node::TopBlossom() {
     return *cur_vertex;
 }
 
+bool Node::IsInSomeTree() const {
+    return tree != nullptr;
+}
+
+bool Node::IsInThisTree(const Tree &tree_) const {
+    return tree == &tree_;
+}
+
+Tree *Node::TreeOf() const {
+    return tree;
+}
+
+bool Node::Plus() const {
+    if (plus && !IsInSomeTree()) {
+        throw std::runtime_error("In Node::Plus: incorrect state discovered");
+    }
+    return plus;
+}
+
+bool Node::Minus() const {
+    return minus;
+}
+
+bool Node::IsMatched() const {
+    return matched_edge != nullptr;
+}
+
+EdgeWeighted *Node::TreeParentEdge() const {
+    return tree_parent;
+}
+
+const std::vector<EdgeWeighted *> &Node::TreeChildren() const {
+    return tree_children;
+}
+
+Node *Node::BlossomParent() const {
+    return blossom_parent;
+}
+
+const std::vector<Node *> &Node::BlossomChildren() const {
+    return blossom_children;
+}
+
+std::vector<EdgeWeighted *> Node::PathToRoot() const {
+    if (!IsTopBlossom()) {
+        throw std::runtime_error("In Node::PathToRoot: vertex is not a top blossom");
+    }
+    if (!IsInSomeTree()) {
+        throw std::runtime_error("In Node::PathToRoot: vertex is not in a tree");
+    }
+
+    const Node *cur_vertex = this;
+    std::vector<EdgeWeighted *> path;
+    while (cur_vertex->tree_parent) {
+        auto [head, tail] = cur_vertex->tree_parent->Endpoints();
+        if (head.blossom_parent || tail.blossom_parent) {
+            if (head.blossom_parent != tail.blossom_parent) {
+                throw std::runtime_error("In PathToRoot: found an incorrect edge");
+            }
+        }
+
+        path.push_back(cur_vertex->tree_parent);
+        cur_vertex = &cur_vertex->tree_parent->OtherEnd(*cur_vertex);
+    }
+
+    return path;
+}
+
+Node &Node::LCA(Node &first, Node &second) {
+    // TODO can be made better
+
+    if (first.tree != second.tree) {
+        throw std::runtime_error("In LCA: first and second are in different trees");
+    }
+    if (!first.IsInSomeTree()) {
+        throw std::runtime_error("In LCA: node is not in any tree");
+    }
+
+    Node &root_blossom = first.tree->root->TopBlossom();
+    Node *first_ptr = &first;
+    Node *second_ptr = &second;
+
+    std::unordered_set<Node *> visited;
+    visited.insert(first_ptr);
+    while (first_ptr != &root_blossom) {
+        first_ptr = &first_ptr->tree_parent->OtherEnd(*first_ptr);
+        visited.insert(first_ptr);
+    }
+
+    while (second_ptr != &root_blossom) {
+        if (visited.contains(second_ptr)) {
+            return *second_ptr;
+        }
+        second_ptr = &second_ptr->tree_parent->OtherEnd(*second_ptr);
+    }
+
+    return root_blossom;
+}
+
 void Node::Dissolve() {
     if (blossom_children.empty()) {
         throw std::runtime_error("In Dissolve: can't dissolve an elementary vertex");
@@ -132,7 +231,7 @@ void Node::Dissolve() {
 
     if (tree) {
         UpdateInternalTreeStructure();
-        for (Node * child : blossom_children) {
+        for (Node *child : blossom_children) {
             if (child->plus) {
                 child->dual_var_quadrupled_amortized -= tree->dual_var_quadrupled;
             }
@@ -150,7 +249,7 @@ void Node::Dissolve() {
         child->blossom_parent = nullptr;
     }
 
-    for (EdgeWeighted * edge : neighbors) {
+    for (EdgeWeighted *edge : neighbors) {
         edge->UpdateAfterDissolve(*this);
     }
 }
@@ -178,7 +277,39 @@ void Node::RotateReceptacle(Node *new_receptacle) const {
     }
     MakeUnmatched(*new_receptacle->blossom_brother_anticlockwise);
 
-    new_receptacle->matched_edge = matched_edge;    // never a nullptr
+    new_receptacle->matched_edge = matched_edge; // never a nullptr
+}
+
+void Node::PrintNode() const {
+    if (IsElementary()) {
+        std::cout << index << ": y_v = " << DualVariableQuadrupled() / 4.;
+        if (!IsTopBlossom()) {
+            std::cout << " blossom_parent: " << blossom_parent->index << std::endl;
+            return;
+        }
+        for (const EdgeWeighted *edge : neighbors) {
+            std::cout << " (" << edge->OtherEnd(*this).index << ", " << edge->weight << ", " << edge->
+                SlackQuadrupled() / 4. << ", " << edge->matched << ")";
+        }
+        std::cout << std::endl;
+        return;
+    }
+
+    std::cout << index << ": y_v = " << DualVariableQuadrupled() / 4. << ", blossom_children: ";
+    for (const Node *child : blossom_children) {
+        std::cout << child->index << " ";
+    }
+
+    if (!IsTopBlossom()) {
+        std::cout << "blossom_parent: " << blossom_parent->index << std::endl;
+        return;
+    }
+
+    for (const EdgeWeighted *edge : neighbors) {
+        std::cout << "(" << edge->OtherEnd(*this).index << ", " << edge->weight << ", " << edge->
+            SlackQuadrupled() / 4. << ", " << edge->matched << ") ";
+    }
+    std::cout << std::endl;
 }
 
 int Node::DualVariableQuadrupled() const {
@@ -192,6 +323,14 @@ int Node::DualVariableQuadrupled() const {
         return dual_var_quadrupled_amortized + tree->dual_var_quadrupled;
     }
     return dual_var_quadrupled_amortized - tree->dual_var_quadrupled;
+}
+
+bool Node::IsElementary() const {
+    return blossom_children.empty();
+}
+
+bool Node::IsTopBlossom() const {
+    return blossom_parent == nullptr;
 }
 
 void Node::ClearDuringTreeDissolve() {
@@ -208,6 +347,74 @@ void Node::ClearDuringTreeDissolve() {
     tree_parent = nullptr;
     plus = false;
     minus = false;
+}
+
+void Node::MakeRootOfTree(Tree &tree_) {
+    plus = true;
+    tree = &tree_;
+}
+
+void Node::MakeATreeChild(EdgeWeighted &edge_to_parent) {
+    Node &parent = edge_to_parent.OtherEnd(*this);
+    parent.tree_children.push_back(&edge_to_parent);
+
+    tree_parent = &edge_to_parent;
+    tree = parent.tree;
+    minus = true;
+    plus = false;
+    dual_var_quadrupled_amortized += tree->dual_var_quadrupled;
+    tree_children = {matched_edge};
+
+    Node &grandchild = matched_edge->OtherEnd(*this);
+    grandchild.tree_parent = matched_edge;
+    grandchild.tree = tree;
+    grandchild.plus = true;
+    grandchild.minus = false;
+    grandchild.dual_var_quadrupled_amortized -= tree->dual_var_quadrupled;
+}
+
+void Node::MakeSlackNonnegativeInInit() {
+    // is called once for each vertex in GreedyInit
+
+    if (neighbors.empty()) {
+        throw std::runtime_error("Found an isolated vertex => no perfect matching exists");
+    }
+
+    int min_weight = neighbors.front()->weight;
+    for (const EdgeWeighted *edge : neighbors) {
+        if (edge->weight < min_weight) {
+            min_weight = edge->weight;
+        }
+    }
+
+    dual_var_quadrupled_amortized += min_weight * 2;
+}
+
+void Node::InitVarGreedily() {
+    // is called once for each vertex in GreedyInit
+
+    if (neighbors.empty()) {
+        throw std::runtime_error("Found an isolated vertex => no perfect matching exists");
+    }
+
+    if (IsMatched()) {
+        return;
+    }
+
+    EdgeWeighted *smallest_slack_edge = neighbors.front();
+    for (EdgeWeighted *edge : neighbors) {
+        if (edge->SlackQuadrupled() < smallest_slack_edge->SlackQuadrupled()) {
+            smallest_slack_edge = edge;
+        }
+    }
+
+    const int smallest_slack_quadrupled = smallest_slack_edge->SlackQuadrupled();
+    dual_var_quadrupled_amortized += smallest_slack_quadrupled;
+
+    if (!smallest_slack_edge->OtherEnd(*this).IsMatched()) {
+        // if the other vertex is also unmatched, match the edge
+        MakeMatched(*smallest_slack_edge);
+    }
 }
 
 Node &Node::SharedNode(const EdgeWeighted &first_edge, const EdgeWeighted &second_edge) {
@@ -236,11 +443,11 @@ void Node::UpdateInternalTreeStructure() {
     Node &elder_child = tree_parent->DeeperNode(*this);
     const Node &receptacle = matched_edge->DeeperNode(*this);
 
-    std::function next_edge = [] (const Node * current) -> EdgeWeighted * {
+    std::function next_edge = [](const Node *current) -> EdgeWeighted * {
         return current->blossom_brother_clockwise;
     };
     if (elder_child.blossom_brother_anticlockwise->matched) {
-        next_edge = [] (const Node * current) -> EdgeWeighted * {
+        next_edge = [](const Node *current) -> EdgeWeighted * {
             return current->blossom_brother_anticlockwise;
         };
     }
@@ -277,11 +484,10 @@ void Node::UpdateInternalTreeStructure() {
 
         cur_vertex = &next_edge(cur_vertex)->OtherEnd(*cur_vertex);
     }
-
 }
 
 void Node::ClearInternalTreeStructure() const {
-    for (Node * child_blossom : blossom_children) {
+    for (Node *child_blossom : blossom_children) {
         child_blossom->tree_parent = nullptr;
         child_blossom->tree = nullptr;
         child_blossom->tree_children.clear();
