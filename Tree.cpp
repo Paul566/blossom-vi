@@ -43,9 +43,13 @@ void Tree::Grow(EdgeWeighted &edge) {
     }
 
     child->MakeATreeChild(edge);
+
+    if (!child->IsElementary()) {
+        minus_blossoms.insert(child);
+    }
 }
 
-void Tree::Shrink(EdgeWeighted &edge_plus_plus) const {
+void Tree::Shrink(EdgeWeighted &edge_plus_plus) {
     auto endpoints = edge_plus_plus.Endpoints();
     Node *first = &endpoints.first;
     Node *second = &endpoints.second;
@@ -54,18 +58,23 @@ void Tree::Shrink(EdgeWeighted &edge_plus_plus) const {
 
     Node &lca = Node::LCA(*first, *second);
 
+    // also need to update the minus_blossoms
     std::vector<EdgeWeighted *> blossom_edges;
     while (first != &lca) {
         blossom_edges.push_back(first->TreeParentEdge());
         first = &first->TreeParentEdge()->OtherEnd(*first);
+        if (first->Minus() && !first->IsElementary()) {
+            minus_blossoms.erase(first);
+        }
     }
     std::reverse(blossom_edges.begin(), blossom_edges.end());
-
     blossom_edges.push_back(&edge_plus_plus);
-
     while (second != &lca) {
         blossom_edges.push_back(second->TreeParentEdge());
         second = &second->TreeParentEdge()->OtherEnd(*second);
+        if (second->Minus() && !second->IsElementary()) {
+            minus_blossoms.erase(second);
+        }
     }
 
     int next_blossom_index = num_elementary_nodes;
@@ -76,8 +85,8 @@ void Tree::Shrink(EdgeWeighted &edge_plus_plus) const {
     (*iter_to_self)[&blossom_storage->back()] = std::prev(blossom_storage->end());
 }
 
-void Tree::Expand(Node &blossom) const {
-    //std::cout << "expand" << std::endl;
+void Tree::Expand(Node &blossom) {
+    //std::cout << "Expand " << blossom.index << std::endl;
 
     if (!blossom.IsInThisTree(*this)) {
         throw std::runtime_error("In Tree::Expand: supervertex is not in this tree");
@@ -95,7 +104,18 @@ void Tree::Expand(Node &blossom) const {
         throw std::runtime_error("In Tree::Expand: the supervertex has to have zero dual variable");
     }
 
+    std::vector<Node *> children = blossom.BlossomChildren();
+
     blossom.Dissolve();
+
+    // update minus_blossoms
+    for (Node * child : children) {
+        if (child->Minus() && !child->IsElementary()) {
+            minus_blossoms.insert(child);
+        }
+    }
+    minus_blossoms.erase(&blossom);
+
     std::list<Node>::iterator it = (*iter_to_self)[&blossom];
     iter_to_self->erase(&blossom);
     blossom_storage->erase(it);
@@ -337,25 +357,16 @@ EdgeWeighted *Tree::ShrinkableEdge() const {
     return nullptr;
 }
 
-Node *Tree::ExpandableBlossom() {
+Node *Tree::ExpandableBlossom() const {
     // returns a blossom that is a minus and has zero dual variable
     // if there is no such blossom, returns nullptr
 
-    std::queue<Node *> queue;
-    queue.push(&root->TopBlossom());
-    while (!queue.empty()) {
-        Node *node = queue.front();
-        queue.pop();
-
-        if ((node->Minus()) && (!node->IsElementary()) && (node->DualVariableQuadrupled() == 0)) {
-            return node;
-        }
-
-        for (EdgeWeighted *child_edge : node->TreeChildren()) {
-            queue.push(&child_edge->OtherEnd(*node));
-        }
+    if (minus_blossoms.empty()) {
+        return nullptr;
     }
-
+    if ((*minus_blossoms.begin())->DualVariableQuadrupled() == 0) {
+        return *minus_blossoms.begin();
+    }
     return nullptr;
 }
 
@@ -480,22 +491,8 @@ int Tree::PlusMinusExternalSlack() const {
 int Tree::MinMinusBlossomVariable() const {
     // returns the minimum quadrupled dual variable of a (-) non-elementary blossom
 
-    int answer = INT32_MAX;
-
-    std::queue<Node *> queue;
-    queue.push(&root->TopBlossom());
-    while (!queue.empty()) {
-        Node *node = queue.front();
-        queue.pop();
-
-        if ((node->Minus()) && (!node->IsElementary()) && (node->DualVariableQuadrupled() < answer)) {
-            answer = node->DualVariableQuadrupled();
-        }
-
-        for (const EdgeWeighted *child : node->TreeChildren()) {
-            queue.push(&child->OtherEnd(*node));
-        }
+    if (minus_blossoms.empty()) {
+        return INT32_MAX;
     }
-
-    return answer;
+    return (*minus_blossoms.begin())->DualVariableQuadrupled();
 }

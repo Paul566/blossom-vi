@@ -8,6 +8,8 @@
 SolverWeighted::SolverWeighted(const std::vector<std::tuple<int, int, int> > &edge_list_,
                                const SolverParams &params_) : primal_objective(INT64_MAX),
                                                               dual_objective(0), params{params_} {
+    // TODO try permuting nodes and edges
+
     // measure n
     int n = 0;
     for (const std::tuple<int, int, int> &edge : edge_list_) {
@@ -100,7 +102,7 @@ int SolverWeighted::OptimalSingleDelta() const {
 
     int delta = INT32_MAX;
 
-    for (const Tree & tree : trees) {
+    for (const Tree &tree : trees) {
         int plus_empty = tree.PlusEmptySlack();
         int plus_plus_external = tree.PlusPlusExternalSlack();
         int plus_plus_internal = tree.PlusPlusInternalSlack();
@@ -212,7 +214,7 @@ void SolverWeighted::MakeDualUpdates() {
         std::cout << "dual progress: " << delta << " number of trees: " << trees.size() << std::endl;
     }
 
-    for (Tree & tree : trees) {
+    for (Tree &tree : trees) {
         tree.dual_var_quadrupled += delta;
     }
 
@@ -229,11 +231,14 @@ void SolverWeighted::MakeDualUpdates() {
 void SolverWeighted::MakePrimalUpdates() {
     // makes primal updates for the whole collection of the trees
 
+    // TODO maybe do one update per tree in several rounds instead of maximal number of updates per tree in a single round
+    // TODO check if the sizes of the trees become imbalanced
+
     if (params.verbose) {
         std::cout << "making primal updates" << std::endl;
         PrintGraph();
         std::cout << "trees before:" << std::endl;
-        for (Tree & tree : trees) {
+        for (Tree &tree : trees) {
             tree.PrintTree();
             std::cout << std::endl;
         }
@@ -247,7 +252,7 @@ void SolverWeighted::MakePrimalUpdates() {
 
         auto next_it = std::next(it);
 
-        Tree * augmented_tree = it->MakePrimalUpdates();
+        Tree *augmented_tree = it->MakePrimalUpdates();
         if (augmented_tree) {
             if (next_it == iter_to_tree[augmented_tree]) {
                 next_it = std::next(next_it);
@@ -264,7 +269,7 @@ void SolverWeighted::MakePrimalUpdates() {
         std::cout << "state after:" << std::endl;
         PrintGraph();
         std::cout << "trees after:" << std::endl;
-        for (Tree & tree : trees) {
+        for (Tree &tree : trees) {
             tree.PrintTree();
             std::cout << std::endl;
         }

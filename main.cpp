@@ -239,7 +239,7 @@ void MeasureAllUnweighted(const std::string &directory_path, int init_type, bool
 int main() {
     // std::mt19937 gen(239);
     TesterWeighted tester(true, 239);
-    // tester.RunRandomCliques(4, 0, 5, 1000, true);
+    // tester.RunRandomCliques(8, 0, 5, 10000, true);
     tester.RunRandomCliques(100, -1000, 1000, 100, false);
 
     return 0;
