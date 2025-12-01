@@ -68,6 +68,7 @@ class Tree {
         std::set<Node *, NodeComparator> minus_blossoms;
         std::set<EdgeWeighted *, EdgeComparator> plus_empty_edges;
         std::set<EdgeWeighted *, EdgeComparator> plus_plus_internal_edges;
+        std::set<EdgeWeighted *, EdgeComparator> plus_plus_external_edges;
 
         void Grow(EdgeWeighted &edge);
         void Shrink(EdgeWeighted &edge_plus_plus);
@@ -83,8 +84,8 @@ class Tree {
 
         void DissolveTree();
         void UpdateQueuesAfterGrow(Node & child);
-        void UpdateQueuesAfterShrink(Node & blossom);
-        void UpdateQueuesAfterExpand(std::vector<Node *> & children);
+        void UpdateQueuesAfterShrink(const Node & blossom);
+        void UpdateQueuesAfterExpand(const std::vector<Node *> & children);
         void UpdateQueuesAfterInit();
 };
 
