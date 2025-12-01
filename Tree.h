@@ -13,8 +13,10 @@ class Node;
 
 struct NodeComparator {
     bool operator()(const Node * a, const Node * b) const {
-        if (a->DualVariableQuadrupled() != b->DualVariableQuadrupled()) {
-            return a->DualVariableQuadrupled() < b->DualVariableQuadrupled();
+        int a_var = a->DualVariableQuadrupled();
+        int b_var = b->DualVariableQuadrupled();
+        if (a_var != b_var) {
+            return a_var < b_var;
         }
         return a < b;
     }
@@ -65,6 +67,7 @@ class Tree {
 
         std::set<Node *, NodeComparator> minus_blossoms;
         std::set<EdgeWeighted *, EdgeComparator> plus_empty_edges;
+        std::set<EdgeWeighted *, EdgeComparator> plus_plus_internal_edges;
 
         void Grow(EdgeWeighted &edge);
         void Shrink(EdgeWeighted &edge_plus_plus);

@@ -79,6 +79,10 @@ class EdgeWeighted {
             throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is not on top of either stack");
         }
 
+        bool IsInsideBlossom() const {
+            return !head_stack.back()->IsTopBlossom();
+        }
+
         void UpdateAfterShrink(const Node &vertex) {
             if (vertex.IsTopBlossom()) {
                 throw std::runtime_error("EdgeWeighted::UpdateAfterShrink: vertex has no blossom parent");
