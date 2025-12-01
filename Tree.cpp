@@ -20,6 +20,7 @@ Tree::Tree(Node *root_,
     }
 
     root->MakeRootOfTree(*this);
+    UpdateQueuesAfterInit();
 }
 
 void Tree::Grow(EdgeWeighted &edge) {
@@ -29,8 +30,6 @@ void Tree::Grow(EdgeWeighted &edge) {
     if (child->IsInThisTree(*this)) {
         std::swap(parent, child);
     }
-
-    //std::cout << "grow " << parent->index << " " << child->index << " " << child->matched_edge->OtherEnd(*child).index << std::endl;
 
     if (!parent->IsInThisTree(*this)) {
         throw std::runtime_error("In Tree::Grow: parent vertex is not in this tree");
@@ -42,11 +41,10 @@ void Tree::Grow(EdgeWeighted &edge) {
         throw std::runtime_error("In Tree::Grow: child vertex is not free");
     }
 
-    child->MakeATreeChild(edge);
+    // std::cout << "GROW " << parent->index << " " << child->index << " " << child->MatchedNeighbor()->index << std::endl;
 
-    if (!child->IsElementary()) {
-        minus_blossoms.insert(child);
-    }
+    child->MakeATreeChild(edge);
+    UpdateQueuesAfterGrow(*child);
 }
 
 void Tree::Shrink(EdgeWeighted &edge_plus_plus) {
@@ -54,27 +52,20 @@ void Tree::Shrink(EdgeWeighted &edge_plus_plus) {
     Node *first = &endpoints.first;
     Node *second = &endpoints.second;
 
-    //std::cout << "shrink " << first->index << " " << second->index << std::endl;
+    // std::cout << "SHRINK " << first->index << " " << second->index << std::endl;
 
     Node &lca = Node::LCA(*first, *second);
 
-    // also need to update the minus_blossoms
     std::vector<EdgeWeighted *> blossom_edges;
     while (first != &lca) {
         blossom_edges.push_back(first->TreeParentEdge());
         first = &first->TreeParentEdge()->OtherEnd(*first);
-        if (first->Minus() && !first->IsElementary()) {
-            minus_blossoms.erase(first);
-        }
     }
     std::reverse(blossom_edges.begin(), blossom_edges.end());
     blossom_edges.push_back(&edge_plus_plus);
     while (second != &lca) {
         blossom_edges.push_back(second->TreeParentEdge());
         second = &second->TreeParentEdge()->OtherEnd(*second);
-        if (second->Minus() && !second->IsElementary()) {
-            minus_blossoms.erase(second);
-        }
     }
 
     int next_blossom_index = num_elementary_nodes;
@@ -82,11 +73,14 @@ void Tree::Shrink(EdgeWeighted &edge_plus_plus) {
         next_blossom_index = blossom_storage->back().index + 1;
     }
     blossom_storage->emplace_back(blossom_edges, next_blossom_index);
-    (*iter_to_self)[&blossom_storage->back()] = std::prev(blossom_storage->end());
+    Node &new_blossom = blossom_storage->back();
+    (*iter_to_self)[&new_blossom] = std::prev(blossom_storage->end());
+
+    UpdateQueuesAfterShrink(new_blossom);
 }
 
 void Tree::Expand(Node &blossom) {
-    //std::cout << "Expand " << blossom.index << std::endl;
+    // std::cout << "EXPAND " << blossom.index << std::endl;
 
     if (!blossom.IsInThisTree(*this)) {
         throw std::runtime_error("In Tree::Expand: supervertex is not in this tree");
@@ -107,14 +101,8 @@ void Tree::Expand(Node &blossom) {
     std::vector<Node *> children = blossom.BlossomChildren();
 
     blossom.Dissolve();
-
-    // update minus_blossoms
-    for (Node * child : children) {
-        if (child->Minus() && !child->IsElementary()) {
-            minus_blossoms.insert(child);
-        }
-    }
     minus_blossoms.erase(&blossom);
+    UpdateQueuesAfterExpand(children);
 
     std::list<Node>::iterator it = (*iter_to_self)[&blossom];
     iter_to_self->erase(&blossom);
@@ -124,14 +112,14 @@ void Tree::Expand(Node &blossom) {
 Tree *Tree::Augment(EdgeWeighted &edge) {
     // TODO amortize tree dissolves
 
-    //std::cout << "augmenting edge with slack " << edge.SlackQuadrupled() << std::endl;
-
     auto endpoints = edge.Endpoints();
     Node *parent = &endpoints.first;
     Node *child = &endpoints.second;
     if (!parent->IsInThisTree(*this)) {
         std::swap(parent, child);
     }
+
+    // std::cout << "AUGMENT " << parent->index << " " << child->index << std::endl;
 
     if (!parent->IsInThisTree(*this)) {
         throw std::runtime_error("In Augment: parent vertex is not in this tree");
@@ -242,6 +230,7 @@ Tree *Tree::MakePrimalUpdates() {
 
 void Tree::DissolveTree() {
     // clears the tree structure from the nodes
+    // updates priority queues of the adjacent trees
 
     std::vector<Node *> all_vertices;
 
@@ -258,6 +247,127 @@ void Tree::DissolveTree() {
 
     for (Node *vertex : all_vertices) {
         vertex->ClearDuringTreeDissolve();
+    }
+
+    // update plus_empty_edges of other trees
+    for (Node *vertex : all_vertices) {
+        for (EdgeWeighted *neighbor_edge : vertex->neighbors) {
+            Node & neighbor = neighbor_edge->OtherEnd(*vertex);
+            if (neighbor.Plus()) {
+                neighbor.TreeOf()->plus_empty_edges.insert(neighbor_edge);
+            }
+        }
+    }
+}
+
+void Tree::UpdateQueuesAfterGrow(Node & child) {
+    if (!child.IsElementary()) {
+        minus_blossoms.insert(&child);
+    }
+
+    // neighboring edges of child are no longer (+, empty)
+    for (EdgeWeighted *neighbor_edge : child.neighbors) {
+        Node &neighbor = neighbor_edge->OtherEnd(child);
+        if (neighbor.Plus()) {
+            neighbor.TreeOf()->plus_empty_edges.erase(neighbor_edge);
+        }
+    }
+
+    // neighboring edges of grandchild can be (+, empty)
+    Node & grandchild = child.TreeChildren().front()->OtherEnd(child);
+    for (EdgeWeighted *edge_to_neighbor : grandchild.neighbors) {
+        Node &grandchild_neighbor = edge_to_neighbor->OtherEnd(grandchild);
+        if (!grandchild_neighbor.IsInSomeTree()) {
+            plus_empty_edges.insert(edge_to_neighbor);
+        }
+    }
+
+    // neighboring edges of grandchild are no longer (+, empty)
+    for (EdgeWeighted *neighbor_edge : grandchild.neighbors) {
+        Node &neighbor = neighbor_edge->OtherEnd(grandchild);
+        if (neighbor.Plus()) {
+            neighbor.TreeOf()->plus_empty_edges.erase(neighbor_edge);
+        }
+    }
+}
+
+void Tree::UpdateQueuesAfterShrink(Node &blossom) {
+    // update minus_blossoms
+    for (Node * child : blossom.BlossomChildren()) {
+        minus_blossoms.erase(child);
+    }
+
+    // update plus_empty edges
+    for (EdgeWeighted *edge : blossom.neighbors) {
+        if (!edge->OtherEnd(blossom).IsInSomeTree()) {
+            plus_empty_edges.insert(edge);
+        }
+    }
+}
+
+void Tree::UpdateQueuesAfterExpand(std::vector<Node *> &children) {
+    // update minus_blossoms
+    for (Node *child : children) {
+        if (child->Minus() && !child->IsElementary()) {
+            minus_blossoms.insert(child);
+        }
+    }
+
+    // update plus_empty for the part that stays in the tree
+    for (Node *child : children) {
+        if (child->Plus()) {
+            for (EdgeWeighted *edge : child->neighbors) {
+                if (!edge->OtherEnd(*child).IsInSomeTree()) {
+                    plus_empty_edges.insert(edge);
+                }
+            }
+        }
+    }
+
+    // update plus_empty_edges of the trees adjacent to the part that goes to waste
+    for (Node *child : children) {
+        if (!child->IsInSomeTree()) {
+            for (EdgeWeighted *edge : child->neighbors) {
+                Node & other_end = edge->OtherEnd(*child);
+                if (other_end.Plus()) {
+                    other_end.TreeOf()->plus_empty_edges.insert(edge);
+                }
+            }
+        }
+    }
+}
+
+void Tree::UpdateQueuesAfterInit() {
+    for (EdgeWeighted *edge : root->neighbors) {
+        if (!edge->OtherEnd(*root).IsInSomeTree()) {
+            plus_empty_edges.insert(edge);
+        }
+    }
+
+    for (EdgeWeighted *edge : root->neighbors) {
+        Node & neighbor = edge->OtherEnd(*root);
+        if (neighbor.Plus()) {
+            neighbor.TreeOf()->plus_empty_edges.erase(edge);
+        }
+    }
+}
+
+void Tree::ValidatePlusEmpty() {
+    // validates that all the edges in plus_empty_edges are really (+, empty)
+    for (EdgeWeighted * edge : plus_empty_edges) {
+        auto endpoints = edge->Endpoints();
+        Node * first = &endpoints.first;
+        Node * second = &endpoints.second;
+        if (second->IsInThisTree(*this)) {
+            std::swap(first, second);
+        }
+
+        if (!first->IsInThisTree(*this) || !first->Plus() || !first->IsTopBlossom()) {
+            throw std::runtime_error("Invalid plus_empty_edges");
+        }
+        if (second->IsInSomeTree()) {
+            throw std::runtime_error("Invalid plus_empty_edges");
+        }
     }
 }
 
@@ -282,26 +392,13 @@ void Tree::AugmentFromNode(Node &vertex) {
     DissolveTree();
 }
 
-EdgeWeighted *Tree::GrowableEdge() const {
-    std::queue<Node *> queue;
-    queue.push(&root->TopBlossom());
-    while (!queue.empty()) {
-        const Node *node = queue.front();
-        queue.pop();
-
-        if (node->Plus()) {
-            for (EdgeWeighted *edge : node->neighbors) {
-                if ((edge->SlackQuadrupled() == 0) && (!edge->OtherEnd(*node).IsInSomeTree())) {
-                    return edge;
-                }
-            }
-        }
-
-        for (const EdgeWeighted *child : node->TreeChildren()) {
-            queue.push(&child->OtherEnd(*node));
-        }
+EdgeWeighted *Tree::GrowableEdge() {
+    if (plus_empty_edges.empty()) {
+        return nullptr;
     }
-
+    if ((*plus_empty_edges.begin())->SlackQuadrupled() == 0) {
+        return *plus_empty_edges.begin();
+    }
     return nullptr;
 }
 
@@ -357,7 +454,7 @@ EdgeWeighted *Tree::ShrinkableEdge() const {
     return nullptr;
 }
 
-Node *Tree::ExpandableBlossom() const {
+Node *Tree::ExpandableBlossom() {
     // returns a blossom that is a minus and has zero dual variable
     // if there is no such blossom, returns nullptr
 
@@ -370,35 +467,13 @@ Node *Tree::ExpandableBlossom() const {
     return nullptr;
 }
 
-int Tree::PlusEmptySlack() const {
+int Tree::PlusEmptySlack() {
     // returns the minimal quadrupled slack of a (+, empty) edge
 
-    if (!root->TopBlossom().IsInSomeTree()) {
-        throw std::runtime_error("In Tree::MakePrimalUpdates: we are in the deleted tree");
+    if (plus_empty_edges.empty()) {
+        return INT32_MAX;
     }
-
-    int answer = INT32_MAX;
-
-    std::queue<Node *> queue;
-    queue.push(&root->TopBlossom());
-    while (!queue.empty()) {
-        const Node *node = queue.front();
-        queue.pop();
-
-        if (node->Plus()) {
-            for (EdgeWeighted *edge : node->neighbors) {
-                if ((edge->SlackQuadrupled() < answer) && (!edge->OtherEnd(*node).IsInSomeTree())) {
-                    answer = edge->SlackQuadrupled();
-                }
-            }
-        }
-
-        for (const EdgeWeighted *child : node->TreeChildren()) {
-            queue.push(&child->OtherEnd(*node));
-        }
-    }
-
-    return answer;
+    return (*plus_empty_edges.begin())->SlackQuadrupled();
 }
 
 int Tree::PlusPlusExternalSlack() const {
@@ -488,7 +563,7 @@ int Tree::PlusMinusExternalSlack() const {
     return answer;
 }
 
-int Tree::MinMinusBlossomVariable() const {
+int Tree::MinMinusBlossomVariable() {
     // returns the minimum quadrupled dual variable of a (-) non-elementary blossom
 
     if (minus_blossoms.empty()) {

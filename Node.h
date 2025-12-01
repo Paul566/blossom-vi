@@ -23,6 +23,7 @@ class Node {
         void PrintNode() const;
 
         int DualVariableQuadrupled() const;
+        int DualVariableQuadrupledAmortized() const;
         bool IsElementary() const;
         bool IsTopBlossom() const;
         Node &TopBlossom(); // TODO make const
@@ -32,6 +33,7 @@ class Node {
         bool Plus() const;
         bool Minus() const;
         bool IsMatched() const;
+        Node * MatchedNeighbor() const;
         EdgeWeighted * TreeParentEdge() const;
         const std::vector<EdgeWeighted *> & TreeChildren() const;
         Node * BlossomParent() const;

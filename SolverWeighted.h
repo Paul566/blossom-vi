@@ -60,7 +60,7 @@ class SolverWeighted {
 
         void GreedyInit();
 
-        int OptimalSingleDelta() const;
+        int OptimalSingleDelta();
 };
 
 #endif //SOLVER_H

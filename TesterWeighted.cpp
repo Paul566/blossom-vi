@@ -19,7 +19,7 @@ void TesterWeighted::RunRandomCliques(int num_vertices, int weight_min, int weig
 
     for (int i = 0; i < num_iter; ++i) {
         std::cout << "------------------------------------------------------------\niter " << i << std::endl;
-        if (i == 54) {
+        if (i == 1007) {
             std::cout << "a;ldsfj" << std::endl;
         }
 
@@ -32,6 +32,9 @@ void TesterWeighted::RunRandomCliques(int num_vertices, int weight_min, int weig
         double runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
             stop - start).count()) / 1'000'000;
         runtimes.push_back(runtime);
+        if (verbose) {
+            std::cout << "runtime: " << runtime << std::endl;
+        }
 
         if (verify_output) {
             Verify(edge_list, solver);

@@ -5,6 +5,7 @@
 
 #include "EdgeWeighted.h"
 #include "Tree.h"
+#include "unweighted/Edge.h"
 
 Node::Node(const int index_) : index(index_) {
     dual_var_quadrupled_amortized = 0;
@@ -142,6 +143,13 @@ bool Node::Minus() const {
 
 bool Node::IsMatched() const {
     return matched_edge != nullptr;
+}
+
+Node * Node::MatchedNeighbor() const {
+    if (matched_edge) {
+        return &matched_edge->OtherEnd(*this);
+    }
+    return nullptr;
 }
 
 EdgeWeighted *Node::TreeParentEdge() const {
@@ -323,6 +331,10 @@ int Node::DualVariableQuadrupled() const {
         return dual_var_quadrupled_amortized + tree->dual_var_quadrupled;
     }
     return dual_var_quadrupled_amortized - tree->dual_var_quadrupled;
+}
+
+int Node::DualVariableQuadrupledAmortized() const {
+    return dual_var_quadrupled_amortized;
 }
 
 bool Node::IsElementary() const {

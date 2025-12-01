@@ -97,12 +97,12 @@ void SolverWeighted::GreedyInit() {
     }
 }
 
-int SolverWeighted::OptimalSingleDelta() const {
+int SolverWeighted::OptimalSingleDelta() {
     // returns the dual variable increment in the single delta approach
 
     int delta = INT32_MAX;
 
-    for (const Tree &tree : trees) {
+    for (Tree &tree : trees) {
         int plus_empty = tree.PlusEmptySlack();
         int plus_plus_external = tree.PlusPlusExternalSlack();
         int plus_plus_internal = tree.PlusPlusInternalSlack();
@@ -246,10 +246,6 @@ void SolverWeighted::MakePrimalUpdates() {
 
     auto it = trees.begin();
     while (it != trees.end()) {
-        if (params.verbose) {
-            PrintGraph();
-        }
-
         auto next_it = std::next(it);
 
         Tree *augmented_tree = it->MakePrimalUpdates();
@@ -263,6 +259,10 @@ void SolverWeighted::MakePrimalUpdates() {
         }
 
         it = next_it;
+
+        // for (Tree & tree : trees) {
+        //     tree.ValidatePlusEmpty();
+        // }
     }
 
     if (params.verbose) {

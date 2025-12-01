@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <set>
 
+#include "EdgeWeighted.h"
 #include "Node.h"
 
 class EdgeWeighted;
@@ -18,14 +19,22 @@ struct NodeComparator {
         return a < b;
     }
 };
+struct EdgeComparator {
+    bool operator()(const EdgeWeighted * a, const EdgeWeighted * b) const {
+        int a_slack = a->SlackQuadrupled();
+        int b_slack = b->SlackQuadrupled();
+        if (a_slack != b_slack) {
+            return a_slack < b_slack;
+        }
+        return a < b;
+    }
+};
 
 class Tree {
     public:
         Node *root; // must be an elementary vertex
         // TODO maybe the top blossom of the root makes more sense here
         int dual_var_quadrupled;
-        std::set<Node *, NodeComparator> minus_blossoms;
-        // TODO update wrt minus_blossoms
 
         Tree(Node *root_,
              std::list<Node> *blossom_storage_,
@@ -41,20 +50,21 @@ class Tree {
 
         Tree *MakePrimalUpdates();
 
-        int PlusEmptySlack() const;
-
+        int PlusEmptySlack();
         int PlusPlusExternalSlack() const;
-
         int PlusPlusInternalSlack() const;
-
         int PlusMinusExternalSlack() const;
+        int MinMinusBlossomVariable();
 
-        int MinMinusBlossomVariable() const;
+        void ValidatePlusEmpty();   // debugging purposes
 
     private:
         const int num_elementary_nodes; // TODO get rid of this field
         std::list<Node> *blossom_storage;
         std::unordered_map<Node *, std::list<Node>::iterator> *iter_to_self;
+
+        std::set<Node *, NodeComparator> minus_blossoms;
+        std::set<EdgeWeighted *, EdgeComparator> plus_empty_edges;
 
         void Grow(EdgeWeighted &edge);
         void Shrink(EdgeWeighted &edge_plus_plus);
@@ -63,12 +73,16 @@ class Tree {
 
         void AugmentFromNode(Node &vertex);
 
-        EdgeWeighted *GrowableEdge() const;
+        EdgeWeighted *GrowableEdge();
         EdgeWeighted *AugmentableEdge() const;
         EdgeWeighted *ShrinkableEdge() const;
-        Node *ExpandableBlossom() const;
+        auto ExpandableBlossom() -> Node *;
 
         void DissolveTree();
+        void UpdateQueuesAfterGrow(Node & child);
+        void UpdateQueuesAfterShrink(Node & blossom);
+        void UpdateQueuesAfterExpand(std::vector<Node *> & children);
+        void UpdateQueuesAfterInit();
 };
 
 #endif //TREE_H
