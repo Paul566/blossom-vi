@@ -252,7 +252,7 @@ void Tree::DissolveTree() {
     // update plus_empty_edges of other trees
     for (Node *vertex : all_vertices) {
         for (EdgeWeighted *neighbor_edge : vertex->neighbors) {
-            Node & neighbor = neighbor_edge->OtherEnd(*vertex);
+            Node &neighbor = neighbor_edge->OtherEnd(*vertex);
             if (neighbor.Plus()) {
                 neighbor.TreeOf()->plus_empty_edges.insert(neighbor_edge);
                 neighbor.TreeOf()->plus_plus_external_edges.erase(neighbor_edge);
@@ -261,7 +261,7 @@ void Tree::DissolveTree() {
     }
 }
 
-void Tree::UpdateQueuesAfterGrow(Node & child) {
+void Tree::UpdateQueuesAfterGrow(Node &child) {
     if (!child.IsElementary()) {
         minus_blossoms.insert(&child);
     }
@@ -275,7 +275,7 @@ void Tree::UpdateQueuesAfterGrow(Node & child) {
     }
 
     // neighboring edges of grandchild can be (+, empty) and (+, +)
-    Node & grandchild = child.TreeChildren().front()->OtherEnd(child);
+    Node &grandchild = child.TreeChildren().front()->OtherEnd(child);
     for (EdgeWeighted *edge_to_neighbor : grandchild.neighbors) {
         Node &grandchild_neighbor = edge_to_neighbor->OtherEnd(grandchild);
         if (!grandchild_neighbor.IsInSomeTree()) {
@@ -311,7 +311,7 @@ void Tree::UpdateQueuesAfterGrow(Node & child) {
 
 void Tree::UpdateQueuesAfterShrink(const Node &blossom) {
     // update minus_blossoms
-    for (Node * child : blossom.BlossomChildren()) {
+    for (Node *child : blossom.BlossomChildren()) {
         minus_blossoms.erase(child);
     }
 
@@ -331,7 +331,7 @@ void Tree::UpdateQueuesAfterShrink(const Node &blossom) {
     }
 
     // erase the (+, +) edges that were inside the blossom
-    for (Node * child : blossom.BlossomChildren()) {
+    for (Node *child : blossom.BlossomChildren()) {
         for (EdgeWeighted *neighbor_edge : child->neighbors) {
             if (neighbor_edge->IsInsideBlossom()) {
                 plus_plus_internal_edges.erase(neighbor_edge);
@@ -372,7 +372,7 @@ void Tree::UpdateQueuesAfterExpand(const std::vector<Node *> &children) {
     for (Node *child : children) {
         if (!child->IsInSomeTree()) {
             for (EdgeWeighted *edge : child->neighbors) {
-                Node & other_end = edge->OtherEnd(*child);
+                Node &other_end = edge->OtherEnd(*child);
                 if (other_end.Plus()) {
                     other_end.TreeOf()->plus_empty_edges.insert(edge);
                 }
@@ -384,7 +384,7 @@ void Tree::UpdateQueuesAfterExpand(const std::vector<Node *> &children) {
     for (Node *child : children) {
         if (child->Plus()) {
             for (EdgeWeighted *edge : child->neighbors) {
-                Node & other_end = edge->OtherEnd(*child);
+                Node &other_end = edge->OtherEnd(*child);
                 if (other_end.IsInThisTree(*this) && other_end.Plus()) {
                     plus_plus_internal_edges.insert(edge);
                 }
@@ -396,7 +396,7 @@ void Tree::UpdateQueuesAfterExpand(const std::vector<Node *> &children) {
     for (Node *child : children) {
         if (child->Plus()) {
             for (EdgeWeighted *edge : child->neighbors) {
-                Node & other_end = edge->OtherEnd(*child);
+                Node &other_end = edge->OtherEnd(*child);
                 if (!other_end.IsInThisTree(*this) && other_end.Plus()) {
                     plus_plus_external_edges.insert(edge);
                     other_end.TreeOf()->plus_plus_external_edges.insert(edge);
@@ -414,7 +414,7 @@ void Tree::UpdateQueuesAfterInit() {
     }
 
     for (EdgeWeighted *edge : root->neighbors) {
-        Node & neighbor = edge->OtherEnd(*root);
+        Node &neighbor = edge->OtherEnd(*root);
         if (neighbor.Plus()) {
             neighbor.TreeOf()->plus_empty_edges.erase(edge);
             plus_plus_external_edges.insert(edge);
@@ -423,12 +423,12 @@ void Tree::UpdateQueuesAfterInit() {
     }
 }
 
-void Tree::ValidatePlusEmpty() {
+void Tree::ValidatePlusEmpty() const {
     // validates that all the edges in plus_empty_edges are really (+, empty)
-    for (EdgeWeighted * edge : plus_empty_edges) {
+    for (EdgeWeighted *edge : plus_empty_edges) {
         auto endpoints = edge->Endpoints();
-        Node * first = &endpoints.first;
-        Node * second = &endpoints.second;
+        Node *first = &endpoints.first;
+        Node *second = &endpoints.second;
         if (second->IsInThisTree(*this)) {
             std::swap(first, second);
         }

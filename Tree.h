@@ -58,7 +58,7 @@ class Tree {
         int PlusMinusExternalSlack() const;
         int MinMinusBlossomVariable();
 
-        void ValidatePlusEmpty();   // debugging purposes
+        void ValidatePlusEmpty() const;   // debugging purposes
 
     private:
         const int num_elementary_nodes; // TODO get rid of this field

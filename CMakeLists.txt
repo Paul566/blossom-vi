@@ -14,6 +14,7 @@ add_executable(blossom_vi main.cpp
         Node.h
         Node.cpp
         EdgeWeighted.h
+        EdgeWeighted.cpp
         SolverWeighted.h
         SolverWeighted.cpp
         Tree.h
