@@ -12,7 +12,7 @@ class EdgeWeighted {
         const int weight;
         bool matched;
 
-        EdgeWeighted(Node &head_, Node &tail_, const int weight_);
+        EdgeWeighted(Node &head_, Node &tail_, int weight_);
 
         EdgeWeighted(const EdgeWeighted &other) = delete;
         EdgeWeighted(EdgeWeighted &&other) = delete;

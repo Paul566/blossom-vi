@@ -9,6 +9,24 @@
 #include "EdgeWeighted.h"
 #include "Node.h"
 
+bool NodeComparator::operator()(const Node *a, const Node *b) const {
+    int a_var = a->DualVariableQuadrupled();
+    int b_var = b->DualVariableQuadrupled();
+    if (a_var != b_var) {
+        return a_var < b_var;
+    }
+    return a < b;
+}
+
+bool EdgeComparator::operator()(const EdgeWeighted *a, const EdgeWeighted *b) const {
+    int a_slack = a->SlackQuadrupled();
+    int b_slack = b->SlackQuadrupled();
+    if (a_slack != b_slack) {
+        return a_slack < b_slack;
+    }
+    return a < b;
+}
+
 Tree::Tree(Node *root_,
            std::list<Node> *blossom_storage_,
            std::unordered_map<Node *, std::list<Node>::iterator> *iter_to_self_,

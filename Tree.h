@@ -5,31 +5,15 @@
 #include <unordered_map>
 #include <set>
 
-#include "EdgeWeighted.h"
-#include "Node.h"
 
 class EdgeWeighted;
 class Node;
 
 struct NodeComparator {
-    bool operator()(const Node * a, const Node * b) const {
-        int a_var = a->DualVariableQuadrupled();
-        int b_var = b->DualVariableQuadrupled();
-        if (a_var != b_var) {
-            return a_var < b_var;
-        }
-        return a < b;
-    }
+    bool operator()(const Node * a, const Node * b) const;
 };
 struct EdgeComparator {
-    bool operator()(const EdgeWeighted * a, const EdgeWeighted * b) const {
-        int a_slack = a->SlackQuadrupled();
-        int b_slack = b->SlackQuadrupled();
-        if (a_slack != b_slack) {
-            return a_slack < b_slack;
-        }
-        return a < b;
-    }
+    bool operator()(const EdgeWeighted * a, const EdgeWeighted * b) const;
 };
 
 class Tree {
