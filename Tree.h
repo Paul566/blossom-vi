@@ -32,7 +32,7 @@ class Tree {
         Tree &operator=(const Tree &other) = delete;
         Tree &operator=(Tree &&other) = delete;
 
-        void PrintTree();
+        void PrintTree() const;
 
         Tree *MakePrimalUpdates();
 
@@ -66,7 +66,7 @@ class Tree {
         EdgeWeighted *ShrinkableEdge() const;
         auto ExpandableBlossom() -> Node *;
 
-        void DissolveTree();
+        void DissolveTree() const;
         void UpdateQueuesAfterGrow(Node & child);
         void UpdateQueuesAfterShrink(const Node & blossom);
         void UpdateQueuesAfterExpand(const std::vector<Node *> & children);

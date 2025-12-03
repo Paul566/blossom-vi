@@ -2,7 +2,7 @@
 #include "Tree.h"
 
 #include <iostream>
-#include <stdint.h>
+#include <cstdint>
 #include <unordered_set>
 
 SolverWeighted::SolverWeighted(const std::vector<std::tuple<int, int, int> > &edge_list_,

@@ -5,7 +5,6 @@
 
 #include "EdgeWeighted.h"
 #include "Tree.h"
-#include "unweighted/Edge.h"
 
 Node::Node(const int index_) : index(index_) {
     dual_var_quadrupled_amortized = 0;
@@ -14,7 +13,6 @@ Node::Node(const int index_) : index(index_) {
     tree_parent = nullptr;
     tree = nullptr;
     plus = false;
-    minus = false;
     blossom_brother_clockwise = nullptr;
     blossom_brother_anticlockwise = nullptr;
 }
@@ -28,7 +26,6 @@ Node::Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_) : index
 
     blossom_parent = nullptr;
     plus = true; // after Shrink, we must be a plus
-    minus = false;
 
     // update blossom_children
     blossom_children.reserve(blossom_edges.size());
@@ -138,7 +135,7 @@ bool Node::Plus() const {
 }
 
 bool Node::Minus() const {
-    return minus;
+    return !plus && (tree != nullptr);
 }
 
 bool Node::IsMatched() const {
@@ -243,7 +240,7 @@ void Node::Dissolve() {
             if (child->plus) {
                 child->dual_var_quadrupled_amortized -= tree->dual_var_quadrupled;
             }
-            if (child->minus) {
+            if (child->Minus()) {
                 child->dual_var_quadrupled_amortized += tree->dual_var_quadrupled;
             }
         }
@@ -358,7 +355,6 @@ void Node::ClearDuringTreeDissolve() {
     tree_children.clear();
     tree_parent = nullptr;
     plus = false;
-    minus = false;
 }
 
 void Node::MakeRootOfTree(Tree &tree_) {
@@ -372,7 +368,6 @@ void Node::MakeATreeChild(EdgeWeighted &edge_to_parent) {
 
     tree_parent = &edge_to_parent;
     tree = parent.tree;
-    minus = true;
     plus = false;
     dual_var_quadrupled_amortized += tree->dual_var_quadrupled;
     tree_children = {matched_edge};
@@ -381,7 +376,6 @@ void Node::MakeATreeChild(EdgeWeighted &edge_to_parent) {
     grandchild.tree_parent = matched_edge;
     grandchild.tree = tree;
     grandchild.plus = true;
-    grandchild.minus = false;
     grandchild.dual_var_quadrupled_amortized -= tree->dual_var_quadrupled;
 }
 
@@ -473,7 +467,6 @@ void Node::UpdateInternalTreeStructure() {
         cur_vertex->tree = tree;
         cur_vertex->tree_children = {next_edge(cur_vertex)};
         cur_vertex->plus = is_plus;
-        cur_vertex->minus = !is_plus;
 
         prev_edge = next_edge(cur_vertex);
         cur_vertex = &prev_edge->OtherEnd(*cur_vertex);
@@ -483,7 +476,6 @@ void Node::UpdateInternalTreeStructure() {
     cur_vertex->tree = tree;
     cur_vertex->tree_children = {matched_edge};
     cur_vertex->plus = false;
-    cur_vertex->minus = true;
 
     // the part that goes to waste
     cur_vertex = &next_edge(cur_vertex)->OtherEnd(*cur_vertex);
@@ -492,7 +484,6 @@ void Node::UpdateInternalTreeStructure() {
         cur_vertex->tree = nullptr;
         cur_vertex->tree_children.clear();
         cur_vertex->plus = false;
-        cur_vertex->minus = false;
 
         cur_vertex = &next_edge(cur_vertex)->OtherEnd(*cur_vertex);
     }
@@ -504,7 +495,6 @@ void Node::ClearInternalTreeStructure() const {
         child_blossom->tree = nullptr;
         child_blossom->tree_children.clear();
         child_blossom->plus = false;
-        child_blossom->minus = false;
     }
 }
 

@@ -19,10 +19,10 @@ bool NodeComparator::operator()(const Node *a, const Node *b) const {
 }
 
 bool EdgeComparator::operator()(const EdgeWeighted *a, const EdgeWeighted *b) const {
-    int a_slack = a->SlackQuadrupled();
-    int b_slack = b->SlackQuadrupled();
-    if (a_slack != b_slack) {
-        return a_slack < b_slack;
+    int a_key = a->SlackQuadrupled();
+    int b_key = b->SlackQuadrupled();
+    if (a_key != b_key) {
+        return a_key < b_key;
     }
     return a < b;
 }
@@ -156,7 +156,7 @@ Tree *Tree::Augment(EdgeWeighted &edge) {
     return other_tree;
 }
 
-void Tree::PrintTree() {
+void Tree::PrintTree() const {
     std::cout << "Tree structure:" << std::endl;
     std::cout << "Root: " << root->index;
     std::cout << ", dual variable: " << 1. * dual_var_quadrupled / 4 << std::endl;
@@ -246,7 +246,7 @@ Tree *Tree::MakePrimalUpdates() {
     return nullptr;
 }
 
-void Tree::DissolveTree() {
+void Tree::DissolveTree() const {
     // clears the tree structure from the nodes
     // updates priority queues of the adjacent trees
 
@@ -263,19 +263,21 @@ void Tree::DissolveTree() {
         }
     }
 
-    for (Node *vertex : all_vertices) {
-        vertex->ClearDuringTreeDissolve();
-    }
-
     // update plus_empty_edges of other trees
     for (Node *vertex : all_vertices) {
         for (EdgeWeighted *neighbor_edge : vertex->neighbors) {
             Node &neighbor = neighbor_edge->OtherEnd(*vertex);
             if (neighbor.Plus()) {
                 neighbor.TreeOf()->plus_empty_edges.insert(neighbor_edge);
-                neighbor.TreeOf()->plus_plus_external_edges.erase(neighbor_edge);
+                if (vertex->Plus()) {
+                    neighbor.TreeOf()->plus_plus_external_edges.erase(neighbor_edge);
+                }
             }
         }
+    }
+
+    for (Node *vertex : all_vertices) {
+        vertex->ClearDuringTreeDissolve();
     }
 }
 
@@ -292,7 +294,7 @@ void Tree::UpdateQueuesAfterGrow(Node &child) {
         }
     }
 
-    // neighboring edges of grandchild can be (+, empty) and (+, +)
+    // neighboring edges of grandchild can be (+, empty)
     Node &grandchild = child.TreeChildren().front()->OtherEnd(child);
     for (EdgeWeighted *edge_to_neighbor : grandchild.neighbors) {
         Node &grandchild_neighbor = edge_to_neighbor->OtherEnd(grandchild);
@@ -330,29 +332,37 @@ void Tree::UpdateQueuesAfterGrow(Node &child) {
 void Tree::UpdateQueuesAfterShrink(const Node &blossom) {
     // update minus_blossoms
     for (Node *child : blossom.BlossomChildren()) {
-        minus_blossoms.erase(child);
+        if (child->Minus()) {
+            minus_blossoms.erase(child);
+        }
     }
 
     // update plus_empty edges
     for (EdgeWeighted *edge : blossom.neighbors) {
-        if (!edge->OtherEnd(blossom).IsInSomeTree()) {
-            plus_empty_edges.insert(edge);
+        if (!edge->DeeperNode(blossom).Plus()) {
+            if (!edge->OtherEnd(blossom).IsInSomeTree()) {
+                plus_empty_edges.insert(edge);
+            }
         }
     }
 
     // maybe new (+, +) internal edges
     for (EdgeWeighted *edge : blossom.neighbors) {
         Node &neighbor = edge->OtherEnd(blossom);
-        if (neighbor.IsInThisTree(*this) && neighbor.Plus()) {
+        if (neighbor.IsInThisTree(*this) && neighbor.Plus() && !edge->DeeperNode(blossom).Plus()) {
             plus_plus_internal_edges.insert(edge);
         }
     }
 
     // erase the (+, +) edges that were inside the blossom
     for (Node *child : blossom.BlossomChildren()) {
-        for (EdgeWeighted *neighbor_edge : child->neighbors) {
-            if (neighbor_edge->IsInsideBlossom()) {
-                plus_plus_internal_edges.erase(neighbor_edge);
+        if (child->Plus()) {
+            for (EdgeWeighted *neighbor_edge : child->neighbors) {
+                if (neighbor_edge->IsInsideBlossom()) {
+                    if (neighbor_edge->OtherEnd(*child).Plus()) {
+                        plus_plus_internal_edges.erase(neighbor_edge);
+                    }
+                }
             }
         }
     }
@@ -360,7 +370,7 @@ void Tree::UpdateQueuesAfterShrink(const Node &blossom) {
     // maybe new (+, +) external edges
     for (EdgeWeighted *edge : blossom.neighbors) {
         Node &neighbor = edge->OtherEnd(blossom);
-        if (!neighbor.IsInThisTree(*this) && neighbor.Plus()) {
+        if (!neighbor.IsInThisTree(*this) && neighbor.Plus() && !edge->DeeperNode(blossom).Plus()) {
             plus_plus_external_edges.insert(edge);
             neighbor.TreeOf()->plus_plus_external_edges.insert(edge);
         }

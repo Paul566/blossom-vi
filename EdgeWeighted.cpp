@@ -1,5 +1,7 @@
 #include "EdgeWeighted.h"
 
+#include "Tree.h"
+
 EdgeWeighted::EdgeWeighted(Node &head_, Node &tail_, const int weight_) : weight(weight_), matched(false),
                                                                           slack_quadrupled_amortized(4 * weight_) {
     head_stack.push_back(&head_);

@@ -22,19 +22,14 @@ class EdgeWeighted {
         int SlackQuadrupled() const;
 
         std::pair<Node &, Node &> Endpoints() const;
-
         std::pair<Node &, Node &> ElementaryEndpoints() const;
 
         Node &OtherEnd(const Node &vertex) const;
-
         Node &OtherElementaryEnd(const Node &vertex) const;
-
         Node &DeeperNode(const Node &vertex) const;
-
         bool IsInsideBlossom() const;
 
         void UpdateAfterShrink(const Node &vertex);
-
         void UpdateAfterDissolve(const Node &vertex);
 
     private:

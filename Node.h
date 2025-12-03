@@ -1,7 +1,6 @@
 #ifndef BLOSSOM_VI_NODE_H
 #define BLOSSOM_VI_NODE_H
 
-#include <list>
 #include <vector>
 
 class EdgeWeighted;
@@ -67,7 +66,6 @@ class Node {
 
         // tree related fields
         bool plus;
-        bool minus; // TODO get rid of this, can be inferred from plus and tree==nullptr
         EdgeWeighted *tree_parent;
         std::vector<EdgeWeighted *> tree_children;
         Tree *tree;
