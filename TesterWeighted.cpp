@@ -19,7 +19,7 @@ void TesterWeighted::RunRandomCliques(int num_vertices, int weight_min, int weig
 
     for (int i = 0; i < num_iter; ++i) {
         std::cout << "------------------------------------------------------------\niter " << i << std::endl;
-        if (i == 1007) {
+        if (i == 3453) {
             std::cout << "a;ldsfj" << std::endl;
         }
 

@@ -45,7 +45,7 @@ void SolverWeighted::FindMinPerfectMatching() {
         if (root.IsMatched()) {
             continue;
         }
-        trees.emplace_back(&root, &blossoms, &iter_to_blossom, static_cast<int>(elementary_nodes_list.size()));
+        trees.emplace_back(&root, &blossoms, &iter_to_blossom, static_cast<int>(elementary_nodes_list.size()), params.verbose);
         iter_to_tree[&trees.back()] = std::prev(trees.end());
     }
 
@@ -262,6 +262,7 @@ void SolverWeighted::MakePrimalUpdates() {
 
         // for (Tree & tree : trees) {
         //     tree.ValidatePlusEmpty();
+        //     tree.ValidatePQPlusPlus();
         // }
     }
 
