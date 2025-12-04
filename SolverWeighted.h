@@ -11,6 +11,16 @@
 struct SolverParams {
     bool compute_dual_certificate = false;
     bool verbose = false;
+    bool multiple_trees = true;
+};
+
+struct DualConstraints {
+    std::vector<int> upper_bound;
+    // upper bound on delta_T quadrupled
+    std::vector<std::vector<std::pair<int, int> > > plus_plus_constraints;
+    // (other_tree_index, slack_plus_plus quadrupled)
+    std::vector<std::vector<std::pair<int, int> > > plus_minus_constraints;
+    // (other_tree_index, slack_plus_minus quadrupled)
 };
 
 class SolverWeighted {
@@ -27,7 +37,6 @@ class SolverWeighted {
         void PrintGraph() const;
 
         std::vector<std::pair<int, int> > Matching() const;
-
         const std::vector<std::tuple<int, int, int>>& DualCertificate() const;
         // (index, quadrupled dual variable, index of the blossom parent or -1)
 
@@ -46,21 +55,22 @@ class SolverWeighted {
         // (index, quadrupled dual variable, index of the blossom parent or -1)
         // dual_certificate is empty unless params.compute_dual_certificate is true
 
-        void MakeDualUpdates();
+        void GreedyInit();
 
+        void MakeDualUpdates();
         void MakePrimalUpdates();
+
+        int OptimalSingleDelta();
+        std::vector<int> VariableDeltas();
+        std::vector<std::vector<int>> ConnectedComponentsTreeTree(const DualConstraints & dual_constraints);
+        DualConstraints GetDualConstraints();
 
         void DestroyBlossoms();
 
         int64_t DualObjectiveQuadrupled() const;
-
         int64_t PrimalObjective() const;
 
         void ComputeDualCertificate();
-
-        void GreedyInit();
-
-        int OptimalSingleDelta();
 };
 
 #endif //SOLVER_H

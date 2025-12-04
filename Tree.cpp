@@ -743,3 +743,27 @@ int Tree::MinMinusBlossomVariable() {
     }
     return (*minus_blossoms.begin())->DualVariableQuadrupled();
 }
+
+std::vector<std::pair<Tree *, int>> Tree::PlusPlusExternalSlacks() const {
+    std::vector<std::pair<Tree *, int>> result;
+    result.reserve(pq_plus_plus.size());
+    for (auto & [tree, queue] : pq_plus_plus) {
+        if (queue.empty()) {
+            continue;
+        }
+        result.emplace_back(tree, (*queue.begin())->SlackQuadrupled());
+    }
+    return result;
+}
+
+std::vector<std::pair<Tree *, int>> Tree::PlusMinusExternalSlacks() const {
+    std::vector<std::pair<Tree *, int>> result;
+    result.reserve(pq_plus_plus.size());
+    for (auto & [tree, queue] : pq_plus_minus) {
+        if (queue.empty()) {
+            continue;
+        }
+        result.emplace_back(tree, (*queue.begin())->SlackQuadrupled());
+    }
+    return result;
+}
