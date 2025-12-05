@@ -4,12 +4,105 @@
 #include <iomanip>
 #include <unordered_set>
 
+CliqueGenerator::CliqueGenerator(int num_vertices_, int weight_min_, int weight_max_) : num_vertices(num_vertices_),
+    weight_min(weight_min_), weight_max(weight_max_) {
+    if (num_vertices % 2 != 0) {
+        throw std::invalid_argument("In CliqueGenerator: num_vertices must be even");
+    }
+}
+
+EdgeListType CliqueGenerator::Generate(std::mt19937 generator) const {
+    std::vector<std::tuple<int, int, int> > edge_list;
+    edge_list.reserve(num_vertices * (num_vertices - 1) / 2);
+
+    std::uniform_int_distribution<> dist_weight(weight_min, weight_max);
+
+    for (int vertex = 0; vertex < num_vertices; ++vertex) {
+        for (int to = vertex + 1; to < num_vertices; ++to) {
+            int weight = dist_weight(generator);
+            edge_list.emplace_back(vertex, to, weight);
+        }
+    }
+
+    return edge_list;
+}
+
+MatchingPlusGraphGenerator::MatchingPlusGraphGenerator(int num_vertices_,
+                                                       int num_edges_,
+                                                       int weight_min_,
+                                                       int weight_max_) : num_vertices(num_vertices_),
+                                                                          num_edges(num_edges_),
+                                                                          weight_min(weight_min_),
+                                                                          weight_max(weight_max_) {
+    if (num_vertices % 2 != 0) {
+        throw std::invalid_argument("In MatchingPlusGraphGenerator: num_vertices must be even");
+    }
+
+    int min_edges_needed = num_vertices / 2; // size of the perfect matching
+    if (num_edges < min_edges_needed) {
+        throw std::invalid_argument("In MatchingPlusGraphGenerator: num_edges must be >= num_vertices/2");
+    }
+}
+
+EdgeListType MatchingPlusGraphGenerator::Generate(std::mt19937 generator) const {
+    std::vector<std::tuple<int, int, int> > edges;
+    edges.reserve(num_edges);
+
+    std::uniform_int_distribution<> weight_dist(weight_min, weight_max);
+
+    // random perfect matching
+    std::vector<int> vertices(num_vertices);
+    for (int i = 0; i < num_vertices; i++) {
+        vertices[i] = i;
+    }
+
+    std::shuffle(vertices.begin(), vertices.end(), generator);
+
+    std::unordered_set<std::pair<int, int>, PairHash> edge_set;
+    edge_set.reserve(num_edges * 2);
+
+    for (int i = 0; i < num_vertices; i += 2) {
+        int u = vertices[i];
+        int v = vertices[i + 1];
+        if (u > v) {
+            std::swap(u, v);
+        }
+
+        int w = weight_dist(generator);
+        edges.emplace_back(u, v, w);
+        edge_set.insert({u, v});
+    }
+
+    // add random edges until total reaches num_edges
+    std::uniform_int_distribution<> vertex_dist(0, num_vertices - 1);
+
+    while (static_cast<int>(edges.size()) < num_edges) {
+        int u = vertex_dist(generator);
+        int v = vertex_dist(generator);
+        if (u == v) continue;
+        if (u > v) {
+            std::swap(u, v);
+        }
+
+        std::pair<int, int> e = {u, v};
+        if (edge_set.contains(e)) {
+            continue;
+        }
+
+        int w = weight_dist(generator);
+        edges.emplace_back(u, v, w);
+        edge_set.insert(e);
+    }
+
+    return edges;
+}
+
 TesterWeighted::TesterWeighted(bool verify_output_, int seed) : generator(seed), verify_output(verify_output_) {
 }
 
-void TesterWeighted::RunRandomCliques(int num_vertices, int weight_min, int weight_max, int num_iter, bool verbose) {
-    std::cout << "Testing random weighted cliques" << std::endl;
-
+void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
+                                  int num_iter,
+                                  bool verbose) {
     std::cout << std::setprecision(3);
 
     std::vector<double> runtimes;
@@ -23,10 +116,11 @@ void TesterWeighted::RunRandomCliques(int num_vertices, int weight_min, int weig
             std::cout << "a;ldsfj" << std::endl;
         }
 
-        std::vector<std::tuple<int, int, int> > edge_list = RandomCliqueFixedSize(num_vertices, weight_min, weight_max);
+        std::vector<std::tuple<int, int, int> > edge_list = graph_generator.Generate(generator);
 
         auto start = std::chrono::high_resolution_clock::now();
-        SolverWeighted solver = SolverWeighted(edge_list,{.compute_dual_certificate = verify_output, .verbose = verbose});
+        SolverWeighted solver = SolverWeighted(edge_list,
+                                               {.compute_dual_certificate = verify_output, .verbose = verbose});
         solver.FindMinPerfectMatching();
         auto stop = std::chrono::high_resolution_clock::now();
         double runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
@@ -47,35 +141,6 @@ void TesterWeighted::RunRandomCliques(int num_vertices, int weight_min, int weig
         std::cout << runtimes[i] << "\t";
     }
     std::cout << "\naverage runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / num_iter << std::endl;
-}
-
-std::vector<std::tuple<int, int, int> > TesterWeighted::RandomClique(int max_num_vertices,
-                                                                     int weight_min,
-                                                                     int weight_max) {
-    // returns the edge list
-    std::uniform_int_distribution<> dist_n(1, max_num_vertices / 2);
-    int num_vertices = dist_n(generator);
-    num_vertices *= 2;
-
-    return RandomCliqueFixedSize(num_vertices, weight_min, weight_max);
-}
-
-std::vector<std::tuple<int, int, int> > TesterWeighted::RandomCliqueFixedSize(int num_vertices,
-                                                                              int weight_min,
-                                                                              int weight_max) {
-    std::vector<std::tuple<int, int, int> > edge_list;
-    edge_list.reserve(num_vertices * (num_vertices - 1) / 2);
-
-    std::uniform_int_distribution<> dist_weight(weight_min, weight_max);
-
-    for (int vertex = 0; vertex < num_vertices; ++vertex) {
-        for (int to = vertex + 1; to < num_vertices; ++to) {
-            int weight = dist_weight(generator);
-            edge_list.emplace_back(vertex, to, weight);
-        }
-    }
-
-    return edge_list;
 }
 
 void TesterWeighted::Verify(const std::vector<std::tuple<int, int, int> > &edge_list, const SolverWeighted &solver) {
