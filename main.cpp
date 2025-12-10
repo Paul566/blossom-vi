@@ -19,6 +19,24 @@ void PrintVector(const std::vector<int> &numbers) {
     std::cout << std::endl;
 }
 
+std::vector<std::string> AllFiles(const std::string &directory_path) {
+    std::vector<std::string> files;
+
+    try {
+        for (const auto &entry : std::filesystem::directory_iterator(directory_path)) {
+            if (std::filesystem::is_regular_file(entry.status())) {
+                files.push_back(entry.path().string());
+            }
+        }
+    } catch (const std::filesystem::filesystem_error &e) {
+        std::cerr << "Cannot access directory: " << e.what() << std::endl;
+    }
+
+    std::sort(files.begin(), files.end());
+
+    return files;
+}
+
 std::vector<std::vector<int> > ReadUnweightedEdgeList(const std::string &path) {
     std::vector<std::vector<int> > adj_list;
     std::fstream input_file(path);
@@ -209,24 +227,6 @@ void MeasureUnweightedTime(const std::string &path, int init_type, bool delete_e
     std::cout << "\naverage runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / num_iter << std::endl;
 }
 
-std::vector<std::string> AllFiles(const std::string &directory_path) {
-    std::vector<std::string> files;
-
-    try {
-        for (const auto &entry : std::filesystem::directory_iterator(directory_path)) {
-            if (std::filesystem::is_regular_file(entry.status())) {
-                files.push_back(entry.path().string());
-            }
-        }
-    } catch (const std::filesystem::filesystem_error &e) {
-        std::cerr << "Cannot access directory: " << e.what() << std::endl;
-    }
-
-    std::sort(files.begin(), files.end());
-
-    return files;
-}
-
 void MeasureAllUnweighted(const std::string &directory_path, int init_type, bool delete_edges_in_cherries) {
     auto files = AllFiles(directory_path);
     for (const auto &file : files) {
@@ -240,7 +240,9 @@ int main() {
     // std::mt19937 gen(239);
     TesterWeighted tester(true, 239);
     // tester.RunInstances(CliqueGenerator(100, -1000, 1000), 100, false);
-    tester.RunInstances(MatchingPlusGraphGenerator(1000, 60000, -1000, 1000), 100, false);
+    // tester.RunInstances(MatchingPlusGraphGenerator(10000, 60000, -1000, 1000), 10, false);
+	// tester.MeasureBenchmark("../tests-weighted", 1, 30);
+	tester.MeasureInstance("../tests-weighted/delaunay-100000-299968", 1);
 
     return 0;
 }

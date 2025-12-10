@@ -52,6 +52,9 @@ class TesterWeighted {
                           int num_iter = 1,
                           bool verbose = true);
 
+        static void MeasureBenchmark(const std::string &path, int num_iter, double max_time_per_instance = 60.);
+        static void MeasureInstance(const std::string &filename, int num_iter, double max_time_per_instance = 60.);
+
     private:
         std::mt19937 generator;
 
@@ -72,6 +75,9 @@ class TesterWeighted {
                                 int vtx2,
                                 int weight,
                                 const EdgeListType &dual_solution);
+
+        static std::vector<std::string> AllFiles(const std::string &directory_path);
+        static EdgeListType ReadWeightedEdgeList(const std::string &filename);
 };
 
 #endif //BLOSSOM_VI_TESTERWEIGHTED_H

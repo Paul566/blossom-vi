@@ -1,6 +1,8 @@
 #include "TesterWeighted.h"
 
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <unordered_set>
 
@@ -141,6 +143,49 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
         std::cout << runtimes[i] << "\t";
     }
     std::cout << "\naverage runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / num_iter << std::endl;
+}
+
+void TesterWeighted::MeasureBenchmark(const std::string &path, int num_iter, double max_time_per_instance) {
+    auto files = AllFiles(path);
+    std::cout << std::setprecision(3);
+
+    for (const auto &file : files) {
+        MeasureInstance(file, num_iter, max_time_per_instance);
+    }
+}
+
+void TesterWeighted::MeasureInstance(const std::string &filename, int num_iter, double max_time_per_instance) {
+    std::cout << filename << std::endl;
+    EdgeListType edge_list = ReadWeightedEdgeList(filename);
+
+    std::vector<double> runtimes;
+    std::vector<double> init_times;
+
+    double total_time = 0.;
+    int real_iters = 0;
+    for (int i = 0; i < num_iter; ++i) {
+        auto start = std::chrono::high_resolution_clock::now();
+        SolverWeighted solver = SolverWeighted(edge_list,
+                                               {.compute_dual_certificate = false, .verbose = false});
+        solver.FindMinPerfectMatching();
+        auto stop = std::chrono::high_resolution_clock::now();
+        double runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
+            stop - start).count()) / 1'000'000;
+        runtimes.push_back(runtime);
+        total_time += runtime;
+        ++real_iters;
+
+        if (total_time > max_time_per_instance) {
+            break;
+        }
+    }
+
+    std::cout << "runtimes:\t\t\t\t\t";
+    for (int i = 0; i < num_iter; ++i) {
+        std::cout << runtimes[i] << "\t";
+    }
+    std::cout << "\naverage runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / real_iters << std::endl;
+    std::cout << std::endl;
 }
 
 void TesterWeighted::Verify(const std::vector<std::tuple<int, int, int> > &edge_list, const SolverWeighted &solver) {
@@ -292,4 +337,38 @@ int64_t TesterWeighted::SlackQuadrupled(int vtx1,
     }
 
     return answer;
+}
+
+std::vector<std::string> TesterWeighted::AllFiles(const std::string &directory_path) {
+    std::vector<std::string> files;
+
+    try {
+        for (const auto &entry : std::filesystem::directory_iterator(directory_path)) {
+            if (std::filesystem::is_regular_file(entry.status())) {
+                files.push_back(entry.path().string());
+            }
+        }
+    } catch (const std::filesystem::filesystem_error &e) {
+        std::cerr << "Cannot access directory: " << e.what() << std::endl;
+    }
+
+    std::sort(files.begin(), files.end());
+
+    return files;
+}
+
+EdgeListType TesterWeighted::ReadWeightedEdgeList(const std::string &filename) {
+    std::ifstream infile(filename);
+    if (!infile.is_open()) {
+        throw std::runtime_error("Failed to open file: " + filename);
+    }
+
+    std::vector<std::tuple<int, int, int>> edge_list;
+    int u, v, weight;
+
+    while (infile >> u >> v >> weight) {
+        edge_list.emplace_back(u, v, weight);
+    }
+
+    return edge_list;
 }

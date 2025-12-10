@@ -383,6 +383,7 @@ void Node::MakeSlackNonnegativeInInit() {
     // is called once for each vertex in GreedyInit
 
     if (neighbors.empty()) {
+        std::cout << "vertex " << index << ": no neighbors" << std::endl;
         throw std::runtime_error("Found an isolated vertex => no perfect matching exists");
     }
 
