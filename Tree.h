@@ -35,6 +35,7 @@ class Tree {
         void PrintTree() const;
 
         Tree *MakePrimalUpdates();
+        Tree *MakePrimalUpdate(bool * success);
 
         int PlusEmptySlack();
         int PlusPlusInternalSlack() const;

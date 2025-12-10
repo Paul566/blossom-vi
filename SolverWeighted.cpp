@@ -389,7 +389,6 @@ void SolverWeighted::MakeDualUpdates() {
 void SolverWeighted::MakePrimalUpdates() {
     // makes primal updates for the whole collection of the trees
 
-    // TODO maybe do one update per tree in several rounds instead of maximal number of updates per tree in a single round
     // TODO check if the sizes of the trees become imbalanced
 
     if (params.verbose) {
@@ -402,26 +401,43 @@ void SolverWeighted::MakePrimalUpdates() {
         }
     }
 
-    auto it = trees.begin();
-    while (it != trees.end()) {
+    std::list<Tree*> active_trees;
+    std::unordered_map<Tree *, std::list<Tree*>::iterator> active_tree_pointer;
+    for (Tree &tree : trees) {
+        active_trees.push_back(&tree);
+        active_tree_pointer[&tree] = std::prev(active_trees.end());
+    }
+
+    auto it = active_trees.begin();
+    while (!active_trees.empty()) {
         auto next_it = std::next(it);
 
-        Tree *augmented_tree = it->MakePrimalUpdates();
+        bool success = true;
+        Tree *augmented_tree = (*it)->MakePrimalUpdate(&success);
         if (augmented_tree) {
-            if (next_it == iter_to_tree[augmented_tree]) {
-                next_it = std::next(next_it);
+            if (next_it != active_trees.end()) {
+                if (*next_it == augmented_tree) {
+                    next_it = std::next(next_it);
+                }
             }
 
-            trees.erase(it);
+            trees.erase(iter_to_tree[*it]);
+            active_trees.erase(it);
             trees.erase(iter_to_tree[augmented_tree]);
+            if (active_tree_pointer.contains(augmented_tree)) {
+                active_trees.erase(active_tree_pointer[augmented_tree]);
+            }
+        }
+
+        if (!success) {
+            active_tree_pointer.erase(*it);
+            active_trees.erase(it);
         }
 
         it = next_it;
-
-        // for (Tree & tree : trees) {
-        //     tree.ValidatePlusEmpty();
-        //     tree.ValidatePQPlusPlus();
-        // }
+        if (it == active_trees.end()) {
+            it = active_trees.begin();
+        }
     }
 
     if (params.verbose) {

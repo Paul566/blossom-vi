@@ -207,6 +207,7 @@ void Tree::PrintTree() const {
 Tree *Tree::MakePrimalUpdates() {
     // makes primal updates while we can, or until an augmentation was made
     // returns a pointer to the other tree in case of augmentation
+    throw std::runtime_error("Tree::MakePrimalUpdates() should be unused");
 
     if (!root->TopBlossom().IsInSomeTree()) {
         throw std::runtime_error("In Tree::MakePrimalUpdates: we are in the deleted tree");
@@ -215,8 +216,6 @@ Tree *Tree::MakePrimalUpdates() {
     int operation_cnt = 0;
     bool success = true;
     while (success) {
-        // TODO experiment with the order of the operations
-
         ++operation_cnt;
 
         EdgeWeighted *augmentable_edge = AugmentableEdge();
@@ -251,6 +250,31 @@ Tree *Tree::MakePrimalUpdates() {
 
     // std::cout << operation_cnt << " primal updates for this tree" << std::endl;
 
+    return nullptr;
+}
+
+Tree * Tree::MakePrimalUpdate(bool *success) {
+    if (EdgeWeighted *augmentable_edge = AugmentableEdge()) {
+        Tree *other = Augment(*augmentable_edge);
+        return other;
+    }
+
+    if (EdgeWeighted *growable_edge = GrowableEdge()) {
+        Grow(*growable_edge);
+        return nullptr;
+    }
+
+    if (EdgeWeighted *shrinkable_edge = ShrinkableEdge()) {
+        Shrink(*shrinkable_edge);
+        return nullptr;
+    }
+
+    if (Node *expandable_blossom = ExpandableBlossom()) {
+        Expand(*expandable_blossom);
+        return nullptr;
+    }
+
+    *success = false;
     return nullptr;
 }
 

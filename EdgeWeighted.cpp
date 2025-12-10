@@ -22,15 +22,16 @@ std::pair<Node &, Node &> EdgeWeighted::ElementaryEndpoints() const {
 }
 
 Node & EdgeWeighted::OtherEnd(const Node &vertex) const {
-    if (head_stack.empty() || tail_stack.empty()) {
-        throw std::runtime_error("In OtherEnd: invalid edge");
-    }
+    // if (head_stack.empty() || tail_stack.empty()) {
+    //     throw std::runtime_error("In OtherEnd: invalid edge");
+    // }
     if (&vertex == tail_stack.back()) {
         return *head_stack.back();
     }
-    if (&vertex == head_stack.back()) {
-        return *tail_stack.back();
-    }
+    return *tail_stack.back();
+    // if (&vertex == head_stack.back()) {
+    //     return *tail_stack.back();
+    // }
     throw std::runtime_error("EdgeWeighted::OtherEnd: vertex is not on top of either stack");
 }
 
@@ -50,17 +51,18 @@ Node & EdgeWeighted::OtherElementaryEnd(const Node &vertex) const {
 Node & EdgeWeighted::DeeperNode(const Node &vertex) const {
     // returns a node that is a blossom child of vertex and is adjacent to this edge
     if (&vertex == tail_stack.back()) {
-        if (tail_stack.size() < 2) {
-            throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is at the bottom of the stack");
-        }
+        // if (tail_stack.size() < 2) {
+        //     throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is at the bottom of the stack");
+        // }
         return *tail_stack[tail_stack.size() - 2];
     }
-    if (&vertex == head_stack.back()) {
-        if (head_stack.size() < 2) {
-            throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is at the bottom of the stack");
-        }
-        return *head_stack[head_stack.size() - 2];
-    }
+    // if (&vertex == head_stack.back()) {
+    //     // if (head_stack.size() < 2) {
+    //     //     throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is at the bottom of the stack");
+    //     // }
+    //     return *head_stack[head_stack.size() - 2];
+    // }
+    return *head_stack[head_stack.size() - 2];
     throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is not on top of either stack");
 }
 

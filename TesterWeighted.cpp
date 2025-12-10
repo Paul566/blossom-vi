@@ -13,7 +13,7 @@ CliqueGenerator::CliqueGenerator(int num_vertices_, int weight_min_, int weight_
     }
 }
 
-EdgeListType CliqueGenerator::Generate(std::mt19937 generator) const {
+EdgeListType CliqueGenerator::Generate(std::mt19937 *generator) const {
     std::vector<std::tuple<int, int, int> > edge_list;
     edge_list.reserve(num_vertices * (num_vertices - 1) / 2);
 
@@ -21,7 +21,7 @@ EdgeListType CliqueGenerator::Generate(std::mt19937 generator) const {
 
     for (int vertex = 0; vertex < num_vertices; ++vertex) {
         for (int to = vertex + 1; to < num_vertices; ++to) {
-            int weight = dist_weight(generator);
+            int weight = dist_weight(*generator);
             edge_list.emplace_back(vertex, to, weight);
         }
     }
@@ -46,7 +46,7 @@ MatchingPlusGraphGenerator::MatchingPlusGraphGenerator(int num_vertices_,
     }
 }
 
-EdgeListType MatchingPlusGraphGenerator::Generate(std::mt19937 generator) const {
+EdgeListType MatchingPlusGraphGenerator::Generate(std::mt19937 *generator) const {
     std::vector<std::tuple<int, int, int> > edges;
     edges.reserve(num_edges);
 
@@ -58,7 +58,7 @@ EdgeListType MatchingPlusGraphGenerator::Generate(std::mt19937 generator) const 
         vertices[i] = i;
     }
 
-    std::shuffle(vertices.begin(), vertices.end(), generator);
+    std::shuffle(vertices.begin(), vertices.end(), *generator);
 
     std::unordered_set<std::pair<int, int>, PairHash> edge_set;
     edge_set.reserve(num_edges * 2);
@@ -70,7 +70,7 @@ EdgeListType MatchingPlusGraphGenerator::Generate(std::mt19937 generator) const 
             std::swap(u, v);
         }
 
-        int w = weight_dist(generator);
+        int w = weight_dist(*generator);
         edges.emplace_back(u, v, w);
         edge_set.insert({u, v});
     }
@@ -79,8 +79,8 @@ EdgeListType MatchingPlusGraphGenerator::Generate(std::mt19937 generator) const 
     std::uniform_int_distribution<> vertex_dist(0, num_vertices - 1);
 
     while (static_cast<int>(edges.size()) < num_edges) {
-        int u = vertex_dist(generator);
-        int v = vertex_dist(generator);
+        int u = vertex_dist(*generator);
+        int v = vertex_dist(*generator);
         if (u == v) continue;
         if (u > v) {
             std::swap(u, v);
@@ -91,7 +91,7 @@ EdgeListType MatchingPlusGraphGenerator::Generate(std::mt19937 generator) const 
             continue;
         }
 
-        int w = weight_dist(generator);
+        int w = weight_dist(*generator);
         edges.emplace_back(u, v, w);
         edge_set.insert(e);
     }
@@ -114,11 +114,11 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
 
     for (int i = 0; i < num_iter; ++i) {
         std::cout << "------------------------------------------------------------\niter " << i << std::endl;
-        if (i == 85) {
+        if (i == 54) {
             std::cout << "a;ldsfj" << std::endl;
         }
 
-        std::vector<std::tuple<int, int, int> > edge_list = graph_generator.Generate(generator);
+        std::vector<std::tuple<int, int, int> > edge_list = graph_generator.Generate(&generator);
 
         auto start = std::chrono::high_resolution_clock::now();
         SolverWeighted solver = SolverWeighted(edge_list,
@@ -184,7 +184,8 @@ void TesterWeighted::MeasureInstance(const std::string &filename, int num_iter, 
     for (int i = 0; i < num_iter; ++i) {
         std::cout << runtimes[i] << "\t";
     }
-    std::cout << "\naverage runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / real_iters << std::endl;
+    std::cout << "\naverage runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / real_iters <<
+        std::endl;
     std::cout << std::endl;
 }
 
@@ -363,7 +364,7 @@ EdgeListType TesterWeighted::ReadWeightedEdgeList(const std::string &filename) {
         throw std::runtime_error("Failed to open file: " + filename);
     }
 
-    std::vector<std::tuple<int, int, int>> edge_list;
+    std::vector<std::tuple<int, int, int> > edge_list;
     int u, v, weight;
 
     while (infile >> u >> v >> weight) {

@@ -48,6 +48,7 @@ class SolverWeighted {
         std::unordered_map<Node *, std::list<Node>::iterator> iter_to_blossom;
         std::list<Tree> trees;
         std::unordered_map<Tree *, std::list<Tree>::iterator> iter_to_tree;
+        // TODO do lazy deletions from the list
         // TODO store the iterators in some other way
         // TODO consider std::vector<std::unique_ptr<Obj>> instead of std::list<Obj>
 

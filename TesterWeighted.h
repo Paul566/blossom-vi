@@ -20,13 +20,13 @@ struct PairHash {
 class GraphGenerator {
     public:
         virtual ~GraphGenerator() = default;
-        virtual EdgeListType Generate(std::mt19937 generator) const = 0;
+        virtual EdgeListType Generate(std::mt19937 * generator) const = 0;
 };
 class CliqueGenerator : public GraphGenerator {
     // generates graphs that are unions of a random perfect matching and a random graph
     public:
         CliqueGenerator(int num_vertices_, int weight_min_, int weight_max_);
-        EdgeListType Generate(std::mt19937 generator) const override;
+        EdgeListType Generate(std::mt19937 * generator) const override;
         int num_vertices;
         int weight_min;
         int weight_max;
@@ -35,7 +35,7 @@ class MatchingPlusGraphGenerator : public GraphGenerator {
     // generates graphs that are unions of a random perfect matching and a random graph
     public:
         MatchingPlusGraphGenerator(int num_vertices_, int num_edges_, int weight_min_, int weight_max_);
-        EdgeListType Generate(std::mt19937 generator) const override;
+        EdgeListType Generate(std::mt19937 * generator) const override;
         int num_vertices;
         int num_edges;
         int weight_min;
