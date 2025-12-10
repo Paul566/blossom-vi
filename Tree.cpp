@@ -730,35 +730,6 @@ int Tree::PlusPlusInternalSlack() const {
     return (*plus_plus_internal_edges.begin())->SlackQuadrupled();
 }
 
-int Tree::PlusMinusExternalSlack() const {
-    // returns the minimal quadrupled slack of a (+, -) edge, where the other vertex is in another tree
-    int answer = INT32_MAX;
-
-    std::queue<Node *> queue;
-    queue.push(&root->TopBlossom());
-    while (!queue.empty()) {
-        const Node *node = queue.front();
-        queue.pop();
-
-        if (node->Plus()) {
-            for (EdgeWeighted *edge : node->neighbors) {
-                if (edge->SlackQuadrupled() < answer) {
-                    Node &other_end = edge->OtherEnd(*node);
-                    if ((!other_end.IsInThisTree(*this)) && (other_end.Minus())) {
-                        answer = edge->SlackQuadrupled();
-                    }
-                }
-            }
-        }
-
-        for (const EdgeWeighted *child : node->TreeChildren()) {
-            queue.push(&child->OtherEnd(*node));
-        }
-    }
-
-    return answer;
-}
-
 int Tree::MinMinusBlossomVariable() {
     // returns the minimum quadrupled dual variable of a (-) non-elementary blossom
 

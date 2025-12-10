@@ -22,11 +22,9 @@ class EdgeWeighted {
         int SlackQuadrupled() const;
 
         std::pair<Node &, Node &> Endpoints() const;
-        std::pair<Node &, Node &> ElementaryEndpoints() const;
 
         Node &OtherEnd(const Node &vertex) const;
-        Node &OtherElementaryEnd(const Node &vertex) const;
-        Node &DeeperNode(const Node &vertex) const;
+        Node &DeeperNode(const Node &vertex);
         bool IsInsideBlossom() const;
 
         void UpdateAfterShrink(const Node &vertex);
@@ -34,11 +32,9 @@ class EdgeWeighted {
 
     private:
         int slack_quadrupled_amortized;
-        std::vector<Node *> head_stack;
-        std::vector<Node *> tail_stack;
-        // stack tops: current top blossoms or children of the blossom that contains this edge
-        // in other words, maximal blossoms that contain the elementary endpoints but don't contain the entire edge
-        // stack bottoms: elementary nodes
+        Node * head;
+        Node * tail;
+        // head, tail: top blossoms
 };
 
 #endif //EDGEWEIGHTED_H

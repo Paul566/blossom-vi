@@ -4,70 +4,48 @@
 
 EdgeWeighted::EdgeWeighted(Node &head_, Node &tail_, const int weight_) : weight(weight_), matched(false),
                                                                           slack_quadrupled_amortized(4 * weight_) {
-    head_stack.push_back(&head_);
-    tail_stack.push_back(&tail_);
+    head = &head_;
+    tail = &tail_;
 }
 
 int EdgeWeighted::SlackQuadrupled() const {
-    return slack_quadrupled_amortized - head_stack.back()->DualVariableQuadrupled() -
-        tail_stack.back()->DualVariableQuadrupled();
+    return slack_quadrupled_amortized - head->DualVariableQuadrupled() -
+        tail->DualVariableQuadrupled();
 }
 
 std::pair<Node &, Node &> EdgeWeighted::Endpoints() const {
-    return {*head_stack.back(), *tail_stack.back()};
-}
-
-std::pair<Node &, Node &> EdgeWeighted::ElementaryEndpoints() const {
-    return {*head_stack.front(), *tail_stack.front()};
+    return {*head, *tail};
 }
 
 Node & EdgeWeighted::OtherEnd(const Node &vertex) const {
-    // if (head_stack.empty() || tail_stack.empty()) {
-    //     throw std::runtime_error("In OtherEnd: invalid edge");
-    // }
-    if (&vertex == tail_stack.back()) {
-        return *head_stack.back();
+    if (&vertex == tail) {
+        return *head;
     }
-    return *tail_stack.back();
-    // if (&vertex == head_stack.back()) {
-    //     return *tail_stack.back();
-    // }
-    throw std::runtime_error("EdgeWeighted::OtherEnd: vertex is not on top of either stack");
+    if (&vertex == head) {
+        return *tail;
+    }
+    throw std::runtime_error("EdgeWeighted::OtherEnd: vertex is not adjacent to this edge");
 }
 
-Node & EdgeWeighted::OtherElementaryEnd(const Node &vertex) const {
-    if (vertex.index == -1) {
-        throw std::runtime_error("In OtherElementaryEnd: vertex must be elementary");
-    }
-    if (&vertex == tail_stack.front()) {
-        return *head_stack.front();
-    }
-    if (&vertex == head_stack.front()) {
-        return *tail_stack.front();
-    }
-    throw std::runtime_error("EdgeWeighted::OtherEnd: vertex is not in the front of either stack");
-}
-
-Node & EdgeWeighted::DeeperNode(const Node &vertex) const {
+Node & EdgeWeighted::DeeperNode(const Node &vertex) {
     // returns a node that is a blossom child of vertex and is adjacent to this edge
-    if (&vertex == tail_stack.back()) {
-        // if (tail_stack.size() < 2) {
-        //     throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is at the bottom of the stack");
-        // }
-        return *tail_stack[tail_stack.size() - 2];
+    if (&vertex == tail) {
+        if (tail->IsElementary()) {
+            throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is elementary");
+        }
+        return *tail->edge_to_deeper_node[this];
     }
-    // if (&vertex == head_stack.back()) {
-    //     // if (head_stack.size() < 2) {
-    //     //     throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is at the bottom of the stack");
-    //     // }
-    //     return *head_stack[head_stack.size() - 2];
-    // }
-    return *head_stack[head_stack.size() - 2];
+    if (&vertex == head) {
+        if (head->IsElementary()) {
+            throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is elementary");
+        }
+        return *head->edge_to_deeper_node[this];
+    }
     throw std::runtime_error("EdgeWeighted::DeeperNode: vertex is not on top of either stack");
 }
 
 bool EdgeWeighted::IsInsideBlossom() const {
-    return !head_stack.back()->IsTopBlossom();
+    return !head->IsTopBlossom();
 }
 
 void EdgeWeighted::UpdateAfterShrink(const Node &vertex) {
@@ -79,30 +57,29 @@ void EdgeWeighted::UpdateAfterShrink(const Node &vertex) {
     }
 
     slack_quadrupled_amortized -= vertex.DualVariableQuadrupled();
-    if (&vertex == tail_stack.back()) {
-        tail_stack.push_back(vertex.BlossomParent());
+    if (&vertex == tail) {
+        tail = vertex.BlossomParent();
         return;
     }
-    if (&vertex == head_stack.back()) {
-        head_stack.push_back(vertex.BlossomParent());
+    if (&vertex == head) {
+        head = vertex.BlossomParent();
         return;
     }
 
-    const auto [head, tail] = ElementaryEndpoints();
-    std::cout << "EdgeWeighted::UpdateAfterShrink: edge: " << head.index << " " << tail.index << std::endl;
+    std::cout << "EdgeWeighted::UpdateAfterShrink: edge: " << head->index << " " << tail->index << std::endl;
     std::cout << "vertex: " << vertex.index << std::endl;
     throw std::runtime_error("EdgeWeighted::UpdateAfterShrink: vertex is not on top of either stack");
 }
 
 void EdgeWeighted::UpdateAfterDissolve(const Node &vertex) {
-    if (&vertex == tail_stack.back()) {
-        tail_stack.pop_back();
-        slack_quadrupled_amortized += tail_stack.back()->DualVariableQuadrupled();
+    if (&vertex == tail) {
+        tail = tail->edge_to_deeper_node[this];
+        slack_quadrupled_amortized += tail->DualVariableQuadrupled();
         return;
     }
-    if (&vertex == head_stack.back()) {
-        head_stack.pop_back();
-        slack_quadrupled_amortized += head_stack.back()->DualVariableQuadrupled();
+    if (&vertex == head) {
+        head = head->edge_to_deeper_node[this];
+        slack_quadrupled_amortized += head->DualVariableQuadrupled();
         return;
     }
     throw std::runtime_error("EdgeWeighted::UpdateAfterDissolve: vertex is not on top of either stack");

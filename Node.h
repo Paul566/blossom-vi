@@ -1,6 +1,7 @@
 #ifndef BLOSSOM_VI_NODE_H
 #define BLOSSOM_VI_NODE_H
 
+#include <unordered_map>
 #include <vector>
 
 class EdgeWeighted;
@@ -10,6 +11,7 @@ class Node {
     public:
         const int index; // >=n if it is a supernode (blossom)
         std::vector<EdgeWeighted *> neighbors;
+        std::unordered_map<EdgeWeighted *, Node *> edge_to_deeper_node;
 
         explicit Node(int index_);
         explicit Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_);
@@ -63,6 +65,7 @@ class Node {
         std::vector<Node *> blossom_children;
         EdgeWeighted *blossom_brother_clockwise;
         EdgeWeighted *blossom_brother_anticlockwise;
+        // for edge in neighbors, edge -> the blossom child that contains the elementary endpoint of this edge
 
         // tree related fields
         bool plus;

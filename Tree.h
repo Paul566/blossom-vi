@@ -43,7 +43,6 @@ class Tree {
         std::vector<std::pair<Tree *, int>> PlusPlusExternalSlacks() const;
         std::vector<std::pair<Tree *, int>> PlusMinusExternalSlacks() const;
         int PlusPlusExternalSlack() const;
-        int PlusMinusExternalSlack() const;
 
         void ValidatePlusEmpty() const;   // debugging purposes
         void ValidatePQPlusPlus() const;

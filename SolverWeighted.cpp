@@ -292,7 +292,7 @@ std::vector<std::pair<int, int> > SolverWeighted::Matching() const {
 
     for (const EdgeWeighted &edge : edges) {
         if (edge.matched) {
-            auto [head, tail] = edge.ElementaryEndpoints();
+            auto [head, tail] = edge.Endpoints();
             matching.emplace_back(head.index, tail.index);
         }
     }

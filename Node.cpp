@@ -70,11 +70,12 @@ Node::Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_) : index
         }
     }
 
-    // find neighbors + update edges
-    for (const Node *vertex : blossom_children) {
+    // find neighbors + update edges + update edge_to_deeper_node
+    for (Node *vertex : blossom_children) {
         for (EdgeWeighted *edge : vertex->neighbors) {
             if (!blossom_set.contains(&edge->OtherEnd(*vertex))) {
                 neighbors.push_back(edge);
+                edge_to_deeper_node[edge] = vertex;
                 edge->UpdateAfterShrink(*vertex);
             }
         }
