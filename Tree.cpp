@@ -420,22 +420,6 @@ void Tree::UpdateQueuesAfterShrink(const Node &blossom) {
         if (edge->DeeperNode(blossom).Minus()) {
             InsertEdgeTreeTreePQ(*edge, blossom);
         }
-        // if (edge->DeeperNode(blossom).Plus()) {
-        //     Node &neighbor = edge->OtherEnd(blossom);
-        //     if (neighbor.IsInSomeTree() && !neighbor.IsInThisTree(*this)) {
-        //         Tree * other_tree = neighbor.TreeOf();
-        //         if (neighbor.Plus()) {
-        //             if (!other_tree->pq_plus_plus[this].contains(edge) || !pq_plus_plus[other_tree].contains(edge)) {
-        //                 throw std::runtime_error("wrong pq++");
-        //             }
-        //         } else {
-        //             if (!other_tree->pq_minus_plus[this].contains(edge) || !pq_plus_minus[other_tree].contains(edge)) {
-        //                 throw std::runtime_error("wrong pq+-");
-        //             }
-        //         }
-        //     }
-        // }
-        // InsertEdgeTreeTreePQ(*edge, blossom);
     }
 }
 

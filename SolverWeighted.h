@@ -12,6 +12,7 @@ struct SolverParams {
     bool compute_dual_certificate = false;
     bool verbose = false;
     bool multiple_trees = true;
+    bool print_statistics = true;
 };
 
 struct DualConstraints {
@@ -35,6 +36,7 @@ class SolverWeighted {
         void FindMinPerfectMatching();
 
         void PrintGraph() const;
+        void PrintFinalStatistics();
 
         std::vector<std::pair<int, int> > Matching() const;
         const std::vector<std::tuple<int, int, int>>& DualCertificate() const;

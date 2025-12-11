@@ -50,9 +50,21 @@ void SolverWeighted::FindMinPerfectMatching() {
         iter_to_tree[&trees.back()] = std::prev(trees.end());
     }
 
+    if (params.print_statistics) {
+        std::cout << "elementary vertices: " << elementary_nodes_list.size() << std::endl;
+        std::cout << "initial number of trees: " << trees.size() << std::endl;
+    }
+
+    int num_rounds = 0;
     while (!trees.empty()) {
+        ++num_rounds;
         MakePrimalUpdates();
         MakeDualUpdates();
+
+        if (params.print_statistics) {
+            std::cout << "round " << num_rounds << std::endl;
+            PrintFinalStatistics();
+        }
     }
 
     // compute the objectives and recover the matching
@@ -66,6 +78,11 @@ void SolverWeighted::FindMinPerfectMatching() {
     }
     if (params.verbose) {
         std::cout << "Dual objective:\t\t" << dual_objective << std::endl;
+    }
+
+    if (params.print_statistics) {
+        std::cout << "number of rounds: " << num_rounds << std::endl;
+        PrintFinalStatistics();
     }
 
     DestroyBlossoms();
@@ -85,6 +102,36 @@ void SolverWeighted::PrintGraph() const {
     for (const Node &vertex : blossoms) {
         vertex.PrintNode();
     }
+}
+
+void SolverWeighted::PrintFinalStatistics() {
+    std::cout << "number of trees: " << trees.size() << std::endl;
+    std::cout << "number of blossoms: " << blossoms.size() << std::endl;
+
+    int free_nodes = 0;
+    for (Node &vertex : elementary_nodes_list) {
+        if (vertex.IsTopBlossom()) {
+            ++ free_nodes;
+        }
+    }
+    std::cout << "fraction of free elementary nodes: " << free_nodes * 1. / elementary_nodes_list.size() << std::endl;
+
+    int max_deg = 0;
+    for (Node & blossom : blossoms) {
+        if (max_deg < static_cast<int>(blossom.neighbors.size())) {
+            max_deg = static_cast<int>(blossom.neighbors.size());
+        }
+    }
+    std::cout << "max degree of a blossom: " << max_deg << std::endl;
+
+    int max_depth = 0;
+    for (Node & vertex : elementary_nodes_list) {
+        int depth = vertex.Depth();
+        if (max_depth < depth) {
+            max_depth = depth;
+        }
+    }
+    std::cout << "max depth of a blossom: " << max_depth << std::endl;
 }
 
 void SolverWeighted::GreedyInit() {

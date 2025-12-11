@@ -15,6 +15,7 @@ class Node {
 
         explicit Node(int index_);
         explicit Node(const std::vector<EdgeWeighted *> &blossom_edges, int index_);
+        // TODO steal neighbors
 
         Node(const Node &other) = delete;
         Node(Node &&other) = delete;
@@ -28,6 +29,7 @@ class Node {
         bool IsElementary() const;
         bool IsTopBlossom() const;
         Node &TopBlossom(); // TODO make const
+        int Depth();
         bool IsInSomeTree() const;
         bool IsInThisTree(const Tree & tree_) const;
         Tree * TreeOf() const;

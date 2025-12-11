@@ -116,6 +116,16 @@ Node &Node::TopBlossom() {
     return *cur_vertex;
 }
 
+int Node::Depth() {
+    int depth = 0;
+    Node *cur_vertex = this;
+    while (cur_vertex->blossom_parent) {
+        cur_vertex = cur_vertex->blossom_parent;
+        ++depth;
+    }
+    return depth;
+}
+
 bool Node::IsInSomeTree() const {
     return tree != nullptr;
 }
