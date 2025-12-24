@@ -5,7 +5,8 @@
 #include <random>
 #include <vector>
 
-#include "SolverWeighted.h"
+// #include "SolverWeighted.h"
+#include "Solver.h"
 
 using EdgeListType = std::vector<std::tuple<int, int, int> >;
 using AdjListType = std::vector<std::vector<std::pair<int, int> > >;
@@ -58,11 +59,11 @@ class TesterWeighted {
     private:
         std::mt19937 generator;
 
-        void Verify(const EdgeListType &edge_list, const SolverWeighted &solver);
+        void Verify(const EdgeListType &edge_list, const Solver &solver);
         static bool IsPerfectMatching(const AdjListType &adj_list,
                                       const std::vector<std::pair<int, int> > &matching);
         bool IsCorrectDualSolution(const AdjListType &adj_list,
-                                   const EdgeListType &dual_solution);
+                                   const std::vector<std::tuple<int, int, int> > &dual_solution);
         static int64_t PrimalObjective(const AdjListType &adj_list,
                                        const std::vector<std::pair<int, int> > &matching);
         static int64_t QuadrupledDualObjective(const AdjListType &adj_list,
@@ -74,7 +75,7 @@ class TesterWeighted {
         int64_t SlackQuadrupled(int vtx1,
                                 int vtx2,
                                 int weight,
-                                const EdgeListType &dual_solution);
+                                const std::vector<std::tuple<int, int, int> > &dual_solution);
 
         static std::vector<std::string> AllFiles(const std::string &directory_path);
         static EdgeListType ReadWeightedEdgeList(const std::string &filename);

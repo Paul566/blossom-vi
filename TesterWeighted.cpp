@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <unordered_set>
 
 CliqueGenerator::CliqueGenerator(int num_vertices_, int weight_min_, int weight_max_) : num_vertices(num_vertices_),
@@ -43,6 +44,9 @@ MatchingPlusGraphGenerator::MatchingPlusGraphGenerator(int num_vertices_,
     int min_edges_needed = num_vertices / 2; // size of the perfect matching
     if (num_edges < min_edges_needed) {
         throw std::invalid_argument("In MatchingPlusGraphGenerator: num_edges must be >= num_vertices/2");
+    }
+    if (num_edges > num_vertices * (num_vertices - 1) / 2) {
+        throw std::invalid_argument("In MatchingPlusGraphGenerator: too many edges");
     }
 }
 
@@ -114,15 +118,12 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
 
     for (int i = 0; i < num_iter; ++i) {
         std::cout << "------------------------------------------------------------\niter " << i << std::endl;
-        if (i == 54) {
-            std::cout << "a;ldsfj" << std::endl;
-        }
 
         std::vector<std::tuple<int, int, int> > edge_list = graph_generator.Generate(&generator);
 
         auto start = std::chrono::high_resolution_clock::now();
-        SolverWeighted solver = SolverWeighted(edge_list,
-                                               {.compute_dual_certificate = verify_output, .verbose = verbose});
+        Solver solver = Solver(edge_list,
+                                               {.compute_dual_certificate = verify_output, .verbose = (verbose || (i == 34830)), .print_statistics = false});
         solver.FindMinPerfectMatching();
         auto stop = std::chrono::high_resolution_clock::now();
         double runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
@@ -165,7 +166,7 @@ void TesterWeighted::MeasureInstance(const std::string &filename, int num_iter, 
     int real_iters = 0;
     for (int i = 0; i < num_iter; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
-        SolverWeighted solver = SolverWeighted(edge_list,
+        Solver solver = Solver(edge_list,
                                                {.compute_dual_certificate = false, .verbose = false});
         solver.FindMinPerfectMatching();
         auto stop = std::chrono::high_resolution_clock::now();
@@ -189,23 +190,20 @@ void TesterWeighted::MeasureInstance(const std::string &filename, int num_iter, 
     std::cout << std::endl;
 }
 
-void TesterWeighted::Verify(const std::vector<std::tuple<int, int, int> > &edge_list, const SolverWeighted &solver) {
-    std::vector<std::pair<int, int> > matching = solver.Matching();
-    std::vector<std::tuple<int, int, int> > dual_solution = solver.DualCertificate();
+void TesterWeighted::Verify(const std::vector<std::tuple<int, int, int> > &edge_list, const Solver &solver) {
+    const std::vector<std::pair<int, int> > & matching = solver.Matching();
+    const std::vector<std::tuple<int, int, int> > & dual_solution = solver.DualCertificate();
     std::vector<std::vector<std::pair<int, int> > > adj_list = AdjList(edge_list);
 
     if (!IsPerfectMatching(adj_list, matching)) {
-        solver.PrintGraph();
         throw std::runtime_error("Not a perfect matching");
     }
 
     if (!IsCorrectDualSolution(adj_list, dual_solution)) {
-        solver.PrintGraph();
         throw std::runtime_error("Not a correct dual solution");
     }
 
     if (4 * PrimalObjective(adj_list, matching) != QuadrupledDualObjective(adj_list, dual_solution)) {
-        solver.PrintGraph();
         throw std::runtime_error("The dual objective is not equal the primal objective");
     }
 }

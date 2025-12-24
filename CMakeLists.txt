@@ -20,4 +20,6 @@ add_executable(blossom_vi main.cpp
         Tree.h
         Tree.cpp
         TesterWeighted.h
-        TesterWeighted.cpp)
+        TesterWeighted.cpp
+        Solver.cpp
+        Solver.h)
