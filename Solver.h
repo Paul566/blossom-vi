@@ -29,56 +29,56 @@ class Solver {
 
     private:
         // to not shoot myself in the foot:
-        struct Node {
+        struct NodeIndex {
             int index;
-            explicit Node(int index_) : index(index_) {
+            explicit NodeIndex(int index_) : index(index_) {
             }
             explicit operator bool() const {
                 return index >= 0;
             }
-            bool operator==(const Node &other) const {
+            bool operator==(const NodeIndex &other) const {
                 return index == other.index;
             }
         };
-        struct Edge {
+        struct EdgeIndex {
             int index;
-            explicit Edge(int index_) : index(index_) {
+            explicit EdgeIndex(int index_) : index(index_) {
             }
             explicit operator bool() const {
                 return index >= 0;
             }
-            bool operator==(const Edge &other) const {
+            bool operator==(const EdgeIndex &other) const {
                 return index == other.index;
             }
         };
-        struct Tree {
+        struct TreeIndex {
             int index;
-            explicit Tree(int index_) : index(index_) {
+            explicit TreeIndex(int index_) : index(index_) {
             }
             explicit operator bool() const {
                 return index >= 0;
             }
-            bool operator==(const Tree &other) const {
+            bool operator==(const TreeIndex &other) const {
                 return index == other.index;
             }
         };
 
         struct NodeComparator {
             const Solver *solver;
-            bool operator()(const Node &a, const Node &b) const;
+            bool operator()(const NodeIndex &a, const NodeIndex &b) const;
         };
         struct EdgeComparator {
             const Solver *solver;
-            bool operator()(const Edge &a, const Edge &b) const;
+            bool operator()(const EdgeIndex &a, const EdgeIndex &b) const;
         };
         using EdgeHeap = boost::heap::d_ary_heap<
-            Edge,
+            EdgeIndex,
             boost::heap::arity<2>,
             boost::heap::compare<EdgeComparator>,
             boost::heap::mutable_<true>
         >;
         using NodeHeap = boost::heap::d_ary_heap<
-            Node,
+            NodeIndex,
             boost::heap::arity<2>,
             boost::heap::compare<NodeComparator>,
             boost::heap::mutable_<true>
@@ -92,8 +92,8 @@ class Solver {
             std::vector<int> weight;
             std::vector<bool> matched;
             std::vector<int> slack_quadrupled_amortized;
-            std::vector<Node> head;
-            std::vector<Node> tail;
+            std::vector<NodeIndex> head;
+            std::vector<NodeIndex> tail;
             std::vector<int> queue_index;
             std::vector<EdgeHeap::handle_type> handle;
         };
@@ -102,24 +102,24 @@ class Solver {
             // TODO consider not initializing fields irrelevant for elementary vertices for elementary vertices
 
             std::vector<bool> is_alive;
-            std::vector<std::list<Edge> > neighbors; // concatenated neighbors of blossom_children, might contain loops
+            std::vector<std::list<EdgeIndex> > neighbors; // concatenated neighbors of blossom_children, might contain loops
             // TODO try caching the neighbors into std::vector if we already went through them once
-            std::vector<std::vector<std::list<Edge>::iterator> > children_neighbors_boundaries;
+            std::vector<std::vector<std::list<EdgeIndex>::iterator> > children_neighbors_boundaries;
             // a vector of breakpoints to assign neighbors to children in Dissolve
             std::vector<int> dual_var_quadrupled_amortized;
-            std::vector<Edge> matched_edge;
+            std::vector<EdgeIndex> matched_edge;
 
             // blossom related fields
-            std::vector<Node> blossom_parent; // Node(-1) if no blossom_parent
-            std::vector<std::vector<Node> > blossom_children;
-            std::vector<Edge> blossom_brother_clockwise;
-            std::vector<Edge> blossom_brother_anticlockwise;
+            std::vector<NodeIndex> blossom_parent; // Node(-1) if no blossom_parent
+            std::vector<std::vector<NodeIndex> > blossom_children;
+            std::vector<EdgeIndex> blossom_brother_clockwise;
+            std::vector<EdgeIndex> blossom_brother_anticlockwise;
 
             // tree related fields
             std::vector<bool> plus;
-            std::vector<Edge> tree_parent;
-            std::vector<std::vector<Edge> > tree_children;
-            std::vector<Tree> tree;
+            std::vector<EdgeIndex> tree_parent;
+            std::vector<std::vector<EdgeIndex> > tree_children;
+            std::vector<TreeIndex> tree;
 
             // queue related fields
             std::vector<int> queue_index;
@@ -128,9 +128,9 @@ class Solver {
 
         struct Trees {
             std::vector<bool> is_alive;
-            std::vector<Node> root; // top blossom
+            std::vector<NodeIndex> root; // top blossom
             std::vector<int> dual_var_quadrupled;
-            std::vector<Tree> next_alive_tree;
+            std::vector<TreeIndex> next_alive_tree;
             std::vector<int> alive_index;
             // TODO use std::vector of size num_trees_alive that holds the indices of alive trees instead of next_alive_tree
 
@@ -138,9 +138,9 @@ class Solver {
             std::vector<int> minus_blossoms;
             std::vector<int> plus_empty_edges;
             std::vector<int> plus_plus_internal_edges;
-            std::vector<std::vector<std::pair<Tree, int> > > pq_plus_plus;
-            std::vector<std::vector<std::pair<Tree, int> > > pq_plus_minus;
-            std::vector<std::vector<std::pair<Tree, int> > > pq_minus_plus;
+            std::vector<std::vector<std::pair<TreeIndex, int> > > pq_plus_plus;
+            std::vector<std::vector<std::pair<TreeIndex, int> > > pq_plus_minus;
+            std::vector<std::vector<std::pair<TreeIndex, int> > > pq_minus_plus;
             // TODO delete the queues that lead to dead trees
         };
 
@@ -160,7 +160,7 @@ class Solver {
 
         const int num_vertices_elementary; // the original number of vertices (i.e. not counting blossoms)
         int num_trees_alive;
-        Tree first_alive_tree;
+        TreeIndex first_alive_tree;
 
         std::vector<std::pair<int, int> > matching;
         std::vector<std::tuple<int, int, int> > dual_certificate;
@@ -168,7 +168,7 @@ class Solver {
         // dual_certificate is empty unless params.compute_dual_certificate is true
 
         void PrintGraph() const;
-        void PrintNode(Node node) const;
+        void PrintNode(NodeIndex node) const;
         void PrintTrees() const;
         void PrintStatistics();
 
@@ -188,71 +188,71 @@ class Solver {
         DualConstraints GetDualConstraints();
 
         void MakePrimalUpdates();
-        Tree MakePrimalUpdate(Tree tree, bool *success);
-        void Grow(Tree tree, Edge edge);
-        void Shrink(Tree tree, Edge edge_plus_plus);
-        void MakeBlossom(std::vector<Edge> blossom_edges, Node lca);
-        void Expand(Tree tree, Node blossom);
-        Tree Augment(Tree tree, Edge edge);
-        void AugmentFromNode(Tree tree, Node node);
-        void DissolveTree(Tree tree);
-        void ClearNodeDuringTreeDissolve(Tree tree, Node node);
-        void Dissolve(Node node);
+        TreeIndex MakePrimalUpdate(TreeIndex tree, bool *success);
+        void Grow(TreeIndex tree, EdgeIndex edge);
+        void Shrink(TreeIndex tree, EdgeIndex edge_plus_plus);
+        void MakeBlossom(std::vector<EdgeIndex> blossom_edges, NodeIndex lca);
+        void Expand(TreeIndex tree, NodeIndex blossom);
+        TreeIndex Augment(TreeIndex tree, EdgeIndex edge);
+        void AugmentFromNode(TreeIndex tree, NodeIndex node);
+        void DissolveTree(TreeIndex tree);
+        void ClearNodeDuringTreeDissolve(TreeIndex tree, NodeIndex node);
+        void Dissolve(NodeIndex node);
 
-        void UpdateEdgeAfterShrink(Edge edge, Node node);
+        void UpdateEdgeAfterShrink(EdgeIndex edge, NodeIndex node);
 
-        void UpdateNodeInternalTreeStructure(Node node);
-        void ClearNodeInternalTreeStructure(Node node);
-        void RotateReceptacle(Node blossom, Node child);
-        Node DeeperNode(Node blossom, Edge edge) const;
+        void UpdateNodeInternalTreeStructure(NodeIndex node);
+        void ClearNodeInternalTreeStructure(NodeIndex node);
+        void RotateReceptacle(NodeIndex blossom, NodeIndex child);
+        NodeIndex DeeperNode(NodeIndex blossom, EdgeIndex edge) const;
 
-        void UpdateQueuesAfterGrow(Node child, Node grandchild);
-        void UpdateQueuesBeforeShrink(const std::vector<Node> &minus_children);
-        void RemoveLoopsFromQueues(Node blossom);   // TODO get rid of this
-        void UpdateQueuesAfterExpand(Tree tree, Node blossom, const std::vector<Node> &children);
-        int TreeTreeQueueIndex(Tree other_tree, const std::vector<std::pair<Tree, int> > &tree_neighbors);
-        void AddPQPlusPlus(Tree first, Tree second, Edge edge);
-        void AddPQPlusMinus(Tree tree_plus, Tree tree_minus, Edge edge);
+        void UpdateQueuesAfterGrow(NodeIndex child, NodeIndex grandchild);
+        void UpdateQueuesBeforeShrink(const std::vector<NodeIndex> &minus_children);
+        void RemoveLoopsFromQueues(NodeIndex blossom);   // TODO get rid of this
+        void UpdateQueuesAfterExpand(TreeIndex tree, NodeIndex blossom, const std::vector<NodeIndex> &children);
+        int TreeTreeQueueIndex(TreeIndex other_tree, const std::vector<std::pair<TreeIndex, int> > &tree_neighbors);
+        void AddPQPlusPlus(TreeIndex first, TreeIndex second, EdgeIndex edge);
+        void AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex edge);
         void ValidateQueues();          // debugging purposes
         void ValidatePositiveSlacks();  // debugging purposes
 
-        Edge MinPlusEmptyEdge(int queue_index);
-        Edge MinPlusPlusInternalEdge(int queue_index);
-        Edge MinPlusPlusExternalEdge(int queue_index);
-        Edge MinPlusMinusExternalEdge(int queue_index);
-        Node MinMinusBlossom(int queue_index);
-        Edge GrowableEdge(Tree tree);
-        Edge AugmentableEdge(Tree tree);
-        Edge ShrinkableEdge(Tree tree);
-        Node ExpandableBlossom(Tree tree);
-        int PlusEmptySlack(Tree tree);
-        int PlusPlusInternalSlack(Tree tree);
-        int MinMinusBlossomVariable(Tree tree);
-        std::vector<std::pair<Tree, int> > PlusPlusExternalSlacks(Tree tree);
-        std::vector<std::pair<Tree, int> > PlusMinusExternalSlacks(Tree tree);
+        EdgeIndex MinPlusEmptyEdge(int queue_index);
+        EdgeIndex MinPlusPlusInternalEdge(int queue_index);
+        EdgeIndex MinPlusPlusExternalEdge(int queue_index);
+        EdgeIndex MinPlusMinusExternalEdge(int queue_index);
+        NodeIndex MinMinusBlossom(int queue_index);
+        EdgeIndex GrowableEdge(TreeIndex tree);
+        EdgeIndex AugmentableEdge(TreeIndex tree);
+        EdgeIndex ShrinkableEdge(TreeIndex tree);
+        NodeIndex ExpandableBlossom(TreeIndex tree);
+        int PlusEmptySlack(TreeIndex tree);
+        int PlusPlusInternalSlack(TreeIndex tree);
+        int MinMinusBlossomVariable(TreeIndex tree);
+        std::vector<std::pair<TreeIndex, int> > PlusPlusExternalSlacks(TreeIndex tree);
+        std::vector<std::pair<TreeIndex, int> > PlusMinusExternalSlacks(TreeIndex tree);
 
-        bool IsElementary(Node node) const;
-        bool IsTopBlossom(Node node) const;
-        Node TopBlossom(Node node) const;
-        int NodeDepth(Node node) const;
-        int DualVariableQuadrupled(Node node) const;
+        bool IsElementary(NodeIndex node) const;
+        bool IsTopBlossom(NodeIndex node) const;
+        NodeIndex TopBlossom(NodeIndex node) const;
+        int NodeDepth(NodeIndex node) const;
+        int DualVariableQuadrupled(NodeIndex node) const;
 
-        Node LCA(Node first, Node second) const;
-        std::vector<Edge> PathToRoot(Tree tree, Node node);
+        NodeIndex LCA(NodeIndex first, NodeIndex second) const;
+        std::vector<EdgeIndex> PathToRoot(TreeIndex tree, NodeIndex node);
 
-        int SlackQuadrupled(Edge edge) const;
-        Node OtherEnd(Edge edge, Node node) const;
-        Node SharedNode(Edge first_edge, Edge second_edge);
+        int SlackQuadrupled(EdgeIndex edge) const;
+        NodeIndex OtherEnd(EdgeIndex edge, NodeIndex node) const;
+        NodeIndex SharedNode(EdgeIndex first_edge, EdgeIndex second_edge);
 
-        void MakeEdgeMatched(Edge edge);
-        void MakeEdgeUnmatched(Edge edge);
-        void AddEdgeToQueue(Edge edge, int queue_index);
-        void RemoveEdgeFromQueue(Edge edge);
-        void AddNodeToQueue(Node node, int queue_index);
-        void RemoveNodeFromQueue(Node node);
+        void MakeEdgeMatched(EdgeIndex edge);
+        void MakeEdgeUnmatched(EdgeIndex edge);
+        void AddEdgeToQueue(EdgeIndex edge, int queue_index);
+        void RemoveEdgeFromQueue(EdgeIndex edge);
+        void AddNodeToQueue(NodeIndex node, int queue_index);
+        void RemoveNodeFromQueue(NodeIndex node);
 
-        Tree NextAliveTree(Tree current);
-        Tree FirstAliveTree();
+        TreeIndex NextAliveTree(TreeIndex current);
+        TreeIndex FirstAliveTree();
         void UpdateAliveIndices();
 
         static int InitNumVertices(const std::vector<std::tuple<int, int, int> > &edge_list_);

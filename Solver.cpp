@@ -3,7 +3,7 @@
 #include <iostream>
 #include <unordered_set>
 
-bool Solver::NodeComparator::operator()(const Node &a, const Node &b) const {
+bool Solver::NodeComparator::operator()(const NodeIndex &a, const NodeIndex &b) const {
     int a_var = solver->DualVariableQuadrupled(a);
     int b_var = solver->DualVariableQuadrupled(b);
     if (a_var != b_var) {
@@ -12,7 +12,7 @@ bool Solver::NodeComparator::operator()(const Node &a, const Node &b) const {
     return a.index > b.index;
 }
 
-bool Solver::EdgeComparator::operator()(const Edge &a, const Edge &b) const {
+bool Solver::EdgeComparator::operator()(const EdgeIndex &a, const EdgeIndex &b) const {
     int a_var = solver->SlackQuadrupled(a);
     int b_var = solver->SlackQuadrupled(b);
     // if (solver->nodes.blossom_parent[solver->edges.head[a.index].index]) {
@@ -42,20 +42,20 @@ Solver::Solver(const std::vector<std::tuple<int, int, int> > &edge_list_,
 
     // initialize nodes
     nodes.is_alive = std::vector<bool>(num_vertices_elementary, true);
-    nodes.neighbors = std::vector<std::list<Edge> >(num_vertices_elementary, std::list<Edge>());
-    nodes.children_neighbors_boundaries = std::vector<std::vector<std::list<Edge>::iterator> >(
+    nodes.neighbors = std::vector<std::list<EdgeIndex> >(num_vertices_elementary, std::list<EdgeIndex>());
+    nodes.children_neighbors_boundaries = std::vector<std::vector<std::list<EdgeIndex>::iterator> >(
         num_vertices_elementary,
-        std::vector<std::list<Edge>::iterator>());
+        std::vector<std::list<EdgeIndex>::iterator>());
     nodes.dual_var_quadrupled_amortized = std::vector<int>(num_vertices_elementary, 0);
-    nodes.matched_edge = std::vector<Edge>(num_vertices_elementary, Edge(-1));
-    nodes.blossom_parent = std::vector<Node>(num_vertices_elementary, Node(-1));
-    nodes.blossom_children = std::vector<std::vector<Node> >(num_vertices_elementary, std::vector<Node>());
-    nodes.blossom_brother_clockwise = std::vector<Edge>(num_vertices_elementary, Edge(-1));
-    nodes.blossom_brother_anticlockwise = std::vector<Edge>(num_vertices_elementary, Edge(-1));
+    nodes.matched_edge = std::vector<EdgeIndex>(num_vertices_elementary, EdgeIndex(-1));
+    nodes.blossom_parent = std::vector<NodeIndex>(num_vertices_elementary, NodeIndex(-1));
+    nodes.blossom_children = std::vector<std::vector<NodeIndex> >(num_vertices_elementary, std::vector<NodeIndex>());
+    nodes.blossom_brother_clockwise = std::vector<EdgeIndex>(num_vertices_elementary, EdgeIndex(-1));
+    nodes.blossom_brother_anticlockwise = std::vector<EdgeIndex>(num_vertices_elementary, EdgeIndex(-1));
     nodes.plus = std::vector<bool>(num_vertices_elementary, false);
-    nodes.tree_parent = std::vector<Edge>(num_vertices_elementary, Edge(-1));
-    nodes.tree_children = std::vector<std::vector<Edge> >(num_vertices_elementary, std::vector<Edge>());
-    nodes.tree = std::vector<Tree>(num_vertices_elementary, Tree(-1));
+    nodes.tree_parent = std::vector<EdgeIndex>(num_vertices_elementary, EdgeIndex(-1));
+    nodes.tree_children = std::vector<std::vector<EdgeIndex> >(num_vertices_elementary, std::vector<EdgeIndex>());
+    nodes.tree = std::vector<TreeIndex>(num_vertices_elementary, TreeIndex(-1));
     nodes.queue_index = std::vector<int>(num_vertices_elementary, -1);
     nodes.handle = std::vector<NodeHeap::handle_type>(num_vertices_elementary, NodeHeap::handle_type());
 
@@ -70,11 +70,11 @@ Solver::Solver(const std::vector<std::tuple<int, int, int> > &edge_list_,
     for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
         edges.weight.push_back(std::get<2>(edge_list_[i]));
         edges.slack_quadrupled_amortized.push_back(4 * std::get<2>(edge_list_[i]));
-        edges.head.push_back(Node(std::get<0>(edge_list_[i])));
-        edges.tail.push_back(Node(std::get<1>(edge_list_[i])));
+        edges.head.push_back(NodeIndex(std::get<0>(edge_list_[i])));
+        edges.tail.push_back(NodeIndex(std::get<1>(edge_list_[i])));
 
-        nodes.neighbors[std::get<0>(edge_list_[i])].push_back(Edge(i));
-        nodes.neighbors[std::get<1>(edge_list_[i])].push_back(Edge(i));
+        nodes.neighbors[std::get<0>(edge_list_[i])].push_back(EdgeIndex(i));
+        nodes.neighbors[std::get<1>(edge_list_[i])].push_back(EdgeIndex(i));
     }
 }
 
@@ -133,18 +133,18 @@ void Solver::PrintGraph() const {
     std::cout << "Adjacency list (to, weight, slack, matched):" << std::endl;
     for (int i = 0; i < static_cast<int>(nodes.plus.size()); ++i) {
         if (nodes.is_alive[i]) {
-            PrintNode(Node(i));
+            PrintNode(NodeIndex(i));
         }
     }
 }
 
-void Solver::PrintNode(Node node) const {
+void Solver::PrintNode(NodeIndex node) const {
     std::cout << node.index << ": y_v = " << DualVariableQuadrupled(node) / 4.;
     if (!IsTopBlossom(node)) {
         std::cout << " blossom_parent: " << nodes.blossom_parent[node.index].index << std::endl;
         return;
     }
-    for (const Edge edge : nodes.neighbors[node.index]) {
+    for (const EdgeIndex edge : nodes.neighbors[node.index]) {
         std::cout << " (" << OtherEnd(edge, node).index << ", " << edges.weight[edge.index] << ", " <<
             SlackQuadrupled(edge) / 4. << ", " << edges.matched[edge.index] << ")";
     }
@@ -163,7 +163,7 @@ void Solver::PrintTrees() const {
         std::cout << ", dual variable: " << trees.dual_var_quadrupled[tree_index] / 4. << std::endl;
 
         struct Frame {
-            const Node node;
+            const NodeIndex node;
             std::string prefix; // prefix to print before connector / node value
             bool hasConnector; // whether to print "├── " or "└── " before the node value
             bool isLast; // if hasConnector==true, whether this node is the last sibling
@@ -183,7 +183,7 @@ void Solver::PrintTrees() const {
             }
             std::cout << f.node.index << '\n';
 
-            const std::vector<Edge> &ch = nodes.tree_children[f.node.index];
+            const std::vector<EdgeIndex> &ch = nodes.tree_children[f.node.index];
             for (int i = static_cast<int>(ch.size()) - 1; i >= 0; --i) {
                 bool childIsLast = (i == static_cast<int>(ch.size()) - 1);
 
@@ -243,7 +243,7 @@ void Solver::PrintStatistics() {
 
     int max_depth = 0;
     for (int i = 0; i < num_vertices_elementary; ++i) {
-        int depth = NodeDepth(Node(i));
+        int depth = NodeDepth(NodeIndex(i));
         if (max_depth < depth) {
             max_depth = depth;
         }
@@ -268,7 +268,7 @@ void Solver::GreedyInit() {
         }
 
         int min_weight = edges.weight[nodes.neighbors[node_index].front().index];
-        for (const Edge edge : nodes.neighbors[node_index]) {
+        for (const EdgeIndex edge : nodes.neighbors[node_index]) {
             if (edges.weight[edge.index] < min_weight) {
                 min_weight = edges.weight[edge.index];
             }
@@ -282,15 +282,15 @@ void Solver::GreedyInit() {
             continue;
         }
 
-        Edge smallest_slack_edge = nodes.neighbors[node_index].front();
-        for (const Edge edge : nodes.neighbors[node_index]) {
+        EdgeIndex smallest_slack_edge = nodes.neighbors[node_index].front();
+        for (const EdgeIndex edge : nodes.neighbors[node_index]) {
             if (SlackQuadrupled(edge) < SlackQuadrupled(smallest_slack_edge)) {
                 smallest_slack_edge = edge;
             }
         }
 
         nodes.dual_var_quadrupled_amortized[node_index] += SlackQuadrupled(smallest_slack_edge);
-        if (!nodes.matched_edge[OtherEnd(smallest_slack_edge, Node(node_index)).index]) {
+        if (!nodes.matched_edge[OtherEnd(smallest_slack_edge, NodeIndex(node_index)).index]) {
             // if the other vertex is also unmatched, match the edge
             MakeEdgeMatched(smallest_slack_edge);
         }
@@ -304,37 +304,37 @@ void Solver::InitializeTrees() {
         if (nodes.matched_edge[root_index]) {
             continue;
         }
-        nodes.tree[root_index] = Tree(static_cast<int>(trees.root.size()));
+        nodes.tree[root_index] = TreeIndex(static_cast<int>(trees.root.size()));
         nodes.plus[root_index] = true;
-        trees.root.push_back(Node(root_index));
+        trees.root.push_back(NodeIndex(root_index));
     }
 
     num_trees_alive = static_cast<int>(trees.root.size());
-    first_alive_tree = Tree(0);
+    first_alive_tree = TreeIndex(0);
     trees.is_alive = std::vector<bool>(num_trees_alive, true);
     trees.dual_var_quadrupled = std::vector<int>(num_trees_alive, 0);
 
     trees.next_alive_tree.reserve(num_trees_alive);
     trees.alive_index.reserve(num_trees_alive);
     for (int i = 0; i < num_trees_alive - 1; ++i) {
-        trees.next_alive_tree.push_back(Tree(i + 1));
+        trees.next_alive_tree.push_back(TreeIndex(i + 1));
         trees.alive_index.push_back(i);
     }
-    trees.next_alive_tree.push_back(Tree(0));
+    trees.next_alive_tree.push_back(TreeIndex(0));
     trees.alive_index.push_back(num_trees_alive - 1);
 
     trees.minus_blossoms.reserve(num_trees_alive);
     trees.plus_empty_edges.reserve(num_trees_alive);
     trees.plus_plus_internal_edges.reserve(num_trees_alive);
-    trees.pq_plus_plus = std::vector<std::vector<std::pair<Tree, int> > >(
+    trees.pq_plus_plus = std::vector<std::vector<std::pair<TreeIndex, int> > >(
         num_trees_alive,
-        std::vector<std::pair<Tree, int> >());
-    trees.pq_plus_minus = std::vector<std::vector<std::pair<Tree, int> > >(
+        std::vector<std::pair<TreeIndex, int> >());
+    trees.pq_plus_minus = std::vector<std::vector<std::pair<TreeIndex, int> > >(
         num_trees_alive,
-        std::vector<std::pair<Tree, int> >());
-    trees.pq_minus_plus = std::vector<std::vector<std::pair<Tree, int> > >(
+        std::vector<std::pair<TreeIndex, int> >());
+    trees.pq_minus_plus = std::vector<std::vector<std::pair<TreeIndex, int> > >(
         num_trees_alive,
-        std::vector<std::pair<Tree, int> >());
+        std::vector<std::pair<TreeIndex, int> >());
     queues.node_heaps.reserve(num_trees_alive);
     queues.edge_heaps.reserve(2 * num_trees_alive);
     for (int i = 0; i < num_trees_alive; ++i) {
@@ -351,11 +351,11 @@ void Solver::InitializeTrees() {
 }
 
 void Solver::InitializeQueues() {
-    for (Node root : trees.root) {
-        Tree tree = nodes.tree[root.index];
+    for (NodeIndex root : trees.root) {
+        TreeIndex tree = nodes.tree[root.index];
 
-        for (Edge edge_to_neighbor : nodes.neighbors[root.index]) {
-            Node neighbor = OtherEnd(edge_to_neighbor, root);
+        for (EdgeIndex edge_to_neighbor : nodes.neighbors[root.index]) {
+            NodeIndex neighbor = OtherEnd(edge_to_neighbor, root);
 
             if (!nodes.tree[neighbor.index]) {
                 AddEdgeToQueue(edge_to_neighbor, trees.plus_empty_edges[tree.index]);
@@ -379,7 +379,7 @@ void Solver::MakeDualUpdates() {
     }
 
     std::vector<int> deltas = VariableDeltas();
-    Tree tree = FirstAliveTree();
+    TreeIndex tree = FirstAliveTree();
     int i = 0;
     do {
         trees.dual_var_quadrupled[tree.index] += deltas[i];
@@ -498,7 +498,7 @@ Solver::DualConstraints Solver::GetDualConstraints() {
     // get upper_bound
     std::vector<int> upper_bound(num_trees_alive, INT32_MAX);
     int i = 0;
-    Tree tree = FirstAliveTree();
+    TreeIndex tree = FirstAliveTree();
     do {
         int plus_empty = PlusEmptySlack(tree);
         int plus_plus_internal = PlusPlusInternalSlack(tree);
@@ -528,8 +528,8 @@ Solver::DualConstraints Solver::GetDualConstraints() {
     i = 0;
     tree = FirstAliveTree();
     do {
-        std::vector<std::pair<Tree, int> > plus_plus_slacks = PlusPlusExternalSlacks(tree);
-        std::vector<std::pair<Tree, int> > plus_minus_slacks = PlusMinusExternalSlacks(tree);
+        std::vector<std::pair<TreeIndex, int> > plus_plus_slacks = PlusPlusExternalSlacks(tree);
+        std::vector<std::pair<TreeIndex, int> > plus_minus_slacks = PlusMinusExternalSlacks(tree);
         for (auto [other_tree, slack] : plus_plus_slacks) {
             plus_plus_constraints[i].emplace_back(trees.alive_index[other_tree.index], slack);
         }
@@ -557,10 +557,10 @@ void Solver::MakePrimalUpdates() {
     }
 
     UpdateAliveIndices();
-    std::vector<Tree> next_active_tree;
+    std::vector<TreeIndex> next_active_tree;
     std::vector<bool> tree_is_active(num_trees_alive, true);
     next_active_tree.reserve(num_trees_alive);
-    Tree tree = FirstAliveTree();
+    TreeIndex tree = FirstAliveTree();
     do {
         next_active_tree.push_back(NextAliveTree(tree));
         tree = NextAliveTree(tree);
@@ -569,7 +569,7 @@ void Solver::MakePrimalUpdates() {
     tree = FirstAliveTree();
     while (tree) {
         bool success = true;
-        Tree augmented_tree = MakePrimalUpdate(tree, &success);
+        TreeIndex augmented_tree = MakePrimalUpdate(tree, &success);
 
         // if (params.verbose) {
         //     std::cout << "VALIDATION" << std::endl;
@@ -589,11 +589,11 @@ void Solver::MakePrimalUpdates() {
             tree_is_active[trees.alive_index[tree.index]] = false;
         }
 
-        Tree next_tree = next_active_tree[trees.alive_index[tree.index]];
+        TreeIndex next_tree = next_active_tree[trees.alive_index[tree.index]];
         while (!tree_is_active[trees.alive_index[next_tree.index]]) {
             next_tree = next_active_tree[trees.alive_index[next_tree.index]];
             if (next_tree == tree) {
-                next_tree = Tree(-1);
+                next_tree = TreeIndex(-1);
                 break;
             }
         }
@@ -608,34 +608,34 @@ void Solver::MakePrimalUpdates() {
     }
 }
 
-Solver::Tree Solver::MakePrimalUpdate(Tree tree, bool *success) {
-    if (Edge augmentable_edge = AugmentableEdge(tree)) {
-        Tree other = Augment(tree, augmentable_edge);
+Solver::TreeIndex Solver::MakePrimalUpdate(TreeIndex tree, bool *success) {
+    if (EdgeIndex augmentable_edge = AugmentableEdge(tree)) {
+        TreeIndex other = Augment(tree, augmentable_edge);
         return other;
     }
 
-    if (Edge growable_edge = GrowableEdge(tree)) {
+    if (EdgeIndex growable_edge = GrowableEdge(tree)) {
         Grow(tree, growable_edge);
-        return Tree(-1);
+        return TreeIndex(-1);
     }
 
-    if (Edge shrinkable_edge = ShrinkableEdge(tree)) {
+    if (EdgeIndex shrinkable_edge = ShrinkableEdge(tree)) {
         Shrink(tree, shrinkable_edge);
-        return Tree(-1);
+        return TreeIndex(-1);
     }
 
-    if (Node expandable_blossom = ExpandableBlossom(tree)) {
+    if (NodeIndex expandable_blossom = ExpandableBlossom(tree)) {
         Expand(tree, expandable_blossom);
-        return Tree(-1);
+        return TreeIndex(-1);
     }
 
     *success = false;
-    return Tree(-1);
+    return TreeIndex(-1);
 }
 
-void Solver::Grow(Tree tree, Edge edge) {
-    Node parent = edges.head[edge.index];
-    Node child = edges.tail[edge.index];
+void Solver::Grow(TreeIndex tree, EdgeIndex edge) {
+    NodeIndex parent = edges.head[edge.index];
+    NodeIndex child = edges.tail[edge.index];
     if (nodes.tree[child.index] == tree) {
         std::swap(parent, child);
     }
@@ -650,7 +650,7 @@ void Solver::Grow(Tree tree, Edge edge) {
         throw std::runtime_error("In Tree::Grow: child vertex is not free");
     }
 
-    Node grandchild = OtherEnd(nodes.matched_edge[child.index], child);
+    NodeIndex grandchild = OtherEnd(nodes.matched_edge[child.index], child);
     if (params.verbose) {
         std::cout << "GROW " << parent.index << " " << child.index << " " << grandchild.index << std::endl;
     }
@@ -671,18 +671,18 @@ void Solver::Grow(Tree tree, Edge edge) {
     UpdateQueuesAfterGrow(child, grandchild);
 }
 
-void Solver::Shrink(Tree tree, Edge edge_plus_plus) {
-    Node first = edges.head[edge_plus_plus.index];
-    Node second = edges.tail[edge_plus_plus.index];
+void Solver::Shrink(TreeIndex tree, EdgeIndex edge_plus_plus) {
+    NodeIndex first = edges.head[edge_plus_plus.index];
+    NodeIndex second = edges.tail[edge_plus_plus.index];
 
     if (params.verbose) {
         std::cout << "SHRINK " << first.index << " " << second.index << std::endl;
     }
 
-    Node lca = LCA(first, second);
+    NodeIndex lca = LCA(first, second);
 
     // TODO maybe make LCA also compute the blossom edges
-    std::vector<Edge> blossom_edges;
+    std::vector<EdgeIndex> blossom_edges;
     while (first != lca) {
         blossom_edges.push_back(nodes.tree_parent[first.index]);
         first = OtherEnd(nodes.tree_parent[first.index], first);
@@ -694,18 +694,18 @@ void Solver::Shrink(Tree tree, Edge edge_plus_plus) {
         second = OtherEnd(nodes.tree_parent[second.index], second);
     }
 
-    Node new_node(static_cast<int>(nodes.plus.size()));
+    NodeIndex new_node(static_cast<int>(nodes.plus.size()));
     MakeBlossom(blossom_edges, lca);
 }
 
-void Solver::MakeBlossom(std::vector<Edge> blossom_edges, Node lca) {
+void Solver::MakeBlossom(std::vector<EdgeIndex> blossom_edges, NodeIndex lca) {
     // blossom_edges need to be consecutive and start and end at the receptacle
 
     if (blossom_edges.size() % 2 == 0) {
         throw std::runtime_error("In Node: blossom has to have an odd number of vertices");
     }
 
-    Node new_blossom(static_cast<int>(nodes.plus.size()));
+    NodeIndex new_blossom(static_cast<int>(nodes.plus.size()));
 
     nodes.is_alive.emplace_back(true);
     nodes.blossom_parent.emplace_back(-1);
@@ -718,16 +718,16 @@ void Solver::MakeBlossom(std::vector<Edge> blossom_edges, Node lca) {
     // update blossom_children
     nodes.blossom_children.emplace_back();
     nodes.blossom_children.back().reserve(blossom_edges.size());
-    Node cur_vertex = SharedNode(blossom_edges.front(), blossom_edges.back());
-    Tree this_tree = nodes.tree[cur_vertex.index];
-    for (Edge edge : blossom_edges) {
+    NodeIndex cur_vertex = SharedNode(blossom_edges.front(), blossom_edges.back());
+    TreeIndex this_tree = nodes.tree[cur_vertex.index];
+    for (EdgeIndex edge : blossom_edges) {
         cur_vertex = OtherEnd(edge, cur_vertex);
         nodes.blossom_children.back().push_back(cur_vertex);
     }
 
     // update the queues
-    std::vector<Node> minus_children;
-    for (Node child : nodes.blossom_children.back()) {
+    std::vector<NodeIndex> minus_children;
+    for (NodeIndex child : nodes.blossom_children.back()) {
         if (!nodes.plus[child.index]) {
             minus_children.push_back(child);
         }
@@ -735,14 +735,14 @@ void Solver::MakeBlossom(std::vector<Edge> blossom_edges, Node lca) {
     UpdateQueuesBeforeShrink(minus_children);
 
     // initialize blossom brothers of the children
-    for (Edge edge : blossom_edges) {
+    for (EdgeIndex edge : blossom_edges) {
         nodes.blossom_brother_clockwise[cur_vertex.index] = edge;
         cur_vertex = OtherEnd(edge, cur_vertex);
         nodes.blossom_brother_anticlockwise[cur_vertex.index] = edge;
     }
 
     // update blossom_parent and dual_var_quadrupled_amortized of the children
-    for (Node vertex : nodes.blossom_children.back()) {
+    for (NodeIndex vertex : nodes.blossom_children.back()) {
         if (nodes.blossom_parent[vertex.index]) {
             throw std::runtime_error("In Node: some child node already has a parent");
         }
@@ -755,15 +755,16 @@ void Solver::MakeBlossom(std::vector<Edge> blossom_edges, Node lca) {
     }
 
     std::unordered_set<int> blossom_set;
+    // TODO try vector + linear search, check if blossoms usually have few children
     blossom_set.reserve(nodes.blossom_children.back().size());
-    for (Node vertex : nodes.blossom_children.back()) {
+    for (NodeIndex vertex : nodes.blossom_children.back()) {
         blossom_set.insert(vertex.index);
     }
 
     // find tree_children
     nodes.tree_children.emplace_back();
-    for (Node child : nodes.blossom_children.back()) {
-        for (Edge child_edge : nodes.tree_children[child.index]) {
+    for (NodeIndex child : nodes.blossom_children.back()) {
+        for (EdgeIndex child_edge : nodes.tree_children[child.index]) {
             if (!blossom_set.contains(OtherEnd(child_edge, child).index)) {
                 nodes.tree_children.back().push_back(child_edge);
             }
@@ -771,8 +772,8 @@ void Solver::MakeBlossom(std::vector<Edge> blossom_edges, Node lca) {
     }
 
     // update edges TODO amortize this
-    for (Node child : nodes.blossom_children.back()) {
-        for (Edge edge : nodes.neighbors[child.index]) {
+    for (NodeIndex child : nodes.blossom_children.back()) {
+        for (EdgeIndex edge : nodes.neighbors[child.index]) {
             if (!blossom_set.contains(OtherEnd(edge, child).index)) {
                 UpdateEdgeAfterShrink(edge, child);
             }
@@ -782,7 +783,7 @@ void Solver::MakeBlossom(std::vector<Edge> blossom_edges, Node lca) {
     // make neighbors, children_neighbors_boundaries
     nodes.neighbors.emplace_back();
     nodes.children_neighbors_boundaries.emplace_back();
-    for (Node child : nodes.blossom_children.back()) {
+    for (NodeIndex child : nodes.blossom_children.back()) {
         auto segment_start = nodes.neighbors[child.index].begin();
         nodes.neighbors.back().splice(nodes.neighbors.back().end(), nodes.neighbors[child.index]);
         nodes.children_neighbors_boundaries.back().push_back(segment_start);
@@ -797,7 +798,7 @@ void Solver::MakeBlossom(std::vector<Edge> blossom_edges, Node lca) {
     RemoveLoopsFromQueues(new_blossom);
 }
 
-void Solver::Expand(Tree tree, Node blossom) {
+void Solver::Expand(TreeIndex tree, NodeIndex blossom) {
     if (params.verbose) {
         std::cout << "EXPAND " << blossom.index << std::endl;
     }
@@ -815,16 +816,16 @@ void Solver::Expand(Tree tree, Node blossom) {
         throw std::runtime_error("In Tree::Expand: the supervertex has to have zero dual variable");
     }
 
-    std::vector<Node> children = nodes.blossom_children[blossom.index];
+    std::vector<NodeIndex> children = nodes.blossom_children[blossom.index];
     Dissolve(blossom);
     UpdateQueuesAfterExpand(tree, blossom, children);
 }
 
-Solver::Tree Solver::Augment(Tree tree, Edge edge) {
+Solver::TreeIndex Solver::Augment(TreeIndex tree, EdgeIndex edge) {
     // TODO amortize tree dissolves
 
-    Node parent = edges.head[edge.index];
-    Node child = edges.tail[edge.index];
+    NodeIndex parent = edges.head[edge.index];
+    NodeIndex child = edges.tail[edge.index];
     if (nodes.tree[parent.index] != tree) {
         std::swap(parent, child);
     }
@@ -843,16 +844,16 @@ Solver::Tree Solver::Augment(Tree tree, Edge edge) {
     MakeEdgeMatched(edge);
 
     AugmentFromNode(tree, parent);
-    Tree other_tree = nodes.tree[child.index];
+    TreeIndex other_tree = nodes.tree[child.index];
     AugmentFromNode(other_tree, child);
 
     return other_tree;
 }
 
-void Solver::AugmentFromNode(Tree tree, Node node) {
+void Solver::AugmentFromNode(TreeIndex tree, NodeIndex node) {
     bool match = false;
-    const std::vector<Edge> path = PathToRoot(tree, node);
-    for (Edge edge_from_path : path) {
+    const std::vector<EdgeIndex> path = PathToRoot(tree, node);
+    for (EdgeIndex edge_from_path : path) {
         if (match) {
             MakeEdgeMatched(edge_from_path);
         } else {
@@ -864,51 +865,51 @@ void Solver::AugmentFromNode(Tree tree, Node node) {
     DissolveTree(tree);
 }
 
-void Solver::DissolveTree(Tree tree) {
+void Solver::DissolveTree(TreeIndex tree) {
     // clears the tree structure from the nodes
     // updates priority queues of the adjacent trees
 
     trees.is_alive[tree.index] = false;
 
-    std::vector<Node> all_vertices;
-    std::queue<Node> queue;
+    std::vector<NodeIndex> all_vertices;
+    std::queue<NodeIndex> queue;
     queue.push(TopBlossom(trees.root[tree.index]));
     while (!queue.empty()) {
-        Node cur_vertex = queue.front();
+        NodeIndex cur_vertex = queue.front();
         queue.pop();
         all_vertices.push_back(cur_vertex);
-        for (Edge child_edge : nodes.tree_children[cur_vertex.index]) {
+        for (EdgeIndex child_edge : nodes.tree_children[cur_vertex.index]) {
             queue.push(OtherEnd(child_edge, cur_vertex));
         }
     }
 
     // update plus_empty_edges of other trees
-    for (Node vertex : all_vertices) {
-        for (Edge neighbor_edge : nodes.neighbors[vertex.index]) {
-            Node neighbor = OtherEnd(neighbor_edge, vertex);
+    for (NodeIndex vertex : all_vertices) {
+        for (EdgeIndex neighbor_edge : nodes.neighbors[vertex.index]) {
+            NodeIndex neighbor = OtherEnd(neighbor_edge, vertex);
             if ((nodes.tree[neighbor.index] != tree) && nodes.plus[neighbor.index]) {
                 AddEdgeToQueue(neighbor_edge, trees.plus_empty_edges[nodes.tree[neighbor.index].index]);
             }
         }
     }
 
-    for (Node vertex : all_vertices) {
+    for (NodeIndex vertex : all_vertices) {
         ClearNodeDuringTreeDissolve(tree, vertex);
     }
 }
-void Solver::ClearNodeDuringTreeDissolve(Tree tree, Node node) {
+void Solver::ClearNodeDuringTreeDissolve(TreeIndex tree, NodeIndex node) {
     if (nodes.plus[node.index]) {
         nodes.dual_var_quadrupled_amortized[node.index] += trees.dual_var_quadrupled[tree.index];
     } else {
         nodes.dual_var_quadrupled_amortized[node.index] -= trees.dual_var_quadrupled[tree.index];
     }
-    nodes.tree[node.index] = Tree(-1);
+    nodes.tree[node.index] = TreeIndex(-1);
     nodes.tree_children[node.index].clear();
-    nodes.tree_parent[node.index] = Edge(-1);
+    nodes.tree_parent[node.index] = EdgeIndex(-1);
     nodes.plus[node.index] = false;
 }
 
-void Solver::Dissolve(Node node) {
+void Solver::Dissolve(NodeIndex node) {
     // TODO amortize
 
     if (nodes.blossom_children[node.index].empty()) {
@@ -926,7 +927,7 @@ void Solver::Dissolve(Node node) {
 
     if (nodes.tree[node.index]) {
         UpdateNodeInternalTreeStructure(node);
-        for (Node child : nodes.blossom_children[node.index]) {
+        for (NodeIndex child : nodes.blossom_children[node.index]) {
             if (nodes.plus[child.index]) {
                 nodes.dual_var_quadrupled_amortized[child.index] -= trees.dual_var_quadrupled[nodes.tree[node.index].
                     index];
@@ -940,13 +941,13 @@ void Solver::Dissolve(Node node) {
         ClearNodeInternalTreeStructure(node);
     }
 
-    for (Node child : nodes.blossom_children[node.index]) {
+    for (NodeIndex child : nodes.blossom_children[node.index]) {
         if (!child) {
             throw std::runtime_error("Invalid child");
         }
-        nodes.blossom_brother_clockwise[child.index] = Edge(-1);
-        nodes.blossom_brother_anticlockwise[child.index] = Edge(-1);
-        nodes.blossom_parent[child.index] = Node(-1);
+        nodes.blossom_brother_clockwise[child.index] = EdgeIndex(-1);
+        nodes.blossom_brother_anticlockwise[child.index] = EdgeIndex(-1);
+        nodes.blossom_parent[child.index] = NodeIndex(-1);
     }
 
     // restore neighbors of the children
@@ -965,8 +966,8 @@ void Solver::Dissolve(Node node) {
     }
 
     // update the edges
-    for (Node child : nodes.blossom_children[node.index]) {
-        for (Edge edge : nodes.neighbors[child.index]) {
+    for (NodeIndex child : nodes.blossom_children[node.index]) {
+        for (EdgeIndex edge : nodes.neighbors[child.index]) {
             if (node == edges.tail[edge.index]) {
                 edges.tail[edge.index] = child;
                 edges.slack_quadrupled_amortized[edge.index] += DualVariableQuadrupled(edges.tail[edge.index]);
@@ -978,7 +979,7 @@ void Solver::Dissolve(Node node) {
     }
 }
 
-void Solver::UpdateEdgeAfterShrink(Edge edge, Node node) {
+void Solver::UpdateEdgeAfterShrink(EdgeIndex edge, NodeIndex node) {
     edges.slack_quadrupled_amortized[edge.index] -= DualVariableQuadrupled(node);
     if (node == edges.tail[edge.index]) {
         edges.tail[edge.index] = nodes.blossom_parent[node.index];
@@ -987,7 +988,7 @@ void Solver::UpdateEdgeAfterShrink(Edge edge, Node node) {
     edges.head[edge.index] = nodes.blossom_parent[node.index];
 }
 
-void Solver::UpdateNodeInternalTreeStructure(Node node) {
+void Solver::UpdateNodeInternalTreeStructure(NodeIndex node) {
     // updates tree_children, tree_parents, tree_root for the vertices inside this blossom before the Expand
     // updates the plus and minus markers
     if (!nodes.matched_edge[node.index]) {
@@ -996,21 +997,21 @@ void Solver::UpdateNodeInternalTreeStructure(Node node) {
     if (!nodes.tree_parent[node.index]) {
         throw std::runtime_error("In UpdateInternalTreeStructure: there is no tree_parent");
     }
-    Node elder_child = DeeperNode(node, nodes.tree_parent[node.index]);
-    Node receptacle = DeeperNode(node, nodes.matched_edge[node.index]);
+    NodeIndex elder_child = DeeperNode(node, nodes.tree_parent[node.index]);
+    NodeIndex receptacle = DeeperNode(node, nodes.matched_edge[node.index]);
 
-    std::function next_edge = [this](const Node current) -> Edge {
+    std::function next_edge = [this](const NodeIndex current) -> EdgeIndex {
         return nodes.blossom_brother_clockwise[current.index];
     };
     if (edges.matched[nodes.blossom_brother_anticlockwise[elder_child.index].index]) {
-        next_edge = [this](const Node current) -> Edge {
+        next_edge = [this](const NodeIndex current) -> EdgeIndex {
             return nodes.blossom_brother_anticlockwise[current.index];
         };
     }
 
     // the part that stays in the tree
-    Node cur_vertex = elder_child;
-    Edge prev_edge = nodes.tree_parent[node.index];
+    NodeIndex cur_vertex = elder_child;
+    EdgeIndex prev_edge = nodes.tree_parent[node.index];
     bool is_plus = false;
     while (cur_vertex != receptacle) {
         nodes.tree_parent[cur_vertex.index] = prev_edge;
@@ -1030,8 +1031,8 @@ void Solver::UpdateNodeInternalTreeStructure(Node node) {
     // the part that goes to waste
     cur_vertex = OtherEnd(next_edge(cur_vertex), cur_vertex);
     while (cur_vertex != elder_child) {
-        nodes.tree_parent[cur_vertex.index] = Edge(-1);
-        nodes.tree[cur_vertex.index] = Tree(-1);
+        nodes.tree_parent[cur_vertex.index] = EdgeIndex(-1);
+        nodes.tree[cur_vertex.index] = TreeIndex(-1);
         nodes.tree_children[cur_vertex.index].clear();
         nodes.plus[cur_vertex.index] = false;
 
@@ -1039,63 +1040,63 @@ void Solver::UpdateNodeInternalTreeStructure(Node node) {
     }
 }
 
-void Solver::ClearNodeInternalTreeStructure(Node node) {
-    for (Node child : nodes.blossom_children[node.index]) {
-        nodes.tree_parent[child.index] = Edge(-1);
-        nodes.tree[child.index] = Tree(-1);
+void Solver::ClearNodeInternalTreeStructure(NodeIndex node) {
+    for (NodeIndex child : nodes.blossom_children[node.index]) {
+        nodes.tree_parent[child.index] = EdgeIndex(-1);
+        nodes.tree[child.index] = TreeIndex(-1);
         nodes.tree_children[child.index].clear();
         nodes.plus[child.index] = false;
     }
 }
 
-Solver::Edge Solver::GrowableEdge(Tree tree) {
-    Edge edge = MinPlusEmptyEdge(trees.plus_empty_edges[tree.index]);
+Solver::EdgeIndex Solver::GrowableEdge(TreeIndex tree) {
+    EdgeIndex edge = MinPlusEmptyEdge(trees.plus_empty_edges[tree.index]);
     if (edge) {
         if (SlackQuadrupled(edge) == 0) {
             return edge;
         }
     }
-    return Edge(-1);
+    return EdgeIndex(-1);
 }
 
-Solver::Edge Solver::AugmentableEdge(Tree tree) {
+Solver::EdgeIndex Solver::AugmentableEdge(TreeIndex tree) {
     for (auto [other_tree, queue_index] : trees.pq_plus_plus[tree.index]) {
-        Edge edge = MinPlusPlusExternalEdge(queue_index);
+        EdgeIndex edge = MinPlusPlusExternalEdge(queue_index);
         if (edge) {
             if (SlackQuadrupled(edge) == 0) {
                 return edge;
             }
         }
     }
-    return Edge(-1);
+    return EdgeIndex(-1);
 }
 
-Solver::Edge Solver::ShrinkableEdge(Tree tree) {
-    Edge edge = MinPlusPlusInternalEdge(trees.plus_plus_internal_edges[tree.index]);
+Solver::EdgeIndex Solver::ShrinkableEdge(TreeIndex tree) {
+    EdgeIndex edge = MinPlusPlusInternalEdge(trees.plus_plus_internal_edges[tree.index]);
     if (edge) {
         if (SlackQuadrupled(edge) == 0) {
             return edge;
         }
     }
-    return Edge(-1);
+    return EdgeIndex(-1);
 }
 
-Solver::Node Solver::ExpandableBlossom(Tree tree) {
-    Node node = MinMinusBlossom(trees.minus_blossoms[tree.index]);
+Solver::NodeIndex Solver::ExpandableBlossom(TreeIndex tree) {
+    NodeIndex node = MinMinusBlossom(trees.minus_blossoms[tree.index]);
     if (node) {
         if (DualVariableQuadrupled(node) == 0) {
             return node;
         }
     }
-    return Node(-1);
+    return NodeIndex(-1);
 }
 
-Solver::Edge Solver::MinPlusEmptyEdge(int queue_index) {
+Solver::EdgeIndex Solver::MinPlusEmptyEdge(int queue_index) {
     while (!queues.edge_heaps[queue_index]->empty()) {
-        Edge edge = queues.edge_heaps[queue_index]->top();
+        EdgeIndex edge = queues.edge_heaps[queue_index]->top();
 
-        Node head = edges.head[edge.index]; // plus
-        Node tail = edges.tail[edge.index]; // empty
+        NodeIndex head = edges.head[edge.index]; // plus
+        NodeIndex tail = edges.tail[edge.index]; // empty
         if (!nodes.tree[head.index]) {
             std::swap(head, tail);
         }
@@ -1105,45 +1106,45 @@ Solver::Edge Solver::MinPlusEmptyEdge(int queue_index) {
         queues.edge_heaps[queue_index]->pop();
         edges.queue_index[edge.index] = -1;
     }
-    return Edge(-1);
+    return EdgeIndex(-1);
 }
 
-Solver::Edge Solver::MinPlusPlusInternalEdge(int queue_index) {
+Solver::EdgeIndex Solver::MinPlusPlusInternalEdge(int queue_index) {
     while (!queues.edge_heaps[queue_index]->empty()) {
-        Edge edge = queues.edge_heaps[queue_index]->top();
+        EdgeIndex edge = queues.edge_heaps[queue_index]->top();
 
-        Node head = edges.head[edge.index];
-        Node tail = edges.tail[edge.index];
+        NodeIndex head = edges.head[edge.index];
+        NodeIndex tail = edges.tail[edge.index];
         if (nodes.plus[head.index] && nodes.plus[tail.index] && (nodes.tree[head.index] == nodes.tree[tail.index]) && (head != tail) && IsTopBlossom(head) && IsTopBlossom(tail)) {
             return edge;
         }
         queues.edge_heaps[queue_index]->pop();
         edges.queue_index[edge.index] = -1;
     }
-    return Edge(-1);
+    return EdgeIndex(-1);
 }
 
-Solver::Edge Solver::MinPlusPlusExternalEdge(int queue_index) {
+Solver::EdgeIndex Solver::MinPlusPlusExternalEdge(int queue_index) {
     while (!queues.edge_heaps[queue_index]->empty()) {
-        Edge edge = queues.edge_heaps[queue_index]->top();
+        EdgeIndex edge = queues.edge_heaps[queue_index]->top();
 
-        Node head = edges.head[edge.index];
-        Node tail = edges.tail[edge.index];
+        NodeIndex head = edges.head[edge.index];
+        NodeIndex tail = edges.tail[edge.index];
         if (nodes.plus[head.index] && nodes.plus[tail.index] && (nodes.tree[head.index] != nodes.tree[tail.index])) {
             return edge;
         }
         queues.edge_heaps[queue_index]->pop();
         edges.queue_index[edge.index] = -1;
     }
-    return Edge(-1);
+    return EdgeIndex(-1);
 }
 
-Solver::Edge Solver::MinPlusMinusExternalEdge(int queue_index) {
+Solver::EdgeIndex Solver::MinPlusMinusExternalEdge(int queue_index) {
     while (!queues.edge_heaps[queue_index]->empty()) {
-        Edge edge = queues.edge_heaps[queue_index]->top();
+        EdgeIndex edge = queues.edge_heaps[queue_index]->top();
 
-        Node head = edges.head[edge.index]; // plus
-        Node tail = edges.tail[edge.index]; // minus
+        NodeIndex head = edges.head[edge.index]; // plus
+        NodeIndex tail = edges.tail[edge.index]; // minus
         if (!nodes.plus[head.index]) {
             std::swap(head, tail);
         }
@@ -1154,22 +1155,22 @@ Solver::Edge Solver::MinPlusMinusExternalEdge(int queue_index) {
         queues.edge_heaps[queue_index]->pop();
         edges.queue_index[edge.index] = -1;
     }
-    return Edge(-1);
+    return EdgeIndex(-1);
 }
 
-Solver::Node Solver::MinMinusBlossom(int queue_index) {
+Solver::NodeIndex Solver::MinMinusBlossom(int queue_index) {
     while (!queues.node_heaps[queue_index]->empty()) {
-        Node node = queues.node_heaps[queue_index]->top();
+        NodeIndex node = queues.node_heaps[queue_index]->top();
         if (nodes.is_alive[node.index] && nodes.tree[node.index] && !nodes.plus[node.index] && !nodes.blossom_parent[node.index]) {
             return node;
         }
         queues.node_heaps[queue_index]->pop();
         nodes.queue_index[node.index] = -1;
     }
-    return Node(-1);
+    return NodeIndex(-1);
 }
 
-void Solver::RotateReceptacle(Node blossom, Node child) {
+void Solver::RotateReceptacle(NodeIndex blossom, NodeIndex child) {
     // update the structure of matched edges inside the blossom and at the new receptacle
 
     if (nodes.blossom_children[blossom.index].empty()) {
@@ -1179,7 +1180,7 @@ void Solver::RotateReceptacle(Node blossom, Node child) {
         throw std::runtime_error("In RotateReceptacle: the new receptacle is not a blossom child of this node");
     }
 
-    Node cur_node = OtherEnd(nodes.blossom_brother_clockwise[child.index], child);
+    NodeIndex cur_node = OtherEnd(nodes.blossom_brother_clockwise[child.index], child);
     if (!cur_node) {
         throw std::runtime_error("Invalid cur_node");
     }
@@ -1198,7 +1199,7 @@ void Solver::RotateReceptacle(Node blossom, Node child) {
     nodes.matched_edge[child.index] = nodes.matched_edge[blossom.index]; // never a nullptr
 }
 
-Solver::Node Solver::DeeperNode(Node blossom, Edge edge) const {
+Solver::NodeIndex Solver::DeeperNode(NodeIndex blossom, EdgeIndex edge) const {
     // returns a node that is a blossom child of blossom and is adjacent to edge
     // TODO do something smarter maybe
 
@@ -1215,15 +1216,15 @@ Solver::Node Solver::DeeperNode(Node blossom, Edge edge) const {
     return nodes.blossom_children[blossom.index].back();
 }
 
-void Solver::UpdateQueuesAfterGrow(Node child, Node grandchild) {
-    Tree tree = nodes.tree[child.index];
+void Solver::UpdateQueuesAfterGrow(NodeIndex child, NodeIndex grandchild) {
+    TreeIndex tree = nodes.tree[child.index];
 
     if (!IsElementary(child)) {
         AddNodeToQueue(child, trees.minus_blossoms[tree.index]);
     }
 
-    for (Edge edge_to_neighbor : nodes.neighbors[grandchild.index]) {
-        Node grandchild_neighbor = OtherEnd(edge_to_neighbor, grandchild);
+    for (EdgeIndex edge_to_neighbor : nodes.neighbors[grandchild.index]) {
+        NodeIndex grandchild_neighbor = OtherEnd(edge_to_neighbor, grandchild);
         if (grandchild_neighbor == grandchild) {
             continue;
         }
@@ -1246,8 +1247,8 @@ void Solver::UpdateQueuesAfterGrow(Node child, Node grandchild) {
         }
     }
 
-    for (Edge edge_to_neighbor : nodes.neighbors[child.index]) {
-        Node child_neighbor = OtherEnd(edge_to_neighbor, child);
+    for (EdgeIndex edge_to_neighbor : nodes.neighbors[child.index]) {
+        NodeIndex child_neighbor = OtherEnd(edge_to_neighbor, child);
         if (child_neighbor == child) {
             continue;
         }
@@ -1265,15 +1266,15 @@ void Solver::UpdateQueuesAfterGrow(Node child, Node grandchild) {
     }
 }
 
-void Solver::UpdateQueuesBeforeShrink(const std::vector<Node> &minus_children) {
+void Solver::UpdateQueuesBeforeShrink(const std::vector<NodeIndex> &minus_children) {
     if (minus_children.empty()) {
         return;
     }
-    Tree tree = nodes.tree[minus_children.front().index];
+    TreeIndex tree = nodes.tree[minus_children.front().index];
 
-    for (Node child : minus_children) {
-        for (Edge edge : nodes.neighbors[child.index]) {
-            Node neighbor = OtherEnd(edge, child);
+    for (NodeIndex child : minus_children) {
+        for (EdgeIndex edge : nodes.neighbors[child.index]) {
+            NodeIndex neighbor = OtherEnd(edge, child);
 
             if (!nodes.tree[neighbor.index]) {
                 AddEdgeToQueue(edge, trees.plus_empty_edges[tree.index]);
@@ -1295,25 +1296,25 @@ void Solver::UpdateQueuesBeforeShrink(const std::vector<Node> &minus_children) {
     }
 }
 
-void Solver::RemoveLoopsFromQueues(Node blossom) {
-    for (Edge edge : nodes.neighbors[blossom.index]) {
+void Solver::RemoveLoopsFromQueues(NodeIndex blossom) {
+    for (EdgeIndex edge : nodes.neighbors[blossom.index]) {
         if (!IsTopBlossom(edges.head[edge.index])) {
             RemoveEdgeFromQueue(edge);
         }
     }
 }
 
-void Solver::UpdateQueuesAfterExpand(Tree tree, Node blossom, const std::vector<Node> &children) {
+void Solver::UpdateQueuesAfterExpand(TreeIndex tree, NodeIndex blossom, const std::vector<NodeIndex> &children) {
     RemoveNodeFromQueue(blossom);
 
-    for (Node child : children) {
+    for (NodeIndex child : children) {
         if (nodes.tree[child.index] && !nodes.plus[child.index] && !IsElementary(child)) {
             AddNodeToQueue(child, trees.minus_blossoms[tree.index]);
         }
 
         if (nodes.plus[child.index]) {
-            for (Edge edge : nodes.neighbors[child.index]) {
-                Node other_end = OtherEnd(edge, child);
+            for (EdgeIndex edge : nodes.neighbors[child.index]) {
+                NodeIndex other_end = OtherEnd(edge, child);
 
                 if (!nodes.tree[other_end.index]) {
                     AddEdgeToQueue(edge, trees.plus_empty_edges[tree.index]);
@@ -1335,9 +1336,9 @@ void Solver::UpdateQueuesAfterExpand(Tree tree, Node blossom, const std::vector<
         }
 
         if (!nodes.tree[child.index]) {
-            for (Edge edge : nodes.neighbors[child.index]) {
+            for (EdgeIndex edge : nodes.neighbors[child.index]) {
                 RemoveEdgeFromQueue(edge);
-                Node other_end = OtherEnd(edge, child);
+                NodeIndex other_end = OtherEnd(edge, child);
                 if (nodes.plus[other_end.index]) {
                     AddEdgeToQueue(edge, trees.plus_empty_edges[nodes.tree[other_end.index].index]);
                 }
@@ -1346,7 +1347,7 @@ void Solver::UpdateQueuesAfterExpand(Tree tree, Node blossom, const std::vector<
     }
 }
 
-int Solver::TreeTreeQueueIndex(Tree other_tree, const std::vector<std::pair<Tree, int> > &tree_neighbors) {
+int Solver::TreeTreeQueueIndex(TreeIndex other_tree, const std::vector<std::pair<TreeIndex, int> > &tree_neighbors) {
     // TODO consider traversing from back to front
 
     for (auto [tree, queue_index] : tree_neighbors) {
@@ -1357,7 +1358,7 @@ int Solver::TreeTreeQueueIndex(Tree other_tree, const std::vector<std::pair<Tree
     return -1;
 }
 
-void Solver::AddPQPlusPlus(Tree first, Tree second, Edge edge) {
+void Solver::AddPQPlusPlus(TreeIndex first, TreeIndex second, EdgeIndex edge) {
     int queue_index = TreeTreeQueueIndex(second, trees.pq_plus_plus[first.index]);
     if (queue_index > 0) {
         AddEdgeToQueue(edge, queue_index);
@@ -1371,7 +1372,7 @@ void Solver::AddPQPlusPlus(Tree first, Tree second, Edge edge) {
     }
 }
 
-void Solver::AddPQPlusMinus(Tree tree_plus, Tree tree_minus, Edge edge) {
+void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex edge) {
     int queue_index = TreeTreeQueueIndex(tree_minus, trees.pq_plus_minus[tree_plus.index]);
     if (queue_index > 0) {
         AddEdgeToQueue(edge, queue_index);
@@ -1396,9 +1397,9 @@ void Solver::ValidateQueues() {
         }
 
         // check plus empty
-        for (Edge edge : *queues.edge_heaps[trees.plus_empty_edges[tree_index]]) {
-            Node first = edges.head[edge.index];    // plus
-            Node second = edges.tail[edge.index];   // empty
+        for (EdgeIndex edge : *queues.edge_heaps[trees.plus_empty_edges[tree_index]]) {
+            NodeIndex first = edges.head[edge.index];    // plus
+            NodeIndex second = edges.tail[edge.index];   // empty
             if (nodes.tree[first.index].index != tree_index) {
                 std::swap(first, second);
             }
@@ -1411,9 +1412,9 @@ void Solver::ValidateQueues() {
         }
 
         // check plus plus internal
-        for (Edge edge : *queues.edge_heaps[trees.plus_plus_internal_edges[tree_index]]) {
-            Node first = edges.head[edge.index];
-            Node second = edges.tail[edge.index];
+        for (EdgeIndex edge : *queues.edge_heaps[trees.plus_plus_internal_edges[tree_index]]) {
+            NodeIndex first = edges.head[edge.index];
+            NodeIndex second = edges.tail[edge.index];
 
             if (nodes.tree[first.index].index != tree_index || !nodes.plus[first.index]) {
                 throw std::runtime_error("Incorrect plus plus internal queue");
@@ -1424,7 +1425,7 @@ void Solver::ValidateQueues() {
         }
 
         // check minus blossoms
-        for (Node node : *queues.node_heaps[trees.minus_blossoms[tree_index]]) {
+        for (NodeIndex node : *queues.node_heaps[trees.minus_blossoms[tree_index]]) {
             if (IsElementary(node) || (nodes.tree[node.index].index != tree_index) || nodes.plus[node.index]) {
                 throw std::runtime_error("Incorrect minus blossom queue");
             }
@@ -1435,9 +1436,9 @@ void Solver::ValidateQueues() {
             if (!trees.is_alive[other_tree.index]) {
                 continue;
             }
-            for (Edge edge : *queues.edge_heaps[queue_index]) {
-                Node first = edges.head[edge.index];    // in this tree
-                Node second = edges.tail[edge.index];   // in the other tree
+            for (EdgeIndex edge : *queues.edge_heaps[queue_index]) {
+                NodeIndex first = edges.head[edge.index];    // in this tree
+                NodeIndex second = edges.tail[edge.index];   // in the other tree
                 if (nodes.tree[first.index].index != tree_index) {
                     std::swap(first, second);
                 }
@@ -1455,9 +1456,9 @@ void Solver::ValidateQueues() {
             if (!trees.is_alive[other_tree.index]) {
                 continue;
             }
-            for (Edge edge : *queues.edge_heaps[queue_index]) {
-                Node first = edges.head[edge.index];    // in this tree
-                Node second = edges.tail[edge.index];   // in the other tree
+            for (EdgeIndex edge : *queues.edge_heaps[queue_index]) {
+                NodeIndex first = edges.head[edge.index];    // in this tree
+                NodeIndex second = edges.tail[edge.index];   // in the other tree
                 if (nodes.tree[first.index].index != tree_index) {
                     std::swap(first, second);
                 }
@@ -1475,9 +1476,9 @@ void Solver::ValidateQueues() {
             if (!trees.is_alive[other_tree.index]) {
                 continue;
             }
-            for (Edge edge : *queues.edge_heaps[queue_index]) {
-                Node first = edges.head[edge.index];    // in this tree
-                Node second = edges.tail[edge.index];   // in the other tree
+            for (EdgeIndex edge : *queues.edge_heaps[queue_index]) {
+                NodeIndex first = edges.head[edge.index];    // in this tree
+                NodeIndex second = edges.tail[edge.index];   // in the other tree
                 if (nodes.tree[first.index].index != tree_index) {
                     std::swap(first, second);
                 }
@@ -1494,7 +1495,7 @@ void Solver::ValidateQueues() {
 
 void Solver::ValidatePositiveSlacks() {
     for (int edge_index = 0; edge_index < static_cast<int>(edges.head.size()); ++edge_index) {
-        if (SlackQuadrupled(Edge(edge_index)) < 0) {
+        if (SlackQuadrupled(EdgeIndex(edge_index)) < 0) {
             std::cout << "edge " << edges.head[edge_index].index << " " << edges.tail[edge_index].index << std::endl;
             std::cout << "blossom parents: " << nodes.blossom_parent[edges.head[edge_index].index].index << " " << nodes.blossom_parent[edges.tail[edge_index].index].index << std::endl;
             std::cout << "in trees: " << nodes.tree[edges.head[edge_index].index].index << " " << nodes.tree[edges.tail[edge_index].index].index << std::endl;
@@ -1533,8 +1534,8 @@ void Solver::ComputeDualCertificate() {
     for (int i = 0; i < static_cast<int>(nodes.is_alive.size()); ++i) {
         if (nodes.is_alive[i]) {
             node_index_alive[i] = index;
-            dual_certificate.emplace_back(index, DualVariableQuadrupled(Node(i)), -1);
-            for (Node child : nodes.blossom_children[i]) {
+            dual_certificate.emplace_back(index, DualVariableQuadrupled(NodeIndex(i)), -1);
+            for (NodeIndex child : nodes.blossom_children[i]) {
                 std::get<2>(dual_certificate[node_index_alive[child.index]]) = index;
             }
             ++index;
@@ -1545,11 +1546,11 @@ void Solver::ComputeDualCertificate() {
 void Solver::DestroyBlossoms() {
     for (int i = static_cast<int>(nodes.is_alive.size()) - 1; i >= num_vertices_elementary; --i) {
         if (nodes.is_alive[i]) {
-            if (!IsTopBlossom(Node(i))) {
+            if (!IsTopBlossom(NodeIndex(i))) {
                 throw std::runtime_error("In SolverWeighted::RotateMatchingInsideBlossoms: not going top down");
             }
 
-            Dissolve(Node(i));
+            Dissolve(NodeIndex(i));
         }
     }
 }
@@ -1559,7 +1560,7 @@ int64_t Solver::DualObjectiveQuadrupled() const {
 
     for (int i = 0; i < static_cast<int>(nodes.is_alive.size()); ++i) {
         if (nodes.is_alive[i]) {
-            objective += DualVariableQuadrupled(Node(i));
+            objective += DualVariableQuadrupled(NodeIndex(i));
         }
     }
 
@@ -1578,25 +1579,25 @@ int64_t Solver::PrimalObjective() const {
     return objective;
 }
 
-bool Solver::IsElementary(const Node node) const {
+bool Solver::IsElementary(const NodeIndex node) const {
     return node.index < num_vertices_elementary;
 }
 
-bool Solver::IsTopBlossom(const Node node) const {
+bool Solver::IsTopBlossom(const NodeIndex node) const {
     return nodes.blossom_parent[node.index].index < 0;
 }
 
-Solver::Node Solver::TopBlossom(Node node) const {
-    Node cur_vertex = node;
+Solver::NodeIndex Solver::TopBlossom(NodeIndex node) const {
+    NodeIndex cur_vertex = node;
     while (nodes.blossom_parent[cur_vertex.index]) {
         cur_vertex = nodes.blossom_parent[cur_vertex.index];
     }
     return cur_vertex;
 }
 
-int Solver::NodeDepth(Node node) const {
+int Solver::NodeDepth(NodeIndex node) const {
     int depth = 0;
-    Node cur_vertex = node;
+    NodeIndex cur_vertex = node;
     while (nodes.blossom_parent[cur_vertex.index]) {
         cur_vertex = nodes.blossom_parent[cur_vertex.index];
         ++depth;
@@ -1604,7 +1605,7 @@ int Solver::NodeDepth(Node node) const {
     return depth;
 }
 
-int Solver::DualVariableQuadrupled(Node node) const {
+int Solver::DualVariableQuadrupled(NodeIndex node) const {
     if (!nodes.is_alive[node.index]) {
         throw std::runtime_error("DualVariableQuadrupled: node is not alive");
     }
@@ -1622,7 +1623,7 @@ int Solver::DualVariableQuadrupled(Node node) const {
     return nodes.dual_var_quadrupled_amortized[node.index] - trees.dual_var_quadrupled[nodes.tree[node.index].index];
 }
 
-Solver::Node Solver::LCA(Node first, Node second) const {
+Solver::NodeIndex Solver::LCA(NodeIndex first, NodeIndex second) const {
     // TODO make better
 
     if (nodes.tree[first.index] != nodes.tree[second.index]) {
@@ -1632,7 +1633,7 @@ Solver::Node Solver::LCA(Node first, Node second) const {
         throw std::runtime_error("In LCA: node is not in any tree");
     }
 
-    Node root_blossom = TopBlossom(trees.root[nodes.tree[first.index].index]);
+    NodeIndex root_blossom = TopBlossom(trees.root[nodes.tree[first.index].index]);
 
     std::unordered_set<int> visited;
     visited.insert(first.index);
@@ -1651,9 +1652,9 @@ Solver::Node Solver::LCA(Node first, Node second) const {
     return root_blossom;
 }
 
-std::vector<Solver::Edge> Solver::PathToRoot(Tree tree, Node node) {
-    Node cur_vertex = node;
-    std::vector<Edge> path;
+std::vector<Solver::EdgeIndex> Solver::PathToRoot(TreeIndex tree, NodeIndex node) {
+    NodeIndex cur_vertex = node;
+    std::vector<EdgeIndex> path;
     while (nodes.tree_parent[cur_vertex.index]) {
         path.push_back(nodes.tree_parent[cur_vertex.index]);
         cur_vertex = OtherEnd(nodes.tree_parent[cur_vertex.index], cur_vertex);
@@ -1662,12 +1663,12 @@ std::vector<Solver::Edge> Solver::PathToRoot(Tree tree, Node node) {
     return path;
 }
 
-int Solver::SlackQuadrupled(Edge edge) const {
+int Solver::SlackQuadrupled(EdgeIndex edge) const {
     return edges.slack_quadrupled_amortized[edge.index] - DualVariableQuadrupled(edges.head[edge.index]) -
         DualVariableQuadrupled(edges.tail[edge.index]);
 }
 
-Solver::Node Solver::OtherEnd(Edge edge, Node node) const {
+Solver::NodeIndex Solver::OtherEnd(EdgeIndex edge, NodeIndex node) const {
     if (node == edges.tail[edge.index]) {
         return edges.head[edge.index];
     }
@@ -1678,13 +1679,13 @@ Solver::Node Solver::OtherEnd(Edge edge, Node node) const {
     return node;
 }
 
-Solver::Node Solver::SharedNode(Edge first_edge, Edge second_edge) {
+Solver::NodeIndex Solver::SharedNode(EdgeIndex first_edge, EdgeIndex second_edge) {
     // returns the max blossom adjacent to both edges
 
-    Node first_head = edges.head[first_edge.index];
-    Node first_tail = edges.tail[first_edge.index];
-    Node second_head = edges.head[second_edge.index];
-    Node second_tail = edges.tail[second_edge.index];
+    NodeIndex first_head = edges.head[first_edge.index];
+    NodeIndex first_tail = edges.tail[first_edge.index];
+    NodeIndex second_head = edges.head[second_edge.index];
+    NodeIndex second_tail = edges.tail[second_edge.index];
 
     if ((first_head == second_head) || (first_head == second_tail)) {
         return first_head;
@@ -1695,17 +1696,17 @@ Solver::Node Solver::SharedNode(Edge first_edge, Edge second_edge) {
     throw std::runtime_error("In Node::SharedNode: the edges don't share an endpoint");
 }
 
-void Solver::MakeEdgeMatched(Edge edge) {
+void Solver::MakeEdgeMatched(EdgeIndex edge) {
     nodes.matched_edge[edges.head[edge.index].index] = edge;
     nodes.matched_edge[edges.tail[edge.index].index] = edge;
     edges.matched[edge.index] = true;
 }
 
-void Solver::MakeEdgeUnmatched(Edge edge) {
+void Solver::MakeEdgeUnmatched(EdgeIndex edge) {
     edges.matched[edge.index] = false;
 }
 
-void Solver::AddEdgeToQueue(Edge edge, int queue_index) {
+void Solver::AddEdgeToQueue(EdgeIndex edge, int queue_index) {
     // removes the edge from the current queue (if exists), adds to the new one
 
     // if (edges.queue_index[edge.index] == queue_index) {
@@ -1719,7 +1720,7 @@ void Solver::AddEdgeToQueue(Edge edge, int queue_index) {
     edges.queue_index[edge.index] = queue_index;
 }
 
-void Solver::RemoveEdgeFromQueue(Edge edge) {
+void Solver::RemoveEdgeFromQueue(EdgeIndex edge) {
     // removes the edge from the current queue (if exists)
     if (edges.queue_index[edge.index] >= 0) {
         queues.edge_heaps[edges.queue_index[edge.index]]->erase(edges.handle[edge.index]);
@@ -1727,7 +1728,7 @@ void Solver::RemoveEdgeFromQueue(Edge edge) {
     }
 }
 
-void Solver::AddNodeToQueue(Node node, int queue_index) {
+void Solver::AddNodeToQueue(NodeIndex node, int queue_index) {
     // if (nodes.queue_index[node.index] == queue_index) {
     //     return;
     // }
@@ -1739,15 +1740,15 @@ void Solver::AddNodeToQueue(Node node, int queue_index) {
     nodes.queue_index[node.index] = queue_index;
 }
 
-void Solver::RemoveNodeFromQueue(Node node) {
+void Solver::RemoveNodeFromQueue(NodeIndex node) {
     if (nodes.queue_index[node.index] >= 0) {
         queues.node_heaps[nodes.queue_index[node.index]]->erase(nodes.handle[node.index]);
         nodes.queue_index[node.index] = -1;
     }
 }
 
-Solver::Tree Solver::NextAliveTree(Tree current) {
-    Tree ans = trees.next_alive_tree[current.index];
+Solver::TreeIndex Solver::NextAliveTree(TreeIndex current) {
+    TreeIndex ans = trees.next_alive_tree[current.index];
     if (trees.is_alive[ans.index]) {
         return ans;
     }
@@ -1759,8 +1760,8 @@ Solver::Tree Solver::NextAliveTree(Tree current) {
     return ans;
 }
 
-Solver::Tree Solver::FirstAliveTree() {
-    Tree ans = first_alive_tree;
+Solver::TreeIndex Solver::FirstAliveTree() {
+    TreeIndex ans = first_alive_tree;
     if (trees.is_alive[ans.index]) {
         return ans;
     }
@@ -1777,7 +1778,7 @@ void Solver::UpdateAliveIndices() {
         return;
     }
 
-    Tree tree = FirstAliveTree();
+    TreeIndex tree = FirstAliveTree();
     int index = 0;
     do {
         trees.alive_index[tree.index] = index;
@@ -1786,36 +1787,36 @@ void Solver::UpdateAliveIndices() {
     } while (tree != FirstAliveTree());
 }
 
-int Solver::PlusEmptySlack(Tree tree) {
-    Edge edge = MinPlusEmptyEdge(trees.plus_empty_edges[tree.index]);
+int Solver::PlusEmptySlack(TreeIndex tree) {
+    EdgeIndex edge = MinPlusEmptyEdge(trees.plus_empty_edges[tree.index]);
     if (edge) {
         return SlackQuadrupled(edge);
     }
     return INT32_MAX;
 }
 
-int Solver::PlusPlusInternalSlack(Tree tree) {
-    Edge edge = MinPlusPlusInternalEdge(trees.plus_plus_internal_edges[tree.index]);
+int Solver::PlusPlusInternalSlack(TreeIndex tree) {
+    EdgeIndex edge = MinPlusPlusInternalEdge(trees.plus_plus_internal_edges[tree.index]);
     if (edge) {
         return SlackQuadrupled(edge);
     }
     return INT32_MAX;
 }
 
-int Solver::MinMinusBlossomVariable(Tree tree) {
-    Node node = MinMinusBlossom(trees.minus_blossoms[tree.index]);
+int Solver::MinMinusBlossomVariable(TreeIndex tree) {
+    NodeIndex node = MinMinusBlossom(trees.minus_blossoms[tree.index]);
     if (node) {
         return DualVariableQuadrupled(node);
     }
     return INT32_MAX;
 }
 
-std::vector<std::pair<Solver::Tree, int> > Solver::PlusPlusExternalSlacks(Tree tree) {
-    std::vector<std::pair<Tree, int> > result;
+std::vector<std::pair<Solver::TreeIndex, int> > Solver::PlusPlusExternalSlacks(TreeIndex tree) {
+    std::vector<std::pair<TreeIndex, int> > result;
     result.reserve(trees.pq_plus_plus[tree.index].size());
     for (auto [tree_neighbor, queue_index] : trees.pq_plus_plus[tree.index]) {
         if (trees.is_alive[tree_neighbor.index]) {
-            Edge edge = MinPlusPlusExternalEdge(queue_index);
+            EdgeIndex edge = MinPlusPlusExternalEdge(queue_index);
             if (edge) {
                 result.emplace_back(tree_neighbor, SlackQuadrupled(queues.edge_heaps[queue_index]->top()));
             }
@@ -1824,12 +1825,12 @@ std::vector<std::pair<Solver::Tree, int> > Solver::PlusPlusExternalSlacks(Tree t
     return result;
 }
 
-std::vector<std::pair<Solver::Tree, int> > Solver::PlusMinusExternalSlacks(Tree tree) {
-    std::vector<std::pair<Tree, int> > result;
+std::vector<std::pair<Solver::TreeIndex, int> > Solver::PlusMinusExternalSlacks(TreeIndex tree) {
+    std::vector<std::pair<TreeIndex, int> > result;
     result.reserve(trees.pq_plus_minus[tree.index].size());
     for (auto [tree_neighbor, queue_index] : trees.pq_plus_minus[tree.index]) {
         if (trees.is_alive[tree_neighbor.index]) {
-            Edge edge = MinPlusMinusExternalEdge(queue_index);
+            EdgeIndex edge = MinPlusMinusExternalEdge(queue_index);
             if (edge) {
                 result.emplace_back(tree_neighbor, SlackQuadrupled(queues.edge_heaps[queue_index]->top()));
             }
