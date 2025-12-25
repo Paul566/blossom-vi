@@ -1,35 +1,33 @@
 #include "Solver.h"
 
 #include <iostream>
+#include <queue>
 #include <unordered_set>
 
 bool Solver::NodeComparator::operator()(const NodeIndex &a, const NodeIndex &b) const {
     int a_var = solver->DualVariableQuadrupled(a);
     int b_var = solver->DualVariableQuadrupled(b);
     if (a_var != b_var) {
-        return a_var > b_var;
+        return a_var < b_var;
     }
-    return a.index > b.index;
+    return a.index < b.index;
 }
 
 bool Solver::EdgeComparator::operator()(const EdgeIndex &a, const EdgeIndex &b) const {
     int a_var = solver->SlackQuadrupled(a);
     int b_var = solver->SlackQuadrupled(b);
-    // if (solver->nodes.blossom_parent[solver->edges.head[a.index].index]) {
-    //     // if a is a loop
-    //     a_var -= 2 * solver->DualVariableQuadrupled(solver->TopBlossom(solver->edges.head[a.index]));
-    //     // a_var = 0;
-    // }
-    // if (solver->nodes.blossom_parent[solver->edges.head[b.index].index]) {
-    //     // if b is a loop
-    //     b_var -= 2 * solver->DualVariableQuadrupled(solver->TopBlossom(solver->edges.head[b.index]));
-    //     // b_var = 0;
-    // }
-
     if (a_var != b_var) {
-        return a_var > b_var;
+        return a_var < b_var;
     }
-    return a.index > b.index;
+    return a.index < b.index;
+}
+
+bool Solver::NodeValidator::operator()(const NodeIndex &node) const {
+    return true;
+}
+
+bool Solver::EdgeValidator::operator()(const EdgeIndex &edge) const {
+    return true;
 }
 
 Solver::Solver(const std::vector<std::tuple<int, int, int> > &edge_list_,
@@ -57,7 +55,7 @@ Solver::Solver(const std::vector<std::tuple<int, int, int> > &edge_list_,
     nodes.tree_children = std::vector<std::vector<EdgeIndex> >(num_vertices_elementary, std::vector<EdgeIndex>());
     nodes.tree = std::vector<TreeIndex>(num_vertices_elementary, TreeIndex(-1));
     nodes.queue_index = std::vector<int>(num_vertices_elementary, -1);
-    nodes.handle = std::vector<NodeHeap::handle_type>(num_vertices_elementary, NodeHeap::handle_type());
+    nodes.handle = std::vector<NodeHeap::Handle *>(num_vertices_elementary);
 
     // initialize edges and fill the adjacency list
     edges.weight.reserve(edge_list_.size());
@@ -66,7 +64,7 @@ Solver::Solver(const std::vector<std::tuple<int, int, int> > &edge_list_,
     edges.head.reserve(edge_list_.size());
     edges.tail.reserve(edge_list_.size());
     edges.queue_index = std::vector<int>(edge_list_.size(), -1);
-    edges.handle = std::vector<EdgeHeap::handle_type>(edge_list_.size(), EdgeHeap::handle_type());
+    edges.handle = std::vector<EdgeHeap::Handle *>(edge_list_.size());
     for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
         edges.weight.push_back(std::get<2>(edge_list_[i]));
         edges.slack_quadrupled_amortized.push_back(4 * std::get<2>(edge_list_[i]));
@@ -342,9 +340,9 @@ void Solver::InitializeTrees() {
         trees.plus_empty_edges.push_back(2 * i);
         trees.plus_plus_internal_edges.push_back(2 * i + 1);
 
-        queues.node_heaps.emplace_back(std::make_unique<NodeHeap>(NodeComparator{this}));
-        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(EdgeComparator{this}));
-        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(EdgeComparator{this}));
+        queues.node_heaps.emplace_back(std::make_unique<NodeHeap>(params.heap_arity, NodeComparator{this}, NodeValidator{this}));
+        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}, EdgeValidator{this}));
+        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}, EdgeValidator{this}));
     }
 
     InitializeQueues();
@@ -1092,8 +1090,8 @@ Solver::NodeIndex Solver::ExpandableBlossom(TreeIndex tree) {
 }
 
 Solver::EdgeIndex Solver::MinPlusEmptyEdge(int queue_index) {
-    while (!queues.edge_heaps[queue_index]->empty()) {
-        EdgeIndex edge = queues.edge_heaps[queue_index]->top();
+    while (!queues.edge_heaps[queue_index]->Empty()) {
+        EdgeIndex edge = queues.edge_heaps[queue_index]->Top();
 
         NodeIndex head = edges.head[edge.index]; // plus
         NodeIndex tail = edges.tail[edge.index]; // empty
@@ -1103,45 +1101,45 @@ Solver::EdgeIndex Solver::MinPlusEmptyEdge(int queue_index) {
         if (nodes.plus[head.index] && !nodes.tree[tail.index]) {
             return edge;
         }
-        queues.edge_heaps[queue_index]->pop();
+        queues.edge_heaps[queue_index]->Pop();
         edges.queue_index[edge.index] = -1;
     }
     return EdgeIndex(-1);
 }
 
 Solver::EdgeIndex Solver::MinPlusPlusInternalEdge(int queue_index) {
-    while (!queues.edge_heaps[queue_index]->empty()) {
-        EdgeIndex edge = queues.edge_heaps[queue_index]->top();
+    while (!queues.edge_heaps[queue_index]->Empty()) {
+        EdgeIndex edge = queues.edge_heaps[queue_index]->Top();
 
         NodeIndex head = edges.head[edge.index];
         NodeIndex tail = edges.tail[edge.index];
         if (nodes.plus[head.index] && nodes.plus[tail.index] && (nodes.tree[head.index] == nodes.tree[tail.index]) && (head != tail) && IsTopBlossom(head) && IsTopBlossom(tail)) {
             return edge;
         }
-        queues.edge_heaps[queue_index]->pop();
+        queues.edge_heaps[queue_index]->Pop();
         edges.queue_index[edge.index] = -1;
     }
     return EdgeIndex(-1);
 }
 
 Solver::EdgeIndex Solver::MinPlusPlusExternalEdge(int queue_index) {
-    while (!queues.edge_heaps[queue_index]->empty()) {
-        EdgeIndex edge = queues.edge_heaps[queue_index]->top();
+    while (!queues.edge_heaps[queue_index]->Empty()) {
+        EdgeIndex edge = queues.edge_heaps[queue_index]->Top();
 
         NodeIndex head = edges.head[edge.index];
         NodeIndex tail = edges.tail[edge.index];
         if (nodes.plus[head.index] && nodes.plus[tail.index] && (nodes.tree[head.index] != nodes.tree[tail.index])) {
             return edge;
         }
-        queues.edge_heaps[queue_index]->pop();
+        queues.edge_heaps[queue_index]->Pop();
         edges.queue_index[edge.index] = -1;
     }
     return EdgeIndex(-1);
 }
 
 Solver::EdgeIndex Solver::MinPlusMinusExternalEdge(int queue_index) {
-    while (!queues.edge_heaps[queue_index]->empty()) {
-        EdgeIndex edge = queues.edge_heaps[queue_index]->top();
+    while (!queues.edge_heaps[queue_index]->Empty()) {
+        EdgeIndex edge = queues.edge_heaps[queue_index]->Top();
 
         NodeIndex head = edges.head[edge.index]; // plus
         NodeIndex tail = edges.tail[edge.index]; // minus
@@ -1152,19 +1150,19 @@ Solver::EdgeIndex Solver::MinPlusMinusExternalEdge(int queue_index) {
             nodes.tree[tail.index]) {
             return edge;
         }
-        queues.edge_heaps[queue_index]->pop();
+        queues.edge_heaps[queue_index]->Pop();
         edges.queue_index[edge.index] = -1;
     }
     return EdgeIndex(-1);
 }
 
 Solver::NodeIndex Solver::MinMinusBlossom(int queue_index) {
-    while (!queues.node_heaps[queue_index]->empty()) {
-        NodeIndex node = queues.node_heaps[queue_index]->top();
+    while (!queues.node_heaps[queue_index]->Empty()) {
+        NodeIndex node = queues.node_heaps[queue_index]->Top();
         if (nodes.is_alive[node.index] && nodes.tree[node.index] && !nodes.plus[node.index] && !nodes.blossom_parent[node.index]) {
             return node;
         }
-        queues.node_heaps[queue_index]->pop();
+        queues.node_heaps[queue_index]->Pop();
         nodes.queue_index[node.index] = -1;
     }
     return NodeIndex(-1);
@@ -1363,7 +1361,7 @@ void Solver::AddPQPlusPlus(TreeIndex first, TreeIndex second, EdgeIndex edge) {
     if (queue_index > 0) {
         AddEdgeToQueue(edge, queue_index);
     } else {
-        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(EdgeComparator{this}));
+        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}, EdgeValidator{this}));
         queue_index = static_cast<int>(queues.edge_heaps.size()) - 1;
         AddEdgeToQueue(edge, queue_index);
 
@@ -1377,7 +1375,7 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
     if (queue_index > 0) {
         AddEdgeToQueue(edge, queue_index);
     } else {
-        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(EdgeComparator{this}));
+        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}, EdgeValidator{this}));
         queue_index = static_cast<int>(queues.edge_heaps.size()) - 1;
         AddEdgeToQueue(edge, queue_index);
 
@@ -1386,7 +1384,7 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
     }
 }
 
-void Solver::ValidateQueues() {
+/*void Solver::ValidateQueues() {
     // checks that the queues are in a correct state, throws if not
 
     // every queue must hold only the edges that belong to this queue
@@ -1491,7 +1489,7 @@ void Solver::ValidateQueues() {
             }
         }
     }
-}
+}*/
 
 void Solver::ValidatePositiveSlacks() {
     for (int edge_index = 0; edge_index < static_cast<int>(edges.head.size()); ++edge_index) {
@@ -1714,16 +1712,16 @@ void Solver::AddEdgeToQueue(EdgeIndex edge, int queue_index) {
     // }
 
     if (edges.queue_index[edge.index] >= 0) {
-        queues.edge_heaps[edges.queue_index[edge.index]]->erase(edges.handle[edge.index]);
+        queues.edge_heaps[edges.queue_index[edge.index]]->Erase(edges.handle[edge.index]);
     }
-    edges.handle[edge.index] = queues.edge_heaps[queue_index]->push(edge);
+    edges.handle[edge.index] = queues.edge_heaps[queue_index]->Push(edge);
     edges.queue_index[edge.index] = queue_index;
 }
 
 void Solver::RemoveEdgeFromQueue(EdgeIndex edge) {
     // removes the edge from the current queue (if exists)
     if (edges.queue_index[edge.index] >= 0) {
-        queues.edge_heaps[edges.queue_index[edge.index]]->erase(edges.handle[edge.index]);
+        queues.edge_heaps[edges.queue_index[edge.index]]->Erase(edges.handle[edge.index]);
         edges.queue_index[edge.index] = -1;
     }
 }
@@ -1734,15 +1732,15 @@ void Solver::AddNodeToQueue(NodeIndex node, int queue_index) {
     // }
 
     if (nodes.queue_index[node.index] >= 0) {
-        queues.node_heaps[nodes.queue_index[node.index]]->erase(nodes.handle[node.index]);
+        queues.node_heaps[nodes.queue_index[node.index]]->Erase(nodes.handle[node.index]);
     }
-    nodes.handle[node.index] = queues.node_heaps[queue_index]->push(node);
+    nodes.handle[node.index] = queues.node_heaps[queue_index]->Push(node);
     nodes.queue_index[node.index] = queue_index;
 }
 
 void Solver::RemoveNodeFromQueue(NodeIndex node) {
     if (nodes.queue_index[node.index] >= 0) {
-        queues.node_heaps[nodes.queue_index[node.index]]->erase(nodes.handle[node.index]);
+        queues.node_heaps[nodes.queue_index[node.index]]->Erase(nodes.handle[node.index]);
         nodes.queue_index[node.index] = -1;
     }
 }
@@ -1818,7 +1816,7 @@ std::vector<std::pair<Solver::TreeIndex, int> > Solver::PlusPlusExternalSlacks(T
         if (trees.is_alive[tree_neighbor.index]) {
             EdgeIndex edge = MinPlusPlusExternalEdge(queue_index);
             if (edge) {
-                result.emplace_back(tree_neighbor, SlackQuadrupled(queues.edge_heaps[queue_index]->top()));
+                result.emplace_back(tree_neighbor, SlackQuadrupled(queues.edge_heaps[queue_index]->Top()));
             }
         }
     }
@@ -1832,7 +1830,7 @@ std::vector<std::pair<Solver::TreeIndex, int> > Solver::PlusMinusExternalSlacks(
         if (trees.is_alive[tree_neighbor.index]) {
             EdgeIndex edge = MinPlusMinusExternalEdge(queue_index);
             if (edge) {
-                result.emplace_back(tree_neighbor, SlackQuadrupled(queues.edge_heaps[queue_index]->top()));
+                result.emplace_back(tree_neighbor, SlackQuadrupled(queues.edge_heaps[queue_index]->Top()));
             }
         }
     }

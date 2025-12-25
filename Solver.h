@@ -2,14 +2,15 @@
 #define BLOSSOM_VI_SOLVER_H
 
 #include <list>
-#include <unordered_map>
+#include <memory>
 #include <vector>
-#include <boost/heap/d_ary_heap.hpp>
+#include "Heap.h"
 
 struct SolverParameters {
     bool compute_dual_certificate = false;
     bool verbose = false;
     bool print_statistics = true;
+    int heap_arity = 2;
 };
 
 class Solver {
@@ -71,21 +72,27 @@ class Solver {
             const Solver *solver;
             bool operator()(const EdgeIndex &a, const EdgeIndex &b) const;
         };
-        using EdgeHeap = boost::heap::d_ary_heap<
+        struct NodeValidator {
+            const Solver *solver;
+            bool operator()(const NodeIndex &node) const;
+        };
+        struct EdgeValidator {
+            const Solver *solver;
+            bool operator()(const EdgeIndex &edge) const;
+        };
+        using EdgeHeap = Heap<
             EdgeIndex,
-            boost::heap::arity<2>,
-            boost::heap::compare<EdgeComparator>,
-            boost::heap::mutable_<true>
+            EdgeComparator,
+            EdgeValidator
         >;
-        using NodeHeap = boost::heap::d_ary_heap<
+        using NodeHeap = Heap<
             NodeIndex,
-            boost::heap::arity<2>,
-            boost::heap::compare<NodeComparator>,
-            boost::heap::mutable_<true>
+            NodeComparator,
+            NodeValidator
         >;
         struct Queues {
-            std::vector<std::unique_ptr<NodeHeap>> node_heaps;
-            std::vector<std::unique_ptr<EdgeHeap>> edge_heaps;
+            std::vector<std::unique_ptr<NodeHeap> > node_heaps;
+            std::vector<std::unique_ptr<EdgeHeap> > edge_heaps;
         };
 
         struct Edges {
@@ -95,14 +102,15 @@ class Solver {
             std::vector<NodeIndex> head;
             std::vector<NodeIndex> tail;
             std::vector<int> queue_index;
-            std::vector<EdgeHeap::handle_type> handle;
+            std::vector<EdgeHeap::Handle *> handle;
         };
 
         struct Nodes {
             // TODO consider not initializing fields irrelevant for elementary vertices for elementary vertices
 
             std::vector<bool> is_alive;
-            std::vector<std::list<EdgeIndex> > neighbors; // concatenated neighbors of blossom_children, might contain loops
+            std::vector<std::list<EdgeIndex> > neighbors;
+            // concatenated neighbors of blossom_children, might contain loops
             // TODO try caching the neighbors into std::vector if we already went through them once
             std::vector<std::vector<std::list<EdgeIndex>::iterator> > children_neighbors_boundaries;
             // a vector of breakpoints to assign neighbors to children in Dissolve
@@ -123,7 +131,7 @@ class Solver {
 
             // queue related fields
             std::vector<int> queue_index;
-            std::vector<NodeHeap::handle_type> handle;
+            std::vector<NodeHeap::Handle *> handle;
         };
 
         struct Trees {
@@ -208,13 +216,13 @@ class Solver {
 
         void UpdateQueuesAfterGrow(NodeIndex child, NodeIndex grandchild);
         void UpdateQueuesBeforeShrink(const std::vector<NodeIndex> &minus_children);
-        void RemoveLoopsFromQueues(NodeIndex blossom);   // TODO get rid of this
+        void RemoveLoopsFromQueues(NodeIndex blossom); // TODO get rid of this
         void UpdateQueuesAfterExpand(TreeIndex tree, NodeIndex blossom, const std::vector<NodeIndex> &children);
         int TreeTreeQueueIndex(TreeIndex other_tree, const std::vector<std::pair<TreeIndex, int> > &tree_neighbors);
         void AddPQPlusPlus(TreeIndex first, TreeIndex second, EdgeIndex edge);
         void AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex edge);
-        void ValidateQueues();          // debugging purposes
-        void ValidatePositiveSlacks();  // debugging purposes
+        void ValidateQueues(); // debugging purposes
+        void ValidatePositiveSlacks(); // debugging purposes
 
         EdgeIndex MinPlusEmptyEdge(int queue_index);
         EdgeIndex MinPlusPlusInternalEdge(int queue_index);
