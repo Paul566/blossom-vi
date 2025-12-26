@@ -72,25 +72,16 @@ class Solver {
             const Solver *solver;
             bool operator()(const EdgeIndex &a, const EdgeIndex &b) const;
         };
-        struct NodeValidator {
-            const Solver *solver;
-            bool operator()(const NodeIndex &node) const;
-        };
-        struct EdgeValidator {
-            const Solver *solver;
-            bool operator()(const EdgeIndex &edge) const;
-        };
         using EdgeHeap = Heap<
             EdgeIndex,
-            EdgeComparator,
-            EdgeValidator
+            EdgeComparator
         >;
         using NodeHeap = Heap<
             NodeIndex,
-            NodeComparator,
-            NodeValidator
+            NodeComparator
         >;
         struct Queues {
+            // TODO maybe optimize the heaps a bit
             std::vector<std::unique_ptr<NodeHeap> > node_heaps;
             std::vector<std::unique_ptr<EdgeHeap> > edge_heaps;
         };

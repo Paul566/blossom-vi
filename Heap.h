@@ -3,10 +3,7 @@
 #include <functional>
 #include <stdexcept>
 
-template<
-    typename T,
-    typename Compare = std::less<T>,
-    typename Validity = std::function<bool(const T &)> >
+template<typename T, typename Compare = std::less<T>>
 class Heap {
     public:
         struct Handle {
@@ -14,37 +11,14 @@ class Heap {
             bool alive = false;
         };
 
-    private:
-        struct Node {
-            T value;
-            Handle *handle;
-        };
-
-        std::vector<Node> heap_;
-        std::vector<std::unique_ptr<Handle> > handles_;
-
-        int d_;
-        Compare comp_;
-        Validity valid_;
-
-    public:
-        explicit Heap(
-            int d,
-            Compare comp = Compare{},
-            Validity valid = [](const T &) { return true; }
-        ) : d_(d), comp_(comp), valid_(std::move(valid)) {
-            if (d_ < 2)
+        explicit Heap(int d, Compare comp = Compare{}) : d_(d), comp_(comp) {
+            if (d_ < 2) {
                 throw std::invalid_argument("d-arity must be >= 2");
+            }
         }
 
         bool Empty() {
-            CleanupInvalids();
             return heap_.empty();
-        }
-
-        int Size() {
-            CleanupInvalids();
-            return heap_.size();
         }
 
         Handle *Push(T value) {
@@ -62,7 +36,6 @@ class Heap {
         }
 
         const T &Top() {
-            CleanupInvalids();
             if (heap_.empty()) {
                 throw std::runtime_error("heap is empty");
             }
@@ -70,7 +43,6 @@ class Heap {
         }
 
         void Pop() {
-            CleanupInvalids();
             if (!heap_.empty()) {
                 EraseAt(0);
             }
@@ -85,6 +57,16 @@ class Heap {
         }
 
     private:
+        struct Node {
+            T value;
+            Handle *handle;
+        };
+
+        int d_;
+        Compare comp_;
+        std::vector<Node> heap_;
+        std::vector<std::unique_ptr<Handle> > handles_;
+
         int Parent(int i) const {
             return (i - 1) / d_;
         }
@@ -101,21 +83,10 @@ class Heap {
 
         void SiftUp(int i) {
             while (i > 0) {
-                if (!valid_(heap_[i].value)) {
-                    EraseAt(i);
+                int p = Parent(i);
+                if (!comp_(heap_[i].value, heap_[p].value)) {
                     return;
                 }
-
-                int p = Parent(i);
-                if (!valid_(heap_[p].value)) {
-                    EraseAt(p);
-                    continue; // recheck current i
-                }
-
-                if (!comp_(heap_[i].value, heap_[p].value)) {
-                    break;
-                }
-
                 SwapNodes(i, p);
                 i = p;
             }
@@ -123,23 +94,11 @@ class Heap {
 
         void SiftDown(int i) {
             while (true) {
-                if (!valid_(heap_[i].value)) {
-                    EraseAt(i);
-                    return;
-                }
-
                 int best = i;
 
                 for (int k = 0; k < d_; ++k) {
                     int c = Child(i, k);
                     if (c < heap_.size()) {
-                        if (!valid_(heap_[c].value)) {
-                            EraseAt(c);
-                            if (c < heap_.size()) {
-                                k--; // recheck swapped element
-                            }
-                            continue;
-                        }
                         if (comp_(heap_[c].value, heap_[best].value)) {
                             best = c;
                         }
@@ -147,7 +106,7 @@ class Heap {
                 }
 
                 if (best == i) {
-                    break;
+                    return;
                 }
 
                 SwapNodes(i, best);
@@ -173,10 +132,5 @@ class Heap {
             }
         }
 
-        void CleanupInvalids() {
-            while (!heap_.empty() && !valid_(heap_[0].value)) {
-                EraseAt(0);
-            }
-        }
 };
 #endif //BLOSSOM_VI_HEAP_H

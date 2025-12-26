@@ -22,14 +22,6 @@ bool Solver::EdgeComparator::operator()(const EdgeIndex &a, const EdgeIndex &b) 
     return a.index < b.index;
 }
 
-bool Solver::NodeValidator::operator()(const NodeIndex &node) const {
-    return true;
-}
-
-bool Solver::EdgeValidator::operator()(const EdgeIndex &edge) const {
-    return true;
-}
-
 Solver::Solver(const std::vector<std::tuple<int, int, int> > &edge_list_,
                const SolverParameters &params_) : primal_objective(INT64_MAX), dual_objective(INT64_MIN),
                                                   num_vertices_elementary(InitNumVertices(edge_list_)),
@@ -340,9 +332,9 @@ void Solver::InitializeTrees() {
         trees.plus_empty_edges.push_back(2 * i);
         trees.plus_plus_internal_edges.push_back(2 * i + 1);
 
-        queues.node_heaps.emplace_back(std::make_unique<NodeHeap>(params.heap_arity, NodeComparator{this}, NodeValidator{this}));
-        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}, EdgeValidator{this}));
-        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}, EdgeValidator{this}));
+        queues.node_heaps.emplace_back(std::make_unique<NodeHeap>(params.heap_arity, NodeComparator{this}));
+        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}));
+        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}));
     }
 
     InitializeQueues();
@@ -1361,7 +1353,7 @@ void Solver::AddPQPlusPlus(TreeIndex first, TreeIndex second, EdgeIndex edge) {
     if (queue_index > 0) {
         AddEdgeToQueue(edge, queue_index);
     } else {
-        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}, EdgeValidator{this}));
+        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}));
         queue_index = static_cast<int>(queues.edge_heaps.size()) - 1;
         AddEdgeToQueue(edge, queue_index);
 
@@ -1375,7 +1367,7 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
     if (queue_index > 0) {
         AddEdgeToQueue(edge, queue_index);
     } else {
-        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}, EdgeValidator{this}));
+        queues.edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}));
         queue_index = static_cast<int>(queues.edge_heaps.size()) - 1;
         AddEdgeToQueue(edge, queue_index);
 
