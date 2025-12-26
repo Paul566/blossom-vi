@@ -111,8 +111,10 @@ class Solver {
             // blossom related fields
             std::vector<NodeIndex> blossom_parent; // Node(-1) if no blossom_parent
             std::vector<std::vector<NodeIndex> > blossom_children;
-            std::vector<EdgeIndex> blossom_brother_clockwise;
-            std::vector<EdgeIndex> blossom_brother_anticlockwise;
+            std::vector<EdgeIndex> blossom_edge_clockwise;
+            std::vector<EdgeIndex> blossom_edge_anticlockwise;
+            std::vector<NodeIndex> blossom_sibling_clockwise;
+            std::vector<NodeIndex> blossom_sibling_anticlockwise;
 
             // tree related fields
             std::vector<bool> plus;
@@ -196,11 +198,11 @@ class Solver {
         void AugmentFromNode(TreeIndex tree, NodeIndex node);
         void DissolveTree(TreeIndex tree);
         void ClearNodeDuringTreeDissolve(TreeIndex tree, NodeIndex node);
-        void Dissolve(NodeIndex node);
+        void Dissolve(NodeIndex blossom);
 
-        void UpdateEdgeAfterShrink(EdgeIndex edge, NodeIndex node);
+        void UpdateEdgeAfterShrink(EdgeIndex edge);
 
-        void UpdateNodeInternalTreeStructure(NodeIndex node);
+        void UpdateNodeInternalTreeStructure(NodeIndex node, NodeIndex receptacle, NodeIndex elder_child);
         void ClearNodeInternalTreeStructure(NodeIndex node);
         void RotateReceptacle(NodeIndex blossom, NodeIndex child);
         NodeIndex DeeperNode(NodeIndex blossom, EdgeIndex edge) const;
@@ -212,8 +214,8 @@ class Solver {
         int TreeTreeQueueIndex(TreeIndex other_tree, const std::vector<std::pair<TreeIndex, int> > &tree_neighbors);
         void AddPQPlusPlus(TreeIndex first, TreeIndex second, EdgeIndex edge);
         void AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex edge);
-        void ValidateQueues(); // debugging purposes
         void ValidatePositiveSlacks(); // debugging purposes
+        void ValidatePositiveVars(); // debugging purposes
 
         EdgeIndex MinPlusEmptyEdge(int queue_index);
         EdgeIndex MinPlusPlusInternalEdge(int queue_index);

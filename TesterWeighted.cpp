@@ -123,7 +123,7 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
 
         auto start = std::chrono::high_resolution_clock::now();
         Solver solver = Solver(edge_list,
-                                               {.compute_dual_certificate = verify_output, .verbose = (verbose || (i == 34830)), .print_statistics = false});
+                                               {.compute_dual_certificate = verify_output, .verbose = (verbose || (i == 180)), .print_statistics = false});
         solver.FindMinPerfectMatching();
         auto stop = std::chrono::high_resolution_clock::now();
         double runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(

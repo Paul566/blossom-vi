@@ -40,8 +40,10 @@ Solver::Solver(const std::vector<std::tuple<int, int, int> > &edge_list_,
     nodes.matched_edge = std::vector<EdgeIndex>(num_vertices_elementary, EdgeIndex(-1));
     nodes.blossom_parent = std::vector<NodeIndex>(num_vertices_elementary, NodeIndex(-1));
     nodes.blossom_children = std::vector<std::vector<NodeIndex> >(num_vertices_elementary, std::vector<NodeIndex>());
-    nodes.blossom_brother_clockwise = std::vector<EdgeIndex>(num_vertices_elementary, EdgeIndex(-1));
-    nodes.blossom_brother_anticlockwise = std::vector<EdgeIndex>(num_vertices_elementary, EdgeIndex(-1));
+    nodes.blossom_edge_clockwise = std::vector<EdgeIndex>(num_vertices_elementary, EdgeIndex(-1));
+    nodes.blossom_edge_anticlockwise = std::vector<EdgeIndex>(num_vertices_elementary, EdgeIndex(-1));
+    nodes.blossom_sibling_clockwise = std::vector<NodeIndex>(num_vertices_elementary, NodeIndex(-1));
+    nodes.blossom_sibling_anticlockwise = std::vector<NodeIndex>(num_vertices_elementary, NodeIndex(-1));
     nodes.plus = std::vector<bool>(num_vertices_elementary, false);
     nodes.tree_parent = std::vector<EdgeIndex>(num_vertices_elementary, EdgeIndex(-1));
     nodes.tree_children = std::vector<std::vector<EdgeIndex> >(num_vertices_elementary, std::vector<EdgeIndex>());
@@ -81,8 +83,8 @@ void Solver::FindMinPerfectMatching() {
     while (num_trees_alive > 0) {
         ++num_rounds;
         MakePrimalUpdates();
-        // ValidateQueues();
         MakeDualUpdates();
+        // ValidatePositiveVars();
         // ValidatePositiveSlacks();
 
         if (params.print_statistics) {
@@ -385,6 +387,27 @@ void Solver::MakeDualUpdates() {
 
 std::vector<int> Solver::VariableDeltas() {
     DualConstraints dual_constraints = GetDualConstraints();
+
+    for (auto b : dual_constraints.upper_bound) {
+        if (b < 0) {
+            throw std::runtime_error("b < 0");
+        }
+    }
+    for (auto c : dual_constraints.plus_plus_constraints) {
+        for (auto [ind, sl] : c) {
+            if (sl < 0) {
+                throw std::runtime_error("constraint plus plus < 0");
+            }
+        }
+    }
+    for (auto c : dual_constraints.plus_minus_constraints) {
+        for (auto [ind, sl] : c) {
+            if (sl < 0) {
+                throw std::runtime_error("constraint plus minus < 0");
+            }
+        }
+    }
+
     std::vector<std::vector<int> > connected_components = ConnectedComponentsTreeTree(dual_constraints);
     std::vector<int> deltas(num_trees_alive, 0);
 
@@ -432,6 +455,12 @@ std::vector<int> Solver::VariableDeltas() {
         // apply delta to this connected component
         for (int v : connected_components[cc_index]) {
             deltas[v] = delta;
+        }
+    }
+
+    for (int d : deltas) {
+        if (d < 0) {
+            throw std::runtime_error("In VariableDeltas: found negative delta");
         }
     }
 
@@ -494,6 +523,15 @@ Solver::DualConstraints Solver::GetDualConstraints() {
         int plus_plus_internal = PlusPlusInternalSlack(tree);
         int blossom_var = MinMinusBlossomVariable(tree);
 
+        if (plus_empty < 0) {
+            throw std::runtime_error("In VariableDeltas: plus_empty is not positive");
+        }
+        if (plus_plus_internal < 0) {
+            throw std::runtime_error("In VariableDeltas: plus_plus_internal is not positive");
+        }
+        if (blossom_var < 0) {
+            throw std::runtime_error("In VariableDeltas: blossom_var is not positive");
+        }
         if (plus_plus_internal < INT32_MAX && plus_plus_internal % 2 != 0) {
             throw std::runtime_error("PlusPlusInternalSlack is not divisible by 2");
         }
@@ -560,11 +598,6 @@ void Solver::MakePrimalUpdates() {
     while (tree) {
         bool success = true;
         TreeIndex augmented_tree = MakePrimalUpdate(tree, &success);
-
-        // if (params.verbose) {
-        //     std::cout << "VALIDATION" << std::endl;
-        //     ValidateQueues();
-        // }
 
         if (augmented_tree) {
             trees.is_alive[tree.index] = false;
@@ -699,8 +732,10 @@ void Solver::MakeBlossom(std::vector<EdgeIndex> blossom_edges, NodeIndex lca) {
 
     nodes.is_alive.emplace_back(true);
     nodes.blossom_parent.emplace_back(-1);
-    nodes.blossom_brother_clockwise.emplace_back(-1);
-    nodes.blossom_brother_anticlockwise.emplace_back(-1);
+    nodes.blossom_edge_clockwise.emplace_back(-1);
+    nodes.blossom_edge_anticlockwise.emplace_back(-1);
+    nodes.blossom_sibling_clockwise.emplace_back(-1);
+    nodes.blossom_sibling_anticlockwise.emplace_back(-1);
     nodes.plus.emplace_back(true); // after Shrink, we must be a plus
     nodes.queue_index.emplace_back(-1);
     nodes.handle.emplace_back();
@@ -726,9 +761,14 @@ void Solver::MakeBlossom(std::vector<EdgeIndex> blossom_edges, NodeIndex lca) {
 
     // initialize blossom brothers of the children
     for (EdgeIndex edge : blossom_edges) {
-        nodes.blossom_brother_clockwise[cur_vertex.index] = edge;
-        cur_vertex = OtherEnd(edge, cur_vertex);
-        nodes.blossom_brother_anticlockwise[cur_vertex.index] = edge;
+        NodeIndex next_vertex = OtherEnd(edge, cur_vertex);
+
+        nodes.blossom_edge_clockwise[cur_vertex.index] = edge;
+        nodes.blossom_edge_anticlockwise[next_vertex.index] = edge;
+        nodes.blossom_sibling_clockwise[cur_vertex.index] = next_vertex;
+        nodes.blossom_sibling_anticlockwise[next_vertex.index] = cur_vertex;
+
+        cur_vertex = next_vertex;
     }
 
     // update blossom_parent and dual_var_quadrupled_amortized of the children
@@ -764,9 +804,9 @@ void Solver::MakeBlossom(std::vector<EdgeIndex> blossom_edges, NodeIndex lca) {
     // update edges TODO amortize this
     for (NodeIndex child : nodes.blossom_children.back()) {
         for (EdgeIndex edge : nodes.neighbors[child.index]) {
-            if (!blossom_set.contains(OtherEnd(edge, child).index)) {
-                UpdateEdgeAfterShrink(edge, child);
-            }
+            // if (!blossom_set.contains(OtherEnd(edge, child).index)) {
+            UpdateEdgeAfterShrink(edge);
+            // }
         }
     }
 
@@ -899,86 +939,99 @@ void Solver::ClearNodeDuringTreeDissolve(TreeIndex tree, NodeIndex node) {
     nodes.plus[node.index] = false;
 }
 
-void Solver::Dissolve(NodeIndex node) {
+void Solver::Dissolve(NodeIndex blossom) {
     // TODO amortize
 
-    if (nodes.blossom_children[node.index].empty()) {
+    if (nodes.blossom_children[blossom.index].empty()) {
         throw std::runtime_error("In Dissolve: can't dissolve an elementary vertex");
     }
-    if (!nodes.matched_edge[node.index]) {
+    if (!nodes.matched_edge[blossom.index]) {
         throw std::runtime_error("In Dissolve: there is no matched_edge -- this blossom can't contain the root");
     }
-    if (nodes.blossom_parent[node.index]) {
+    if (nodes.blossom_parent[blossom.index]) {
         throw std::runtime_error("In Dissolve: this must be a top blossom");
     }
 
-    nodes.is_alive[node.index] = false;
-    RotateReceptacle(node, DeeperNode(node, nodes.matched_edge[node.index]));
+    nodes.is_alive[blossom.index] = false;
+    RemoveNodeFromQueue(blossom);
 
-    if (nodes.tree[node.index]) {
-        UpdateNodeInternalTreeStructure(node);
-        for (NodeIndex child : nodes.blossom_children[node.index]) {
+    NodeIndex new_receptacle = DeeperNode(blossom, nodes.matched_edge[blossom.index]);
+    NodeIndex elder_child(-1);
+    if (nodes.tree[blossom.index]) {
+        elder_child = DeeperNode(blossom, nodes.tree_parent[blossom.index]);
+    }
+
+    // restore the neighbors of the children
+    for (int i = 0; i < static_cast<int>(nodes.blossom_children[blossom.index].size()); ++i) {
+        auto it_left = nodes.children_neighbors_boundaries[blossom.index][i];
+        auto it_right = nodes.neighbors[blossom.index].end();
+        if (i + 1 < static_cast<int>(nodes.blossom_children[blossom.index].size())) {
+            it_right = nodes.children_neighbors_boundaries[blossom.index][i + 1];
+        }
+
+        nodes.neighbors[nodes.blossom_children[blossom.index][i].index].splice(
+            nodes.neighbors[nodes.blossom_children[blossom.index][i].index].end(),
+            nodes.neighbors[blossom.index],
+            it_left,
+            it_right);
+    }
+    for (NodeIndex child : nodes.blossom_children[blossom.index]) {
+        for (EdgeIndex edge : nodes.neighbors[child.index]) {
+            if (blossom == edges.tail[edge.index]) {
+                edges.tail[edge.index] = child;
+                edges.slack_quadrupled_amortized[edge.index] += DualVariableQuadrupled(child);
+            } else {
+                if (blossom != edges.head[edge.index]) {
+                    throw std::runtime_error("In Dissolve: edge with no end at blossom");
+                }
+                edges.head[edge.index] = child;
+                edges.slack_quadrupled_amortized[edge.index] += DualVariableQuadrupled(child);
+            }
+        }
+    }
+
+    RotateReceptacle(blossom, new_receptacle);
+
+    if (nodes.tree[blossom.index]) {
+        UpdateNodeInternalTreeStructure(blossom, new_receptacle, elder_child);
+        for (NodeIndex child : nodes.blossom_children[blossom.index]) {
             if (nodes.plus[child.index]) {
-                nodes.dual_var_quadrupled_amortized[child.index] -= trees.dual_var_quadrupled[nodes.tree[node.index].
+                nodes.dual_var_quadrupled_amortized[child.index] -= trees.dual_var_quadrupled[nodes.tree[blossom.index].
                     index];
             }
             if (nodes.tree[child.index] && !nodes.plus[child.index]) {
-                nodes.dual_var_quadrupled_amortized[child.index] += trees.dual_var_quadrupled[nodes.tree[node.index].
+                nodes.dual_var_quadrupled_amortized[child.index] += trees.dual_var_quadrupled[nodes.tree[blossom.index].
                     index];
             }
         }
     } else {
-        ClearNodeInternalTreeStructure(node);
+        ClearNodeInternalTreeStructure(blossom);
     }
 
-    for (NodeIndex child : nodes.blossom_children[node.index]) {
+    for (NodeIndex child : nodes.blossom_children[blossom.index]) {
         if (!child) {
             throw std::runtime_error("Invalid child");
         }
-        nodes.blossom_brother_clockwise[child.index] = EdgeIndex(-1);
-        nodes.blossom_brother_anticlockwise[child.index] = EdgeIndex(-1);
+        nodes.blossom_sibling_clockwise[child.index] = NodeIndex(-1);
+        nodes.blossom_sibling_anticlockwise[child.index] = NodeIndex(-1);
+        nodes.blossom_edge_clockwise[child.index] = EdgeIndex(-1);
+        nodes.blossom_edge_anticlockwise[child.index] = EdgeIndex(-1);
         nodes.blossom_parent[child.index] = NodeIndex(-1);
     }
+}
 
-    // restore neighbors of the children
-    for (int i = 0; i < static_cast<int>(nodes.blossom_children[node.index].size()); ++i) {
-        auto it_left = nodes.children_neighbors_boundaries[node.index][i];
-        auto it_right = nodes.neighbors[node.index].end();
-        if (i + 1 < static_cast<int>(nodes.blossom_children[node.index].size())) {
-            it_right = nodes.children_neighbors_boundaries[node.index][i + 1];
-        }
-
-        nodes.neighbors[nodes.blossom_children[node.index][i].index].splice(
-            nodes.neighbors[nodes.blossom_children[node.index][i].index].end(),
-            nodes.neighbors[node.index],
-            it_left,
-            it_right);
+void Solver::UpdateEdgeAfterShrink(EdgeIndex edge) {
+    if (!IsTopBlossom(edges.tail[edge.index])) {
+        edges.slack_quadrupled_amortized[edge.index] -= DualVariableQuadrupled(edges.tail[edge.index]);
+        edges.tail[edge.index] = nodes.blossom_parent[edges.tail[edge.index].index];
     }
-
-    // update the edges
-    for (NodeIndex child : nodes.blossom_children[node.index]) {
-        for (EdgeIndex edge : nodes.neighbors[child.index]) {
-            if (node == edges.tail[edge.index]) {
-                edges.tail[edge.index] = child;
-                edges.slack_quadrupled_amortized[edge.index] += DualVariableQuadrupled(edges.tail[edge.index]);
-            } else if (node == edges.head[edge.index]) {
-                edges.head[edge.index] = child;
-                edges.slack_quadrupled_amortized[edge.index] += DualVariableQuadrupled(edges.head[edge.index]);
-            }
-        }
+    if (!IsTopBlossom(edges.head[edge.index])) {
+        edges.slack_quadrupled_amortized[edge.index] -= DualVariableQuadrupled(edges.head[edge.index]);
+        edges.head[edge.index] = nodes.blossom_parent[edges.head[edge.index].index];
     }
 }
 
-void Solver::UpdateEdgeAfterShrink(EdgeIndex edge, NodeIndex node) {
-    edges.slack_quadrupled_amortized[edge.index] -= DualVariableQuadrupled(node);
-    if (node == edges.tail[edge.index]) {
-        edges.tail[edge.index] = nodes.blossom_parent[node.index];
-        return;
-    }
-    edges.head[edge.index] = nodes.blossom_parent[node.index];
-}
-
-void Solver::UpdateNodeInternalTreeStructure(NodeIndex node) {
+void Solver::UpdateNodeInternalTreeStructure(NodeIndex node, NodeIndex receptacle, NodeIndex elder_child) {
     // updates tree_children, tree_parents, tree_root for the vertices inside this blossom before the Expand
     // updates the plus and minus markers
     if (!nodes.matched_edge[node.index]) {
@@ -987,15 +1040,19 @@ void Solver::UpdateNodeInternalTreeStructure(NodeIndex node) {
     if (!nodes.tree_parent[node.index]) {
         throw std::runtime_error("In UpdateInternalTreeStructure: there is no tree_parent");
     }
-    NodeIndex elder_child = DeeperNode(node, nodes.tree_parent[node.index]);
-    NodeIndex receptacle = DeeperNode(node, nodes.matched_edge[node.index]);
 
     std::function next_edge = [this](const NodeIndex current) -> EdgeIndex {
-        return nodes.blossom_brother_clockwise[current.index];
+        return nodes.blossom_edge_clockwise[current.index];
     };
-    if (edges.matched[nodes.blossom_brother_anticlockwise[elder_child.index].index]) {
+    std::function next_node = [this](const NodeIndex current) -> NodeIndex {
+        return nodes.blossom_sibling_clockwise[current.index];
+    };
+    if (edges.matched[nodes.blossom_edge_anticlockwise[elder_child.index].index]) {
         next_edge = [this](const NodeIndex current) -> EdgeIndex {
-            return nodes.blossom_brother_anticlockwise[current.index];
+            return nodes.blossom_edge_anticlockwise[current.index];
+        };
+        next_node = [this](const NodeIndex current) -> NodeIndex {
+            return nodes.blossom_sibling_anticlockwise[current.index];
         };
     }
 
@@ -1010,7 +1067,7 @@ void Solver::UpdateNodeInternalTreeStructure(NodeIndex node) {
         nodes.plus[cur_vertex.index] = is_plus;
 
         prev_edge = next_edge(cur_vertex);
-        cur_vertex = OtherEnd(prev_edge, cur_vertex);
+        cur_vertex = next_node(cur_vertex);
         is_plus = !is_plus;
     }
     nodes.tree_parent[cur_vertex.index] = prev_edge;
@@ -1019,14 +1076,14 @@ void Solver::UpdateNodeInternalTreeStructure(NodeIndex node) {
     nodes.plus[cur_vertex.index] = false;
 
     // the part that goes to waste
-    cur_vertex = OtherEnd(next_edge(cur_vertex), cur_vertex);
+    cur_vertex = next_node(cur_vertex);
     while (cur_vertex != elder_child) {
         nodes.tree_parent[cur_vertex.index] = EdgeIndex(-1);
         nodes.tree[cur_vertex.index] = TreeIndex(-1);
         nodes.tree_children[cur_vertex.index].clear();
         nodes.plus[cur_vertex.index] = false;
 
-        cur_vertex = OtherEnd(next_edge(cur_vertex), cur_vertex);
+        cur_vertex = next_node(cur_vertex);
     }
 }
 
@@ -1090,6 +1147,9 @@ Solver::EdgeIndex Solver::MinPlusEmptyEdge(int queue_index) {
         if (!nodes.tree[head.index]) {
             std::swap(head, tail);
         }
+        if (head == tail) {
+            throw std::runtime_error("MinPlusEmptyEdge is a loop");
+        }
         if (nodes.plus[head.index] && !nodes.tree[tail.index]) {
             return edge;
         }
@@ -1105,7 +1165,8 @@ Solver::EdgeIndex Solver::MinPlusPlusInternalEdge(int queue_index) {
 
         NodeIndex head = edges.head[edge.index];
         NodeIndex tail = edges.tail[edge.index];
-        if (nodes.plus[head.index] && nodes.plus[tail.index] && (nodes.tree[head.index] == nodes.tree[tail.index]) && (head != tail) && IsTopBlossom(head) && IsTopBlossom(tail)) {
+        if (nodes.plus[head.index] && nodes.plus[tail.index] && (nodes.tree[head.index] == nodes.tree[tail.index]) && (
+            head != tail) && IsTopBlossom(head) && IsTopBlossom(tail)) {
             return edge;
         }
         queues.edge_heaps[queue_index]->Pop();
@@ -1151,7 +1212,8 @@ Solver::EdgeIndex Solver::MinPlusMinusExternalEdge(int queue_index) {
 Solver::NodeIndex Solver::MinMinusBlossom(int queue_index) {
     while (!queues.node_heaps[queue_index]->Empty()) {
         NodeIndex node = queues.node_heaps[queue_index]->Top();
-        if (nodes.is_alive[node.index] && nodes.tree[node.index] && !nodes.plus[node.index] && !nodes.blossom_parent[node.index]) {
+        if (nodes.is_alive[node.index] && nodes.tree[node.index] && !nodes.plus[node.index] && !nodes.blossom_parent[
+            node.index]) {
             return node;
         }
         queues.node_heaps[queue_index]->Pop();
@@ -1170,7 +1232,8 @@ void Solver::RotateReceptacle(NodeIndex blossom, NodeIndex child) {
         throw std::runtime_error("In RotateReceptacle: the new receptacle is not a blossom child of this node");
     }
 
-    NodeIndex cur_node = OtherEnd(nodes.blossom_brother_clockwise[child.index], child);
+    // NodeIndex cur_node = OtherEnd(nodes.blossom_brother_clockwise[child.index], child);
+    NodeIndex cur_node = nodes.blossom_sibling_clockwise[child.index];
     if (!cur_node) {
         throw std::runtime_error("Invalid cur_node");
     }
@@ -1178,20 +1241,25 @@ void Solver::RotateReceptacle(NodeIndex blossom, NodeIndex child) {
     bool match = false;
     while (cur_node != child) {
         if (match) {
-            MakeEdgeMatched(nodes.blossom_brother_anticlockwise[cur_node.index]);
+            MakeEdgeMatched(nodes.blossom_edge_anticlockwise[cur_node.index]); // TODO HERE
         } else {
-            MakeEdgeUnmatched(nodes.blossom_brother_anticlockwise[cur_node.index]);
+            MakeEdgeUnmatched(nodes.blossom_edge_anticlockwise[cur_node.index]);
         }
         match = !match;
-        cur_node = OtherEnd(nodes.blossom_brother_clockwise[cur_node.index], cur_node);
+        cur_node = nodes.blossom_sibling_clockwise[cur_node.index];
     }
-    MakeEdgeUnmatched(nodes.blossom_brother_anticlockwise[child.index]);
+    MakeEdgeUnmatched(nodes.blossom_edge_anticlockwise[child.index]);
     nodes.matched_edge[child.index] = nodes.matched_edge[blossom.index]; // never a nullptr
 }
 
 Solver::NodeIndex Solver::DeeperNode(NodeIndex blossom, EdgeIndex edge) const {
     // returns a node that is a blossom child of blossom and is adjacent to edge
     // TODO do something smarter maybe
+    // TODO is there is one fat child, check everyone before it
+
+    if (edges.head[edge.index] == edges.tail[edge.index]) {
+        throw std::runtime_error("In DeeperNode: the edge is a loop");
+    }
 
     for (int i = 0; i + 1 < static_cast<int>(nodes.children_neighbors_boundaries[blossom.index].size()); ++i) {
         auto it_left = nodes.children_neighbors_boundaries[blossom.index][i];
@@ -1263,6 +1331,8 @@ void Solver::UpdateQueuesBeforeShrink(const std::vector<NodeIndex> &minus_childr
     TreeIndex tree = nodes.tree[minus_children.front().index];
 
     for (NodeIndex child : minus_children) {
+        RemoveNodeFromQueue(child);
+
         for (EdgeIndex edge : nodes.neighbors[child.index]) {
             NodeIndex neighbor = OtherEnd(edge, child);
 
@@ -1485,13 +1555,31 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
 
 void Solver::ValidatePositiveSlacks() {
     for (int edge_index = 0; edge_index < static_cast<int>(edges.head.size()); ++edge_index) {
-        if (SlackQuadrupled(EdgeIndex(edge_index)) < 0) {
+        if (SlackQuadrupled(EdgeIndex(edge_index)) < 0 && (edges.head[edge_index] != edges.tail[edge_index])) {
             std::cout << "edge " << edges.head[edge_index].index << " " << edges.tail[edge_index].index << std::endl;
-            std::cout << "blossom parents: " << nodes.blossom_parent[edges.head[edge_index].index].index << " " << nodes.blossom_parent[edges.tail[edge_index].index].index << std::endl;
-            std::cout << "in trees: " << nodes.tree[edges.head[edge_index].index].index << " " << nodes.tree[edges.tail[edge_index].index].index << std::endl;
-            std::cout << "pluses: " << nodes.plus[edges.head[edge_index].index] << " " << nodes.plus[edges.tail[edge_index].index] << std::endl;
+            std::cout << "blossom parents: " << nodes.blossom_parent[edges.head[edge_index].index].index << " " << nodes
+                .blossom_parent[edges.tail[edge_index].index].index << std::endl;
+            std::cout << "in trees: " << nodes.tree[edges.head[edge_index].index].index << " " << nodes.tree[edges.tail[
+                edge_index].index].index << std::endl;
+            std::cout << "pluses: " << nodes.plus[edges.head[edge_index].index] << " " << nodes.plus[edges.tail[
+                edge_index].index] << std::endl;
+            std::cout << "alive: " << nodes.is_alive[edges.head[edge_index].index] << " " << nodes.is_alive[edges.tail[edge_index].index] << std::endl;
+            std::cout << "slack: " << SlackQuadrupled(EdgeIndex(edge_index)) << std::endl;
 
             throw std::runtime_error("Negative slack edge found");
+        }
+    }
+}
+
+void Solver::ValidatePositiveVars() {
+    for (int node_index = num_vertices_elementary; node_index < static_cast<int>(nodes.is_alive.size()); ++node_index) {
+        if (nodes.is_alive[node_index]) {
+            if (DualVariableQuadrupled(NodeIndex(node_index)) < 0) {
+                std::cout << "node " << node_index << std::endl;
+                std::cout << "parent: " << nodes.blossom_parent[node_index].index << std::endl;
+                std::cout << "is plus: " << nodes.plus[node_index] << std::endl;
+                throw std::runtime_error("Negative variable blossom found");
+            }
         }
     }
 }
@@ -1541,6 +1629,11 @@ void Solver::DestroyBlossoms() {
             }
 
             Dissolve(NodeIndex(i));
+
+            if (params.verbose) {
+                std::cout << "destroyed " << i << std::endl;
+                PrintGraph();
+            }
         }
     }
 }
@@ -1665,7 +1758,9 @@ Solver::NodeIndex Solver::OtherEnd(EdgeIndex edge, NodeIndex node) const {
     if (node == edges.head[edge.index]) {
         return edges.tail[edge.index];
     }
-    // the edge is a loop
+    if (edges.head[edge.index] != edges.tail[edge.index]) {
+        throw std::runtime_error("In OtherEnd");
+    }
     return node;
 }
 
@@ -1687,6 +1782,9 @@ Solver::NodeIndex Solver::SharedNode(EdgeIndex first_edge, EdgeIndex second_edge
 }
 
 void Solver::MakeEdgeMatched(EdgeIndex edge) {
+    if (edges.head[edge.index] == edges.tail[edge.index]) {
+        throw std::runtime_error("In MakeEdgeMatched: trying to match a loop");
+    }
     nodes.matched_edge[edges.head[edge.index].index] = edge;
     nodes.matched_edge[edges.tail[edge.index].index] = edge;
     edges.matched[edge.index] = true;
