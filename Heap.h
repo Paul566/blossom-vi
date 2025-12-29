@@ -1,6 +1,7 @@
 #ifndef BLOSSOM_VI_HEAP_H
 #define BLOSSOM_VI_HEAP_H
 #include <functional>
+#include <iostream>
 #include <stdexcept>
 
 template<typename T, typename Compare = std::less<T>>
@@ -56,7 +57,17 @@ class Heap {
             return true;
         }
 
-    private:
+        // debugging purposes
+        void ValidateHeap(const std::string &msg = "") {
+            for (std::size_t i = 1; i < heap_.size(); ++i) {
+                if (comp_(heap_[i].value, heap_[Parent(i)].value )) {
+                    std::cout << msg << std::endl;
+                    throw std::runtime_error("Incorrect heap");
+                }
+            }
+        }
+
+    // private:
         struct Node {
             T value;
             Handle *handle;

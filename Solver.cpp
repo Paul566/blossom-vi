@@ -5,8 +5,8 @@
 #include <unordered_set>
 
 bool Solver::NodeComparator::operator()(const NodeIndex &a, const NodeIndex &b) const {
-    int a_var = solver->DualVariableQuadrupled(a);
-    int b_var = solver->DualVariableQuadrupled(b);
+    int a_var = solver->nodes.dual_var_quadrupled_amortized[a.index];
+    int b_var = solver->nodes.dual_var_quadrupled_amortized[b.index];
     if (a_var != b_var) {
         return a_var < b_var;
     }
@@ -16,6 +16,10 @@ bool Solver::NodeComparator::operator()(const NodeIndex &a, const NodeIndex &b) 
 bool Solver::EdgeComparator::operator()(const EdgeIndex &a, const EdgeIndex &b) const {
     int a_var = solver->SlackQuadrupled(a);
     int b_var = solver->SlackQuadrupled(b);
+    // int a_var = solver->edges.slack_quadrupled_amortized[a.index] - solver->nodes.dual_var_quadrupled_amortized[solver->
+    //     edges.head[a.index].index] - solver->nodes.dual_var_quadrupled_amortized[solver->edges.tail[a.index].index];
+    // int b_var = solver->edges.slack_quadrupled_amortized[b.index] - solver->nodes.dual_var_quadrupled_amortized[solver->
+    //     edges.head[b.index].index] - solver->nodes.dual_var_quadrupled_amortized[solver->edges.tail[b.index].index];
     if (a_var != b_var) {
         return a_var < b_var;
     }
@@ -82,8 +86,27 @@ void Solver::FindMinPerfectMatching() {
     int num_rounds = 0;
     while (num_trees_alive > 0) {
         ++num_rounds;
+
+        // std::vector<int> slacks;
+        // for (int i = 0; i < edges.head.size(); ++i) {
+        //     slacks.push_back(SlackQuadrupled(EdgeIndex(i)));
+        // }
+
         MakePrimalUpdates();
+
+        // for (int i = 0; i < edges.head.size(); ++i) {
+        //     if(SlackQuadrupled(EdgeIndex(i)) != slacks[i]) {
+        //         throw std::runtime_error("slack changed");
+        //     }
+        // }
+
+        // std::cout << "made primal" << std::endl;
+        // ValidateQueues();
+
         MakeDualUpdates();
+
+        // std::cout << "made dual" << std::endl;
+        // ValidateQueues();
         // ValidatePositiveVars();
         // ValidatePositiveSlacks();
 
@@ -1151,6 +1174,10 @@ Solver::EdgeIndex Solver::MinPlusEmptyEdge(int queue_index) {
             throw std::runtime_error("MinPlusEmptyEdge is a loop");
         }
         if (nodes.plus[head.index] && !nodes.tree[tail.index]) {
+            if (SlackQuadrupled(edge) < 0) {
+                std::cout << "slack " << SlackQuadrupled(edge) << std::endl;
+                throw std::runtime_error("MinPlusEmpty edge has negative slack");
+            }
             return edge;
         }
         queues.edge_heaps[queue_index]->Pop();
@@ -1446,7 +1473,7 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
     }
 }
 
-/*void Solver::ValidateQueues() {
+void Solver::ValidateQueues() {
     // checks that the queues are in a correct state, throws if not
 
     // every queue must hold only the edges that belong to this queue
@@ -1457,7 +1484,10 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
         }
 
         // check plus empty
-        for (EdgeIndex edge : *queues.edge_heaps[trees.plus_empty_edges[tree_index]]) {
+        queues.edge_heaps[trees.plus_empty_edges[tree_index]]->ValidateHeap("plus empty");
+        for (auto heap_node : queues.edge_heaps[trees.plus_empty_edges[tree_index]]->heap_) {
+            EdgeIndex edge = heap_node.value;
+
             NodeIndex first = edges.head[edge.index];    // plus
             NodeIndex second = edges.tail[edge.index];   // empty
             if (nodes.tree[first.index].index != tree_index) {
@@ -1472,7 +1502,10 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
         }
 
         // check plus plus internal
-        for (EdgeIndex edge : *queues.edge_heaps[trees.plus_plus_internal_edges[tree_index]]) {
+        queues.edge_heaps[trees.plus_plus_internal_edges[tree_index]]->ValidateHeap("+ + int");
+        for (auto heap_node : queues.edge_heaps[trees.plus_plus_internal_edges[tree_index]]->heap_) {
+            EdgeIndex edge = heap_node.value;
+
             NodeIndex first = edges.head[edge.index];
             NodeIndex second = edges.tail[edge.index];
 
@@ -1485,7 +1518,10 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
         }
 
         // check minus blossoms
-        for (NodeIndex node : *queues.node_heaps[trees.minus_blossoms[tree_index]]) {
+        queues.node_heaps[trees.minus_blossoms[tree_index]]->ValidateHeap("minus blossoms");
+        for (auto heap_node : queues.node_heaps[trees.minus_blossoms[tree_index]]->heap_) {
+            NodeIndex node = heap_node.value;
+
             if (IsElementary(node) || (nodes.tree[node.index].index != tree_index) || nodes.plus[node.index]) {
                 throw std::runtime_error("Incorrect minus blossom queue");
             }
@@ -1496,7 +1532,10 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
             if (!trees.is_alive[other_tree.index]) {
                 continue;
             }
-            for (EdgeIndex edge : *queues.edge_heaps[queue_index]) {
+            queues.edge_heaps[queue_index]->ValidateHeap("+ + external");
+            for (auto heap_node : queues.edge_heaps[queue_index]->heap_) {
+                EdgeIndex edge = heap_node.value;
+
                 NodeIndex first = edges.head[edge.index];    // in this tree
                 NodeIndex second = edges.tail[edge.index];   // in the other tree
                 if (nodes.tree[first.index].index != tree_index) {
@@ -1516,7 +1555,10 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
             if (!trees.is_alive[other_tree.index]) {
                 continue;
             }
-            for (EdgeIndex edge : *queues.edge_heaps[queue_index]) {
+            queues.edge_heaps[queue_index]->ValidateHeap("+ - ext");
+            for (auto heap_node : queues.edge_heaps[queue_index]->heap_) {
+                EdgeIndex edge = heap_node.value;
+
                 NodeIndex first = edges.head[edge.index];    // in this tree
                 NodeIndex second = edges.tail[edge.index];   // in the other tree
                 if (nodes.tree[first.index].index != tree_index) {
@@ -1536,7 +1578,10 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
             if (!trees.is_alive[other_tree.index]) {
                 continue;
             }
-            for (EdgeIndex edge : *queues.edge_heaps[queue_index]) {
+            queues.edge_heaps[queue_index]->ValidateHeap("- + ext");
+            for (auto heap_node : queues.edge_heaps[queue_index]->heap_) {
+                EdgeIndex edge = heap_node.value;
+
                 NodeIndex first = edges.head[edge.index];    // in this tree
                 NodeIndex second = edges.tail[edge.index];   // in the other tree
                 if (nodes.tree[first.index].index != tree_index) {
@@ -1551,7 +1596,7 @@ void Solver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex
             }
         }
     }
-}*/
+}
 
 void Solver::ValidatePositiveSlacks() {
     for (int edge_index = 0; edge_index < static_cast<int>(edges.head.size()); ++edge_index) {
@@ -1563,7 +1608,8 @@ void Solver::ValidatePositiveSlacks() {
                 edge_index].index].index << std::endl;
             std::cout << "pluses: " << nodes.plus[edges.head[edge_index].index] << " " << nodes.plus[edges.tail[
                 edge_index].index] << std::endl;
-            std::cout << "alive: " << nodes.is_alive[edges.head[edge_index].index] << " " << nodes.is_alive[edges.tail[edge_index].index] << std::endl;
+            std::cout << "alive: " << nodes.is_alive[edges.head[edge_index].index] << " " << nodes.is_alive[edges.tail[
+                edge_index].index] << std::endl;
             std::cout << "slack: " << SlackQuadrupled(EdgeIndex(edge_index)) << std::endl;
 
             throw std::runtime_error("Negative slack edge found");

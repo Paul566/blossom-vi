@@ -216,6 +216,8 @@ class Solver {
         void AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex edge);
         void ValidatePositiveSlacks(); // debugging purposes
         void ValidatePositiveVars(); // debugging purposes
+        void ValidateQueues();  // debugging purposes
+
 
         EdgeIndex MinPlusEmptyEdge(int queue_index);
         EdgeIndex MinPlusPlusInternalEdge(int queue_index);
