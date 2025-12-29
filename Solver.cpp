@@ -101,12 +101,12 @@ void Solver::FindMinPerfectMatching() {
         // }
 
         // std::cout << "made primal" << std::endl;
-        // ValidateQueues();
+        ValidateQueues();
 
         MakeDualUpdates();
 
         // std::cout << "made dual" << std::endl;
-        // ValidateQueues();
+        ValidateQueues();
         // ValidatePositiveVars();
         // ValidatePositiveSlacks();
 
@@ -847,8 +847,6 @@ void Solver::MakeBlossom(std::vector<EdgeIndex> blossom_edges, NodeIndex lca) {
     nodes.tree.emplace_back(this_tree);
     nodes.dual_var_quadrupled_amortized.emplace_back(-trees.dual_var_quadrupled[this_tree.index]);
     // the true dual variable must be zero
-
-    RemoveLoopsFromQueues(new_blossom);
 }
 
 void Solver::Expand(TreeIndex tree, NodeIndex blossom) {
@@ -1383,13 +1381,13 @@ void Solver::UpdateQueuesBeforeShrink(const std::vector<NodeIndex> &minus_childr
     }
 }
 
-void Solver::RemoveLoopsFromQueues(NodeIndex blossom) {
+/*void Solver::RemoveLoopsFromQueues(NodeIndex blossom) {
     for (EdgeIndex edge : nodes.neighbors[blossom.index]) {
         if (!IsTopBlossom(edges.head[edge.index])) {
             RemoveEdgeFromQueue(edge);
         }
     }
-}
+}*/
 
 void Solver::UpdateQueuesAfterExpand(TreeIndex tree, NodeIndex blossom, const std::vector<NodeIndex> &children) {
     RemoveNodeFromQueue(blossom);

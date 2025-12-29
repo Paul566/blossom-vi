@@ -209,7 +209,6 @@ class Solver {
 
         void UpdateQueuesAfterGrow(NodeIndex child, NodeIndex grandchild);
         void UpdateQueuesBeforeShrink(const std::vector<NodeIndex> &minus_children);
-        void RemoveLoopsFromQueues(NodeIndex blossom); // TODO get rid of this
         void UpdateQueuesAfterExpand(TreeIndex tree, NodeIndex blossom, const std::vector<NodeIndex> &children);
         int TreeTreeQueueIndex(TreeIndex other_tree, const std::vector<std::pair<TreeIndex, int> > &tree_neighbors);
         void AddPQPlusPlus(TreeIndex first, TreeIndex second, EdgeIndex edge);
