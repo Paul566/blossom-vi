@@ -62,6 +62,7 @@ class Heap {
             for (std::size_t i = 1; i < heap_.size(); ++i) {
                 if (comp_(heap_[i].value, heap_[Parent(i)].value )) {
                     std::cout << msg << std::endl;
+                    std::cout << comp_(heap_[i].value, heap_[Parent(i)].value ) << " " << comp_(heap_[Parent(i)].value, heap_[i].value ) << std::endl;
                     throw std::runtime_error("Incorrect heap");
                 }
             }

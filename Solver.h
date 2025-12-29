@@ -69,8 +69,8 @@ class Solver {
             bool operator()(const NodeIndex &a, const NodeIndex &b) const;
         };
         struct EdgeComparator {
-            const Solver *solver;
-            bool operator()(const EdgeIndex &a, const EdgeIndex &b) const;
+            Solver *solver;
+            bool operator()(EdgeIndex &a, EdgeIndex &b) const;
         };
         using EdgeHeap = Heap<
             EdgeIndex,
@@ -168,9 +168,9 @@ class Solver {
         // a vector of (quadrupled dual variable, index of the blossom parent or -1)
         // dual_certificate is empty unless params.compute_dual_certificate is true
 
-        void PrintGraph() const;
-        void PrintNode(NodeIndex node) const;
-        void PrintTrees() const;
+        void PrintGraph();
+        void PrintNode(NodeIndex node);
+        void PrintTrees();
         void PrintStatistics();
 
         void GreedyInit();
@@ -200,12 +200,12 @@ class Solver {
         void ClearNodeDuringTreeDissolve(TreeIndex tree, NodeIndex node);
         void Dissolve(NodeIndex blossom);
 
-        void UpdateEdgeAfterShrink(EdgeIndex edge);
+        // void UpdateEdgeAfterShrink(EdgeIndex edge);
 
         void UpdateNodeInternalTreeStructure(NodeIndex node, NodeIndex receptacle, NodeIndex elder_child);
         void ClearNodeInternalTreeStructure(NodeIndex node);
         void RotateReceptacle(NodeIndex blossom, NodeIndex child);
-        NodeIndex DeeperNode(NodeIndex blossom, EdgeIndex edge) const;
+        NodeIndex DeeperNode(NodeIndex blossom, EdgeIndex edge);
 
         void UpdateQueuesAfterGrow(NodeIndex child, NodeIndex grandchild);
         void UpdateQueuesBeforeShrink(const std::vector<NodeIndex> &minus_children);
@@ -216,7 +216,6 @@ class Solver {
         void ValidatePositiveSlacks(); // debugging purposes
         void ValidatePositiveVars(); // debugging purposes
         void ValidateQueues();  // debugging purposes
-
 
         EdgeIndex MinPlusEmptyEdge(int queue_index);
         EdgeIndex MinPlusPlusInternalEdge(int queue_index);
@@ -239,12 +238,13 @@ class Solver {
         int NodeDepth(NodeIndex node) const;
         int DualVariableQuadrupled(NodeIndex node) const;
 
-        NodeIndex LCA(NodeIndex first, NodeIndex second) const;
+        NodeIndex LCA(NodeIndex first, NodeIndex second);
         std::vector<EdgeIndex> PathToRoot(TreeIndex tree, NodeIndex node);
 
-        int SlackQuadrupled(EdgeIndex edge) const;
-        NodeIndex OtherEnd(EdgeIndex edge, NodeIndex node) const;
-        NodeIndex SharedNode(EdgeIndex first_edge, EdgeIndex second_edge);
+        int SlackQuadrupled(EdgeIndex edge);
+        NodeIndex OtherEnd(EdgeIndex edge, NodeIndex node);
+        NodeIndex Head(EdgeIndex edge);
+        NodeIndex Tail(EdgeIndex edge);
 
         void MakeEdgeMatched(EdgeIndex edge);
         void MakeEdgeUnmatched(EdgeIndex edge);
