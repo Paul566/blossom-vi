@@ -92,6 +92,8 @@ class Solver {
             std::vector<int> slack_quadrupled_amortized;
             std::vector<NodeIndex> head;
             std::vector<NodeIndex> tail;
+            std::vector<NodeIndex> elementary_head;
+            std::vector<NodeIndex> elementary_tail;
             std::vector<int> queue_index;
             std::vector<EdgeHeap::Handle *> handle;
         };
@@ -200,7 +202,6 @@ class Solver {
         void ClearNodeDuringTreeDissolve(TreeIndex tree, NodeIndex node);
         void Dissolve(NodeIndex blossom);
 
-        // void UpdateEdgeAfterShrink(EdgeIndex edge);
 
         void UpdateNodeInternalTreeStructure(NodeIndex node, NodeIndex receptacle, NodeIndex elder_child);
         void ClearNodeInternalTreeStructure(NodeIndex node);
