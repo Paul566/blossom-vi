@@ -49,6 +49,37 @@ class Heap {
             }
         }
 
+        std::vector<T> ElementsEqualToTop() {
+            if (Empty()) {
+                return {};
+            }
+
+            std::vector<int> indices;
+            T top = heap_[0].value;
+            indices.push_back(0);
+            int processed = 0;
+            while (processed < static_cast<int>(indices.size())) {
+                for (int k = 0; k < d_; ++k) {
+                    int c = Child(indices[processed], k);
+                    if (c < heap_.size()) {
+                        if (!comp_(heap_[c].value, top) && !comp_(top, heap_[c].value)) {
+                            // TODO make the equality test work in another way, maybe have int Key instead of Comparator
+                            indices.push_back(c);
+                        }
+                    }
+
+                    ++processed;
+                }
+            }
+
+            std::vector<T> result;
+            result.reserve(indices.size());
+            for (int i : indices) {
+                result.push_back(heap_[i].value);
+            }
+            return result;
+        }
+
         bool Erase(Handle *h) {
             if (!h || !h->alive) {
                 return false;
@@ -62,7 +93,7 @@ class Heap {
             for (std::size_t i = 1; i < heap_.size(); ++i) {
                 if (comp_(heap_[i].value, heap_[Parent(i)].value )) {
                     std::cout << msg << std::endl;
-                    std::cout << comp_(heap_[i].value, heap_[Parent(i)].value ) << " " << comp_(heap_[Parent(i)].value, heap_[i].value ) << std::endl;
+                    std::cout << i << " " << Parent(i) << std::endl;
                     throw std::runtime_error("Incorrect heap");
                 }
             }

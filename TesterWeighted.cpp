@@ -122,8 +122,12 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
         std::vector<std::tuple<int, int, int> > edge_list = graph_generator.Generate(&generator);
 
         auto start = std::chrono::high_resolution_clock::now();
-        Solver solver = Solver(edge_list,
-                                               {.compute_dual_certificate = verify_output, .verbose = (verbose || (i == 180)), .print_statistics = false});
+        VzhuhSolver solver = VzhuhSolver(edge_list,
+                                         {
+                                             .compute_dual_certificate = verify_output,
+                                             .verbose = (verbose || (i == 660)), .print_statistics = false,
+                                             .debug = verify_output
+                                         });
         solver.FindMinPerfectMatching();
         auto stop = std::chrono::high_resolution_clock::now();
         double runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
@@ -166,8 +170,8 @@ void TesterWeighted::MeasureInstance(const std::string &filename, int num_iter, 
     int real_iters = 0;
     for (int i = 0; i < num_iter; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
-        Solver solver = Solver(edge_list,
-                                               {.compute_dual_certificate = false, .verbose = false});
+        VzhuhSolver solver = VzhuhSolver(edge_list,
+                                         {.compute_dual_certificate = false, .verbose = false});
         solver.FindMinPerfectMatching();
         auto stop = std::chrono::high_resolution_clock::now();
         double runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
@@ -190,9 +194,9 @@ void TesterWeighted::MeasureInstance(const std::string &filename, int num_iter, 
     std::cout << std::endl;
 }
 
-void TesterWeighted::Verify(const std::vector<std::tuple<int, int, int> > &edge_list, const Solver &solver) {
-    const std::vector<std::pair<int, int> > & matching = solver.Matching();
-    const std::vector<std::tuple<int, int, int> > & dual_solution = solver.DualCertificate();
+void TesterWeighted::Verify(const std::vector<std::tuple<int, int, int> > &edge_list, const VzhuhSolver &solver) {
+    const std::vector<std::pair<int, int> > &matching = solver.Matching();
+    const std::vector<std::tuple<int, int, int> > &dual_solution = solver.DualCertificate();
     std::vector<std::vector<std::pair<int, int> > > adj_list = AdjList(edge_list);
 
     if (!IsPerfectMatching(adj_list, matching)) {
