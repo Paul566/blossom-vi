@@ -159,7 +159,10 @@ void TesterWeighted::MeasureBenchmark(const std::string &path, int num_iter, dou
     }
 }
 
-void TesterWeighted::MeasureInstance(const std::string &filename, int num_iter, double max_time_per_instance) {
+void TesterWeighted::MeasureInstance(const std::string &filename,
+                                     int num_iter,
+                                     double max_time_per_instance,
+                                     bool with_debug) {
     std::cout << filename << std::endl;
     EdgeListType edge_list = ReadWeightedEdgeList(filename);
 
@@ -171,7 +174,10 @@ void TesterWeighted::MeasureInstance(const std::string &filename, int num_iter, 
     for (int i = 0; i < num_iter; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
         VzhuhSolver solver = VzhuhSolver(edge_list,
-                                         {.compute_dual_certificate = false, .verbose = false});
+                                         {
+                                             .compute_dual_certificate = false, .verbose = false,
+                                             .print_statistics = false, .debug = with_debug
+                                         });
         solver.FindMinPerfectMatching();
         auto stop = std::chrono::high_resolution_clock::now();
         double runtime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
