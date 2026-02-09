@@ -12,7 +12,7 @@ struct SolverParameters {
     bool verbose = false;
     bool print_statistics = true;
     bool debug = false;
-    int heap_arity = 2;
+    int heap_arity = 4;
 };
 
 class VzhuhSolver {
@@ -223,9 +223,12 @@ class VzhuhSolver {
         std::vector<std::vector<NodeIndex>> OrganizeBlossomChildren(const PrimalUpdateRecord &record);
         void Shrink(std::vector<NodeIndex> &children);
 
-        void ValidateQueues();  // for debug
-        std::vector<int> NodeVariables() const;   // for debug
-        std::vector<int> EdgeSlams();   // for debug
+        // for debug:
+        void ValidateQueues();
+        auto NodeVariables() const -> std::vector<int>;
+        std::vector<int> EdgeSlams();
+        void ValidateZeroSlackAdjList();
+        void ValidateEvenOddPaths();
 
 
         bool MakeDualUpdates();
@@ -234,7 +237,7 @@ class VzhuhSolver {
         std::vector<std::vector<int> > ConnectedComponentsTreeTree(const DualConstraints &dual_constraints) const;
         DualConstraints GetDualConstraints();
         void UpdateZeroSlackSetAndActionable();
-        void HandleZeroSlacksInQueue(int queue_index);
+        void AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_actionable);
         void CleanLoopsFromQueueTop(TreeIndex tree); // makes top of plus_plus_internal_edges a non-loop
 
 
@@ -249,6 +252,7 @@ class VzhuhSolver {
         std::vector<NodeIndex> ElementaryBlossomDescendants(NodeIndex node) const;
 
         int SlamQuadrupled(EdgeIndex edge);
+        int OldSlamQuadrupled(EdgeIndex edge);
         NodeIndex OtherEnd(EdgeIndex edge, NodeIndex node);
         NodeIndex OtherElementaryEnd(EdgeIndex edge, NodeIndex node) const;
         NodeIndex Head(EdgeIndex edge);

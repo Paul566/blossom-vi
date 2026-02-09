@@ -3,6 +3,7 @@
 #include <functional>
 #include <iostream>
 #include <stdexcept>
+#include <queue>
 
 template<typename T, typename Compare = std::less<T>>
 class Heap {
@@ -54,21 +55,24 @@ class Heap {
                 return {};
             }
 
+            // TODO make better
             std::vector<int> indices;
+            std::queue<int> to_process;
+            to_process.push(0);
             T top = heap_[0].value;
-            indices.push_back(0);
-            int processed = 0;
-            while (processed < static_cast<int>(indices.size())) {
+            while (!to_process.empty()) {
+                int index = to_process.front();
+                to_process.pop();
+                indices.push_back(index);
+
                 for (int k = 0; k < d_; ++k) {
-                    int c = Child(indices[processed], k);
+                    int c = Child(index, k);
                     if (c < heap_.size()) {
                         if (!comp_(heap_[c].value, top) && !comp_(top, heap_[c].value)) {
                             // TODO make the equality test work in another way, maybe have int Key instead of Comparator
-                            indices.push_back(c);
+                            to_process.push(c);
                         }
                     }
-
-                    ++processed;
                 }
             }
 

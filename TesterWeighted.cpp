@@ -125,7 +125,7 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
         VzhuhSolver solver = VzhuhSolver(edge_list,
                                          {
                                              .compute_dual_certificate = verify_output,
-                                             .verbose = (verbose || (i == 660)), .print_statistics = false,
+                                             .verbose = (verbose || (i == 32995)), .print_statistics = false,
                                              .debug = verify_output
                                          });
         solver.FindMinPerfectMatching();
