@@ -1762,7 +1762,14 @@ std::vector<VzhuhSolver::EdgeIndex> VzhuhSolver::NeighborsWLoops(NodeIndex node)
 
     std::vector<NodeIndex> elementary_descendants = ElementaryBlossomDescendants(node);
 
+    std::size_t size = 0;
+    for (NodeIndex descendant : elementary_descendants) {
+        size += adj_list[descendant.index].size();
+    }
+
     std::vector<EdgeIndex> neighbors;
+    neighbors.reserve(size);
+
     for (NodeIndex descendant : elementary_descendants) {
         for (EdgeIndex edge : adj_list[descendant.index]) {
             neighbors.push_back(edge);
