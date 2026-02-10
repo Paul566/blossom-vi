@@ -31,74 +31,44 @@ class VzhuhSolver {
         // a vector of (quadrupled dual variable, index of the blossom parent or -1)
 
     private:
-        struct NodeIndex {
+        struct Index {
             int index;
-            explicit NodeIndex(int index_) : index(index_) {
+            explicit Index(int index_) : index(index_) {
             }
             explicit operator bool() const {
                 return index >= 0;
             }
-            bool operator==(const NodeIndex &other) const {
+            bool operator==(const Index &other) const {
                 return index == other.index;
             }
-            NodeIndex &operator++() {
+            Index &operator++() {
                 ++index;
                 return *this;
             }
-            NodeIndex &operator--() {
+            Index &operator--() {
                 --index;
                 return *this;
             }
-            friend bool operator<(NodeIndex lhs, std::size_t rhs) {
+            friend bool operator<(Index lhs, std::size_t rhs) {
                 return lhs.index < rhs;
             }
-            friend std::ostream &operator<<(std::ostream &os, const NodeIndex &idx) {
-                return os << idx.index;
-            }
-        };
-        struct EdgeIndex {
-            int index;
-            explicit EdgeIndex(int index_) : index(index_) {
-            }
-            explicit operator bool() const {
-                return index >= 0;
-            }
-            bool operator==(const EdgeIndex &other) const {
-                return index == other.index;
-            }
-            EdgeIndex &operator++() {
-                ++index;
-                return *this;
-            }
-            EdgeIndex &operator--() {
-                --index;
-                return *this;
-            }
-            friend bool operator<(EdgeIndex lhs, std::size_t rhs) {
-                return lhs.index < rhs;
-            }
-            friend std::ostream &operator<<(std::ostream &os, const EdgeIndex &idx) {
-                return os << idx.index;
-            }
-        };
-        struct TreeIndex {
-            int index;
-            explicit TreeIndex(int index_) : index(index_) {
-            }
-            explicit operator bool() const {
-                return index >= 0;
-            }
-            bool operator==(const TreeIndex &other) const {
-                return index == other.index;
-            }
-            friend bool operator<(TreeIndex lhs, std::size_t rhs) {
-                return lhs.index < rhs;
-            }
-            friend bool operator<(TreeIndex lhs, TreeIndex rhs) {
+            friend bool operator<(Index lhs, Index rhs) {
                 return lhs.index < rhs.index;
             }
-            friend std::ostream &operator<<(std::ostream &os, const TreeIndex &idx) {
+            friend std::ostream &operator<<(std::ostream &os, const Index &idx) {
                 return os << idx.index;
+            }
+        };
+        struct NodeIndex : public Index {
+            explicit NodeIndex(int index_) : Index(index_) {
+            }
+        };
+        struct EdgeIndex : public Index {
+            explicit EdgeIndex(int index_) : Index(index_) {
+            }
+        };
+        struct TreeIndex : public Index {
+            explicit TreeIndex(int index_) : Index(index_) {
             }
         };
 
@@ -110,14 +80,8 @@ class VzhuhSolver {
             const VzhuhSolver *solver;
             bool operator()(const EdgeIndex &a, const EdgeIndex &b) const;
         };
-        using EdgeHeap = Heap<
-            EdgeIndex,
-            EdgeComparator
-        >;
-        using NodeHeap = Heap<
-            NodeIndex,
-            NodeComparator
-        >;
+        using EdgeHeap = Heap<EdgeIndex, EdgeComparator>;
+        using NodeHeap = Heap<NodeIndex, NodeComparator>;
 
         struct Edge {
             EdgeHeap::Handle *handle;
@@ -178,88 +142,34 @@ class VzhuhSolver {
             Tree(int root_, int minus_blossoms_, int plus_empty_edges_, int plus_plus_internal_edges_);
         };
 
-        class NodeVector {
+        template <class Obj, class Idx>
+        class Vector {
             public:
-                Node &operator[](const NodeIndex idx) {
-                    return node_vector[idx.index];
+                Obj &operator[](const Idx idx) {
+                    return obj_vector[idx.index];
                 }
-                const Node &operator[](const NodeIndex idx) const {
-                    return node_vector[idx.index];
+                const Obj &operator[](const Idx idx) const {
+                    return obj_vector[idx.index];
                 }
-                Node &Back() {
-                    return node_vector.back();
+                Obj &Back() {
+                    return obj_vector.back();
                 }
                 std::size_t Size() const {
-                    return node_vector.size();
+                    return obj_vector.size();
                 }
-                void PushBack(const Node &node) {
-                    node_vector.push_back(node);
+                void PushBack(const Obj &obj) {
+                    obj_vector.push_back(obj);
                 }
-                void EmplaceBack(int index) {
-                    node_vector.emplace_back(index);
+                template <typename... Args>
+                void EmplaceBack(Args&&... args) {
+                    obj_vector.emplace_back(std::forward<Args>(args)...);
                 }
                 void Reserve(std::size_t size) {
-                    node_vector.reserve(size);
+                    obj_vector.reserve(size);
                 }
 
             private:
-                std::vector<Node> node_vector;
-        };
-
-        class EdgeVector {
-            public:
-                Edge &operator[](const EdgeIndex idx) {
-                    return edge_vector[idx.index];
-                }
-                const Edge &operator[](const EdgeIndex idx) const {
-                    return edge_vector[idx.index];
-                }
-                Edge &Back() {
-                    return edge_vector.back();
-                }
-                std::size_t Size() const {
-                    return edge_vector.size();
-                }
-                void PushBack(const Edge &edge) {
-                    edge_vector.push_back(edge);
-                }
-                void EmplaceBack(int head_, int tail_, int weight_) {
-                    edge_vector.emplace_back(head_, tail_, weight_);
-                }
-                void Reserve(std::size_t size) {
-                    edge_vector.reserve(size);
-                }
-
-            private:
-                std::vector<Edge> edge_vector;
-        };
-
-        class TreeVector {
-            public:
-                Tree &operator[](const TreeIndex idx) {
-                    return tree_vector[idx.index];
-                }
-                const Tree &operator[](const TreeIndex idx) const {
-                    return tree_vector[idx.index];
-                }
-                Tree &Back() {
-                    return tree_vector.back();
-                }
-                std::size_t Size() const {
-                    return tree_vector.size();
-                }
-                void PushBack(const Tree &tree) {
-                    tree_vector.push_back(tree);
-                }
-                void EmplaceBack(int root_, int minus_blossoms_, int plus_empty_edges_, int plus_plus_internal_edges_) {
-                    tree_vector.emplace_back(root_, minus_blossoms_, plus_empty_edges_, plus_plus_internal_edges_);
-                }
-                void Reserve(std::size_t size) {
-                    tree_vector.reserve(size);
-                }
-
-            private:
-                std::vector<Tree> tree_vector;
+                std::vector<Obj> obj_vector;
         };
 
         struct DualConstraints {
@@ -278,13 +188,12 @@ class VzhuhSolver {
         const int num_vertices_elementary; // the original number of vertices (i.e. not counting blossoms)
         int num_trees_alive;
 
-        NodeVector nodes;
-        EdgeVector edges;
-        TreeVector trees;
+        Vector<Node, NodeIndex> nodes;
+        Vector<Edge, EdgeIndex> edges;
+        Vector<Tree, TreeIndex> trees;
         std::vector<TreeIndex> alive_trees;
         std::vector<std::unique_ptr<NodeHeap> > node_heaps;
         std::vector<std::unique_ptr<EdgeHeap> > edge_heaps;
-        // TODO maybe make edge_heaps hold only the edges of positive slack
 
         std::vector<std::vector<EdgeIndex> > adj_list;
         std::vector<std::vector<EdgeIndex> > zero_slack_adj_list;
