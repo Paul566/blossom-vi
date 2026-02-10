@@ -98,46 +98,45 @@ class VzhuhSolver {
         };
 
         struct Node {
-            bool is_alive;
-            int dual_var_quadrupled_amortized_;
-            EdgeIndex matched_edge;
-
-            // blossom related fields
-            NodeIndex blossom_parent;
+            NodeHeap::Handle *handle;
             std::vector<NodeIndex> blossom_children;
 
-            // tree related fields
-            bool plus;
+            NodeIndex blossom_parent;
+            NodeIndex old_blossom_parent;
+            EdgeIndex matched_edge;
             EdgeIndex minus_parent;
             NodeIndex receptacle_; // by default, a node is its own receptacle
             TreeIndex tree;
-            bool old_plus;
             TreeIndex old_tree;
-            NodeIndex old_blossom_parent;
 
-            // queue related fields
             int queue_index;
-            NodeHeap::Handle *handle;
-
+            int dual_var_quadrupled_amortized_;
             int label;
+
+            bool is_alive;
+            bool plus;
+            bool old_plus;
 
             explicit Node(int index);
         };
 
         struct Tree {
-            bool is_alive;
+            std::vector<std::pair<TreeIndex, int> > pq_plus_plus;
+            std::vector<std::pair<TreeIndex, int> > pq_plus_minus;
+            std::vector<std::pair<TreeIndex, int> > pq_minus_plus;
+
+            std::vector<NodeIndex> tree_nodes;
+
             const NodeIndex root; // elementary node
             int dual_var_quadrupled;
             int alive_index;
-            std::vector<NodeIndex> tree_nodes;
 
             // indices of the heaps
             const int minus_blossoms;
             const int plus_empty_edges;
             const int plus_plus_internal_edges;
-            std::vector<std::pair<TreeIndex, int> > pq_plus_plus;
-            std::vector<std::pair<TreeIndex, int> > pq_plus_minus;
-            std::vector<std::pair<TreeIndex, int> > pq_minus_plus;
+
+            bool is_alive;
 
             Tree(int root_, int minus_blossoms_, int plus_empty_edges_, int plus_plus_internal_edges_);
         };
