@@ -29,9 +29,10 @@ class Heap {
             handle->alive = true;
 
             Handle *handle_ptr = handle.get();
-            handles_.push_back(std::move(handle));
+            // TODO consider using raw pointers, reallocation of a vector of unique_ptr is more expensive
+            handles_.emplace_back(std::move(handle));
 
-            heap_.push_back({std::move(value), handle_ptr});
+            heap_.emplace_back(std::move(value), handle_ptr);
             SiftUp(heap_.size() - 1);
 
             return handle_ptr;
@@ -55,22 +56,20 @@ class Heap {
                 return {};
             }
 
-            // TODO make better
             std::vector<int> indices;
-            std::queue<int> to_process;
-            to_process.push(0);
+            indices.push_back(0);
+            int left = 0;
             T top = heap_[0].value;
-            while (!to_process.empty()) {
-                int index = to_process.front();
-                to_process.pop();
-                indices.push_back(index);
+            while (left < indices.size()) {
+                int index = indices[left];
+                ++left;
 
                 for (int k = 0; k < d_; ++k) {
                     int c = Child(index, k);
                     if (c < heap_.size()) {
                         if (!comp_(heap_[c].value, top) && !comp_(top, heap_[c].value)) {
                             // TODO make the equality test work in another way, maybe have int Key instead of Comparator
-                            to_process.push(c);
+                            indices.push_back(c);
                         }
                     }
                 }
