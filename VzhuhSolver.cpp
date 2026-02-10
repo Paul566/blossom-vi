@@ -968,7 +968,8 @@ void VzhuhSolver::AugmentPath(const std::vector<EdgeIndex> &path) {
 void VzhuhSolver::ClearTree(TreeIndex tree, PrimalUpdateRecord *record) {
     trees[tree].is_alive = false;
 
-    // TODO don't clean up if last pair of trees, and amortize this
+    // TODO have a special routine for the last two trees
+    // TODO amortize
 
     for (NodeIndex node : trees[tree].tree_nodes) {
         if (nodes[node].blossom_parent || nodes[node].tree != tree) {
@@ -983,7 +984,9 @@ void VzhuhSolver::ClearTree(TreeIndex tree, PrimalUpdateRecord *record) {
 
         // add edges to actionable
         // TODO make better
-        AddNeighborsToActionable(node);
+        if (num_trees_alive > 0) {
+            AddNeighborsToActionable(node);
+        }
     }
 }
 
