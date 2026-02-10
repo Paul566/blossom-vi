@@ -104,6 +104,8 @@ VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : head(head_), tail(t
     slam_quadrupled_amortized_ = 4 * weight_;
     matched = false;
     is_in_zero_slack_set = false;
+    slam_diff = 0;
+    must_be_updated = false;
 }
 
 VzhuhSolver::Node::Node(int index) : matched_edge(-1), blossom_parent(-1), minus_parent(-1),
@@ -990,7 +992,7 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
     // edge_heaps, node_heaps
     // old_plus, old_tree, old_blossom_parent for nodes
 
-    std::unordered_map<EdgeIndex, int, IndexHash> edges_to_update;
+    std::vector<EdgeIndex> edges_to_update;
 
     for (NodeIndex node : record.changed_sign) {
         if (!nodes[node].is_alive) {
@@ -1040,23 +1042,24 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
         }
         if (diff != 0) {
             for (EdgeIndex edge : NeighborsWLoops(node)) {
-                RemoveEdgeFromQueue(edge);
-                edges[edge].slam_quadrupled_amortized_ += diff;
-                AddEdgeToQueue(edge);
-                // if (edges_to_update.contains(edge)) {
-                //     edges_to_update[edge] += diff;
-                // } else {
-                //     edges_to_update[edge] = diff;
-                // }
+                // RemoveEdgeFromQueue(edge);
+                // edges[edge].slam_quadrupled_amortized_ += diff;
+                // AddEdgeToQueue(edge);
+                if (!edges[edge].must_be_updated) {
+                    edges_to_update.push_back(edge);
+                    edges[edge].must_be_updated = true;
+                }
+                edges[edge].slam_diff += diff;
             }
         } else {
             if (nodes[node].old_plus != nodes[node].plus || nodes[node].old_tree != nodes[node].
                 tree) {
                 for (EdgeIndex edge : NonLoopNeighbors(node)) {
-                    AddEdgeToQueue(edge);
-                    // if (!edges_to_update.contains(edge)) {
-                    //     edges_to_update[edge] = 0;
-                    // }
+                    // AddEdgeToQueue(edge);
+                    if (!edges[edge].must_be_updated) {
+                        edges_to_update.push_back(edge);
+                        edges[edge].must_be_updated = true;
+                    }
                 }
                 }
         }
@@ -1081,6 +1084,19 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
         nodes[node].old_blossom_parent = nodes[node].blossom_parent;
         nodes[node].old_plus = nodes[node].plus;
         nodes[node].old_tree = nodes[node].tree;
+    }
+
+    // update the edges
+    for (EdgeIndex edge : edges_to_update) {
+        if (edges[edge].slam_diff != 0) {
+            RemoveEdgeFromQueue(edge);
+            edges[edge].slam_quadrupled_amortized_ += edges[edge].slam_diff;
+            edges[edge].slam_diff = 0;
+            AddEdgeToQueue(edge);
+        } else {
+            AddEdgeToQueue(edge);
+        }
+        edges[edge].must_be_updated = false;
     }
 }
 

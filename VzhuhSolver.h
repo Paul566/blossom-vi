@@ -59,11 +59,6 @@ class VzhuhSolver {
                 return os << idx.index;
             }
         };
-        struct IndexHash {
-            size_t operator()(const Index& idx) const {
-                return idx.index;
-            }
-        };
         struct NodeIndex : public Index {
             explicit NodeIndex(int index_) : Index(index_) {
             }
@@ -93,12 +88,14 @@ class VzhuhSolver {
             int queue_index;
             int weight;
             int slam_quadrupled_amortized_;
+            int slam_diff;
             NodeIndex head;
             NodeIndex tail;
             NodeIndex elementary_head;
             NodeIndex elementary_tail;
             bool matched;
             bool is_in_zero_slack_set;
+            bool must_be_updated;
             Edge(int head_, int tail_, int weight_);
         };
 
