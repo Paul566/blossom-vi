@@ -59,6 +59,11 @@ class VzhuhSolver {
                 return os << idx.index;
             }
         };
+        struct IndexHash {
+            size_t operator()(const Index& idx) const {
+                return idx.index;
+            }
+        };
         struct NodeIndex : public Index {
             explicit NodeIndex(int index_) : Index(index_) {
             }

@@ -990,6 +990,8 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
     // edge_heaps, node_heaps
     // old_plus, old_tree, old_blossom_parent for nodes
 
+    std::unordered_map<EdgeIndex, int, IndexHash> edges_to_update;
+
     for (NodeIndex node : record.changed_sign) {
         if (!nodes[node].is_alive) {
             continue;
@@ -1041,13 +1043,22 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
                 RemoveEdgeFromQueue(edge);
                 edges[edge].slam_quadrupled_amortized_ += diff;
                 AddEdgeToQueue(edge);
+                // if (edges_to_update.contains(edge)) {
+                //     edges_to_update[edge] += diff;
+                // } else {
+                //     edges_to_update[edge] = diff;
+                // }
             }
-        }
-        if (nodes[node].old_plus != nodes[node].plus || nodes[node].old_tree != nodes[node].
-            tree) {
-            for (EdgeIndex edge : NonLoopNeighbors(node)) {
-                AddEdgeToQueue(edge);
-            }
+        } else {
+            if (nodes[node].old_plus != nodes[node].plus || nodes[node].old_tree != nodes[node].
+                tree) {
+                for (EdgeIndex edge : NonLoopNeighbors(node)) {
+                    AddEdgeToQueue(edge);
+                    // if (!edges_to_update.contains(edge)) {
+                    //     edges_to_update[edge] = 0;
+                    // }
+                }
+                }
         }
 
         // update minus_blossoms queues
