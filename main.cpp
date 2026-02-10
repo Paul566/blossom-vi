@@ -1,7 +1,6 @@
 #include <iostream>
 
 #include "TesterWeighted.h"
-// #include "Heap.h"
 
 int main() {
     TesterWeighted tester(true, 239);
