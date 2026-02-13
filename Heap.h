@@ -3,16 +3,15 @@
 #include <functional>
 #include <iostream>
 #include <stdexcept>
-#include <queue>
 
-template<typename T, typename Compare = std::less<T>>
+template<typename T>
 class Heap {
     public:
         struct Handle {
             int index = 0;
         };
 
-        explicit Heap(int d, Compare comp = Compare{}) : d_(d), comp_(comp) {
+        explicit Heap(int d) : d_(d) {
             if (d_ < 2) {
                 throw std::invalid_argument("d-arity must be >= 2");
             }
@@ -22,16 +21,15 @@ class Heap {
             return heap_.empty();
         }
 
-        Handle *Push(T value) {
+        Handle *Push(T value, int key=0) { // TODO remove the default value for key
             auto handle = std::make_unique<Handle>();
             handle->index = heap_.size();
-            // handle->alive = true;
 
             Handle *handle_ptr = handle.get();
-            // TODO consider using raw pointers, reallocation of a vector of unique_ptr is more expensive
+            // TODO consider using raw pointers, reallocation of a vector of unique_ptr is a bit more expensive
             handles_.emplace_back(std::move(handle));
 
-            heap_.emplace_back(std::move(value), handle_ptr);
+            heap_.emplace_back(value, key, handle_ptr);
             SiftUp(heap_.size() - 1);
 
             return handle_ptr;
@@ -58,7 +56,7 @@ class Heap {
             std::vector<int> indices;
             indices.push_back(0);
             int left = 0;
-            T top = heap_[0].value;
+            int top_key = heap_[0].key;
             while (left < indices.size()) {
                 int index = indices[left];
                 ++left;
@@ -66,8 +64,7 @@ class Heap {
                 for (int k = 0; k < d_; ++k) {
                     int c = Child(index, k);
                     if (c < heap_.size()) {
-                        if (!comp_(heap_[c].value, top) && !comp_(top, heap_[c].value)) {
-                            // TODO make the equality test work in another way, maybe have int Key instead of Comparator
+                        if (heap_[c].key == top_key) {
                             indices.push_back(c);
                         }
                     }
@@ -93,7 +90,7 @@ class Heap {
         // debugging purposes
         void ValidateHeap(const std::string &msg = "") {
             for (std::size_t i = 1; i < heap_.size(); ++i) {
-                if (comp_(heap_[i].value, heap_[Parent(i)].value )) {
+                if (heap_[i].key < heap_[Parent(i)].key ) {
                     std::cout << msg << std::endl;
                     std::cout << i << " " << Parent(i) << std::endl;
                     throw std::runtime_error("Incorrect heap");
@@ -104,11 +101,11 @@ class Heap {
     // private:
         struct Node {
             T value;
+            int key;
             Handle *handle;
         };
 
         int d_;
-        Compare comp_;
         std::vector<Node> heap_;
         std::vector<std::unique_ptr<Handle> > handles_;
 
@@ -129,7 +126,7 @@ class Heap {
         void SiftUp(int i) {
             while (i > 0) {
                 int p = Parent(i);
-                if (!comp_(heap_[i].value, heap_[p].value)) {
+                if (heap_[i].key >= heap_[p].key) {
                     return;
                 }
                 SwapNodes(i, p);
@@ -144,7 +141,7 @@ class Heap {
                 for (int k = 0; k < d_; ++k) {
                     int c = Child(i, k);
                     if (c < heap_.size()) {
-                        if (comp_(heap_[c].value, heap_[best].value)) {
+                        if (heap_[c].key < heap_[best].key) {
                             best = c;
                         }
                     }
@@ -160,8 +157,6 @@ class Heap {
         }
 
         void EraseAt(int i) {
-            Node &victim = heap_[i];
-
             int last = heap_.size() - 1;
             if (i != last) {
                 heap_[i] = std::move(heap_[last]);

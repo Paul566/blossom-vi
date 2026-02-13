@@ -87,15 +87,6 @@ const std::vector<std::tuple<int, int, int> > &VzhuhSolver::DualCertificate() co
     return dual_certificate;
 }
 
-bool VzhuhSolver::NodeComparator::operator()(const NodeIndex &a, const NodeIndex &b) const {
-    return solver->nodes[a].dual_var_quadrupled_amortized_ < solver->nodes[b].
-        dual_var_quadrupled_amortized_;
-}
-
-bool VzhuhSolver::EdgeComparator::operator()(const EdgeIndex &a, const EdgeIndex &b) const {
-    return solver->edges[a].slam_quadrupled_amortized_ < solver->edges[b].slam_quadrupled_amortized_;
-}
-
 VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : head(head_), tail(tail_), elementary_head(head_),
                                                              elementary_tail(tail_) {
     handle = nullptr;
@@ -261,9 +252,9 @@ void VzhuhSolver::InitializeTrees() {
         trees.EmplaceBack(roots[i].index, i, 2 * i, 2 * i + 1);
         alive_trees.emplace_back(i);
 
-        node_heaps.emplace_back(std::make_unique<NodeHeap>(params.heap_arity, NodeComparator{this}));
-        edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}));
-        edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}));
+        node_heaps.emplace_back(std::make_unique<NodeHeap>(params.heap_arity));
+        edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity));
+        edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity));
 
         nodes[roots[i]].tree = TreeIndex(i);
         nodes[roots[i]].plus = true;
@@ -2026,7 +2017,7 @@ void VzhuhSolver::AddEdgeToThisQueue(EdgeIndex edge, int queue_index) {
     if (edges[edge].queue_index >= 0) {
         edge_heaps[edges[edge].queue_index]->Erase(edges[edge].handle);
     }
-    edges[edge].handle = edge_heaps[queue_index]->Push(edge);
+    edges[edge].handle = edge_heaps[queue_index]->Push(edge, edges[edge].slam_quadrupled_amortized_);
     edges[edge].queue_index = queue_index;
 }
 
@@ -2045,7 +2036,7 @@ void VzhuhSolver::AddNodeToQueue(NodeIndex node, int queue_index) {
     if (nodes[node].queue_index >= 0) {
         node_heaps[nodes[node].queue_index]->Erase(nodes[node].handle);
     }
-    nodes[node].handle = node_heaps[queue_index]->Push(node);
+    nodes[node].handle = node_heaps[queue_index]->Push(node, nodes[node].dual_var_quadrupled_amortized_);
     nodes[node].queue_index = queue_index;
 }
 
@@ -2061,7 +2052,7 @@ void VzhuhSolver::AddPQPlusPlus(TreeIndex first, TreeIndex second, EdgeIndex edg
     if (queue_index > 0) {
         AddEdgeToThisQueue(edge, queue_index);
     } else {
-        edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}));
+        edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity));
         queue_index = static_cast<int>(edge_heaps.size()) - 1;
         AddEdgeToThisQueue(edge, queue_index);
 
@@ -2075,7 +2066,7 @@ void VzhuhSolver::AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, Edge
     if (queue_index > 0) {
         AddEdgeToThisQueue(edge, queue_index);
     } else {
-        edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity, EdgeComparator{this}));
+        edge_heaps.emplace_back(std::make_unique<EdgeHeap>(params.heap_arity));
         queue_index = static_cast<int>(edge_heaps.size()) - 1;
         AddEdgeToThisQueue(edge, queue_index);
 

@@ -1,7 +1,6 @@
 #ifndef BLOSSOM_VI_VZHUHSOLVER_H
 #define BLOSSOM_VI_VZHUHSOLVER_H
 
-#include <cstdint>
 #include <memory>
 #include <queue>
 
@@ -72,16 +71,8 @@ class VzhuhSolver {
             }
         };
 
-        struct NodeComparator {
-            const VzhuhSolver *solver;
-            bool operator()(const NodeIndex &a, const NodeIndex &b) const;
-        };
-        struct EdgeComparator {
-            const VzhuhSolver *solver;
-            bool operator()(const EdgeIndex &a, const EdgeIndex &b) const;
-        };
-        using EdgeHeap = Heap<EdgeIndex, EdgeComparator>;
-        using NodeHeap = Heap<NodeIndex, NodeComparator>;
+        using EdgeHeap = Heap<EdgeIndex>;
+        using NodeHeap = Heap<NodeIndex>;
 
         struct Edge {
             EdgeHeap::Handle *handle;
@@ -198,7 +189,6 @@ class VzhuhSolver {
 
         std::vector<std::vector<EdgeIndex> > adj_list;
         std::vector<std::vector<EdgeIndex> > zero_slack_adj_list;
-        // TODO zero_slack_adj_list might also decrease
         std::queue<EdgeIndex> actionable_edges;
 
         int nodes_label_cnt; // TODO make int64_t
