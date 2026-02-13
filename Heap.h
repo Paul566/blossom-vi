@@ -10,7 +10,6 @@ class Heap {
     public:
         struct Handle {
             int index = 0;
-            bool alive = false;
         };
 
         explicit Heap(int d, Compare comp = Compare{}) : d_(d), comp_(comp) {
@@ -26,7 +25,7 @@ class Heap {
         Handle *Push(T value) {
             auto handle = std::make_unique<Handle>();
             handle->index = heap_.size();
-            handle->alive = true;
+            // handle->alive = true;
 
             Handle *handle_ptr = handle.get();
             // TODO consider using raw pointers, reallocation of a vector of unique_ptr is more expensive
@@ -84,7 +83,7 @@ class Heap {
         }
 
         bool Erase(Handle *h) {
-            if (!h || !h->alive) {
+            if (!h) {
                 return false;
             }
             EraseAt(h->index);
@@ -162,7 +161,6 @@ class Heap {
 
         void EraseAt(int i) {
             Node &victim = heap_[i];
-            victim.handle->alive = false;
 
             int last = heap_.size() - 1;
             if (i != last) {
