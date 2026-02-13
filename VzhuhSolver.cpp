@@ -976,17 +976,16 @@ void VzhuhSolver::ClearTree(TreeIndex tree, PrimalUpdateRecord *record) {
             continue;
         }
 
+        // TODO make better
+        if (num_trees_alive > 0 && !nodes[node].plus) {
+            AddNeighborsToActionable(node);
+        }
+
         record->changed_sign.push_back(node);
         nodes[node].tree = TreeIndex(-1);
         nodes[node].minus_parent = EdgeIndex(-1);
         nodes[node].receptacle_ = node;
         nodes[node].plus = false;
-
-        // add edges to actionable
-        // TODO make better
-        if (num_trees_alive > 0) {
-            AddNeighborsToActionable(node);
-        }
     }
 }
 
