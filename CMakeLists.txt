@@ -21,8 +21,6 @@ add_executable(blossom_vi main.cpp
         Tree.cpp
         TesterWeighted.h
         TesterWeighted.cpp
-        Solver.cpp
-        Solver.h
         Heap.h
         VzhuhSolver.cpp
         VzhuhSolver.h)
