@@ -48,8 +48,11 @@ class VzhuhSolver {
                 --index;
                 return *this;
             }
-            friend bool operator<(Index lhs, std::size_t rhs) {
+            friend bool operator<(Index lhs, int64_t rhs) {
                 return lhs.index < rhs;
+            }
+            friend bool operator>=(Index lhs, int64_t rhs) {
+                return lhs.index >= rhs;
             }
             friend bool operator<(Index lhs, Index rhs) {
                 return lhs.index < rhs.index;
@@ -198,18 +201,21 @@ class VzhuhSolver {
         // a vector of (quadrupled dual variable, index of the blossom parent or -1)
         // dual_certificate is empty unless params.compute_dual_certificate is true
 
-        void PrintGraph();
-        void PrintNode(NodeIndex node);
+        void PrintGraph() const ;
+        void PrintNode(NodeIndex node) const ;
 
         void GreedyInit();
         void InitializeTrees();
 
         void ComputeMatching();
         void ComputePrimalObjective();
-        void DestroyBlossoms();
         void UpdateMatching(NodeIndex blossom, NodeIndex new_receptacle);
         void ComputeDualCertificate();
         void ComputeDualObjectiveQuadrupled();
+
+        void DestroyBlossoms();
+        void RestoreFinalEdgeEnds();
+        NodeIndex FindFinalReceptacle(NodeIndex blossom);
 
         bool MakePrimalUpdates();
         // first phase: expand
