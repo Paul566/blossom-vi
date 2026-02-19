@@ -81,8 +81,7 @@ class VzhuhSolver {
             EdgeHeap::Handle *handle;
             int queue_index;
             int weight;
-            int slam_quadrupled_amortized_;
-            int slam_diff;
+            int slack_quadrupled_amortized_;
             NodeIndex head;
             NodeIndex tail;
             NodeIndex elementary_head;
@@ -107,6 +106,7 @@ class VzhuhSolver {
 
             int queue_index;
             int dual_var_quadrupled_amortized_;
+            int tree_var_at_birth;
             int label;
 
             bool is_alive;
@@ -250,13 +250,14 @@ class VzhuhSolver {
 
         void UpdateQueues(const PrimalUpdateRecord &record);
         // updates amortized slam and variables, edge_heaps and node_heaps, old_tree, old_plus, old_blossom_parent
+        void UpdateEdgeSlack(EdgeIndex edge);
         std::vector<std::vector<NodeIndex> > OrganizeBlossomChildren(const PrimalUpdateRecord &record);
         void Shrink(std::vector<NodeIndex> &children);
 
         // for debug:
         void ValidateQueues();
         auto NodeVariables() const -> std::vector<int>;
-        std::vector<int> EdgeSlams();
+        std::vector<int> EdgeSlacks();
         void ValidateZeroSlackAdjList();
         void ValidateEvenOddPaths();
 
@@ -279,8 +280,8 @@ class VzhuhSolver {
         std::vector<EdgeIndex> NonLoopZeroSlackNeighbors(NodeIndex node);
         std::vector<NodeIndex> ElementaryBlossomDescendants(NodeIndex node) const;
 
-        int SlamQuadrupled(EdgeIndex edge);
-        int OldSlamQuadrupled(EdgeIndex edge);
+        int SlackQuadrupled(EdgeIndex edge);
+        int OldSlackQuadrupled(EdgeIndex edge);
         NodeIndex OtherEnd(EdgeIndex edge, NodeIndex node);
         NodeIndex OtherElementaryEnd(EdgeIndex edge, NodeIndex node) const;
         NodeIndex Head(EdgeIndex edge);
