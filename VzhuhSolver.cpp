@@ -96,6 +96,8 @@ VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : head(head_), tail(t
     matched = false;
     is_in_zero_slack_set = false;
     must_be_updated = false;
+    maybe_was_loop = true;
+    slack_diff = 0;
 }
 
 VzhuhSolver::Node::Node(int index) : blossom_parent(-1), old_blossom_parent(-1), matched_edge(-1),
@@ -1082,10 +1084,33 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
         }
 
         // remember the edges to update
+        int diff = 0;
+        if (nodes[node].tree) {
+            if (nodes[node].plus) {
+                diff += trees[nodes[node].tree].dual_var_quadrupled;
+            } else {
+                diff -= trees[nodes[node].tree].dual_var_quadrupled;
+            }
+        }
+        NodeIndex old_top_node = node;
+        if (nodes[node].old_blossom_parent) {
+            old_top_node = nodes[node].old_blossom_parent;
+        }
+        if (nodes[old_top_node].old_tree) {
+            if (nodes[old_top_node].old_plus) {
+                diff -= trees[nodes[old_top_node].old_tree].dual_var_quadrupled;
+            } else {
+                diff += trees[nodes[old_top_node].old_tree].dual_var_quadrupled;
+            }
+        }
         for (EdgeIndex edge : NonLoopNeighbors(node)) {
+            edges[edge].slack_diff += diff;
             if (!edges[edge].must_be_updated) {
                 edges_to_update.push_back(edge);
                 edges[edge].must_be_updated = true;
+            }
+            if (old_top_node == node) {
+                edges[edge].maybe_was_loop = false;
             }
         }
 
@@ -1122,11 +1147,16 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
 void VzhuhSolver::UpdateEdgeSlack(EdgeIndex edge) {
     RemoveEdgeFromQueue(edge);
 
-    int old_slack = OldSlackQuadrupled(edge);
-    int new_slack = SlackQuadrupled(edge);
+    if (edges[edge].maybe_was_loop) {
+        int old_slack = OldSlackQuadrupled(edge);
+        int new_slack = SlackQuadrupled(edge);
+        edges[edge].slack_quadrupled_amortized_ += (old_slack - new_slack);
+    } else {
+        edges[edge].slack_quadrupled_amortized_ += edges[edge].slack_diff;
+    }
 
-    // TODO move the computation of the diff to UpdateQueues()
-    edges[edge].slack_quadrupled_amortized_ += (old_slack - new_slack);
+    edges[edge].maybe_was_loop = true;
+    edges[edge].slack_diff = 0;
     edges[edge].must_be_updated = false;
 
     if (Receptacle(Head(edge)) != Receptacle(Tail(edge))) {

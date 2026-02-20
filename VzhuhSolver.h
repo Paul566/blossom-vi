@@ -82,6 +82,7 @@ class VzhuhSolver {
             int queue_index;
             int weight;
             int slack_quadrupled_amortized_;
+            int slack_diff;
             NodeIndex head;
             NodeIndex tail;
             NodeIndex elementary_head;
@@ -89,6 +90,7 @@ class VzhuhSolver {
             bool matched;
             bool is_in_zero_slack_set;
             bool must_be_updated;
+            bool maybe_was_loop;
             Edge(int head_, int tail_, int weight_);
         };
 
