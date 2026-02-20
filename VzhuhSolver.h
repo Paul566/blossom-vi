@@ -95,6 +95,7 @@ class VzhuhSolver {
         struct Node {
             NodeHeap::Handle *handle;
             std::vector<NodeIndex> blossom_children;
+            std::vector<EdgeIndex> neighbors;
 
             NodeIndex blossom_parent;
             NodeIndex old_blossom_parent;
@@ -275,8 +276,7 @@ class VzhuhSolver {
         NodeIndex Receptacle(NodeIndex node);
         int DualVariableQuadrupled(NodeIndex node) const;
         int DualVariableQuadrupled(NodeIndex node, TreeIndex tree, bool plus, NodeIndex blossom_parent) const;
-        std::vector<EdgeIndex> NonLoopNeighbors(NodeIndex node);
-        std::vector<EdgeIndex> NeighborsWLoops(NodeIndex node);
+        std::vector<EdgeIndex>& NonLoopNeighbors(NodeIndex node);
         std::vector<EdgeIndex> NonLoopZeroSlackNeighbors(NodeIndex node);
         std::vector<NodeIndex> ElementaryBlossomDescendants(NodeIndex node) const;
 

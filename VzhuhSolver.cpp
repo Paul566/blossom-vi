@@ -1120,19 +1120,12 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
 }
 
 void VzhuhSolver::UpdateEdgeSlack(EdgeIndex edge) {
-    // TODO don't touch the queue if amortized slack diff is zero and the type of the edge is unchanged
-
-    // if (params.verbose) {
-    //     std::cout << "updating edge " << Head(edge) << " " << Tail(edge) << ", edge index " << edge.index << std::endl;
-    // }
-
     RemoveEdgeFromQueue(edge);
 
     int old_slack = OldSlackQuadrupled(edge);
     int new_slack = SlackQuadrupled(edge);
-    // if (params.verbose) {
-    //     std::cout << "old slack, would-be-new slack: " << old_slack << " " << new_slack << std::endl;
-    // }
+
+    // TODO move the computation of the diff to UpdateQueues()
     edges[edge].slack_quadrupled_amortized_ += (old_slack - new_slack);
     edges[edge].must_be_updated = false;
 
@@ -1805,55 +1798,43 @@ int VzhuhSolver::DualVariableQuadrupled(NodeIndex node, TreeIndex tree, bool plu
     return nodes[node].dual_var_quadrupled_amortized_ - trees[tree].dual_var_quadrupled;
 }
 
-std::vector<VzhuhSolver::EdgeIndex> VzhuhSolver::NonLoopNeighbors(NodeIndex node) {
-    // TODO make it a field and compute lazily?
-
+std::vector<VzhuhSolver::EdgeIndex>& VzhuhSolver::NonLoopNeighbors(NodeIndex node) {
     if (IsElementary(node)) {
         return adj_list[node.index];
     }
 
-    std::vector<NodeIndex> elementary_descendants = ElementaryBlossomDescendants(node);
-
-    // label the elementary descendants
-    ++nodes_label_cnt;
-    for (NodeIndex descendant : elementary_descendants) {
-        nodes[descendant].label = nodes_label_cnt;
+    if (!nodes[node].neighbors.empty()) {
+        return nodes[node].neighbors;
     }
 
-    std::vector<EdgeIndex> neighbors;
-    for (NodeIndex descendant : elementary_descendants) {
-        for (EdgeIndex edge : adj_list[descendant.index]) {
-            if (nodes[OtherElementaryEnd(edge, descendant)].label != nodes_label_cnt) {
-                neighbors.push_back(edge);
+    // otherwise, compute neighbors
+
+    std::queue<NodeIndex> queue;
+    queue.push(node);
+    while (!queue.empty()) {
+        NodeIndex cur = queue.front();
+        queue.pop();
+        for (NodeIndex child : nodes[cur].blossom_children) {
+            if (IsElementary(child)) {
+                nodes[node].neighbors.insert(nodes[node].neighbors.end(), adj_list[child.index].begin(), adj_list[child.index].end());
+            } else if (!nodes[child].neighbors.empty()) {
+                nodes[node].neighbors.insert(nodes[node].neighbors.end(), nodes[child].neighbors.begin(), nodes[child].neighbors.end());
+            } else {
+                queue.push(child);
             }
         }
     }
 
-    return neighbors;
-}
-
-std::vector<VzhuhSolver::EdgeIndex> VzhuhSolver::NeighborsWLoops(NodeIndex node) {
-    if (IsElementary(node)) {
-        return adj_list[node.index];
-    }
-
-    std::vector<NodeIndex> elementary_descendants = ElementaryBlossomDescendants(node);
-
-    std::size_t size = 0;
-    for (NodeIndex descendant : elementary_descendants) {
-        size += adj_list[descendant.index].size();
-    }
-
-    std::vector<EdgeIndex> neighbors;
-    neighbors.reserve(size);
-
-    for (NodeIndex descendant : elementary_descendants) {
-        for (EdgeIndex edge : adj_list[descendant.index]) {
-            neighbors.push_back(edge);
+    // remove loops
+    for (int i = 0; i < static_cast<int>(nodes[node].neighbors.size()); ++i) {
+        if (Head(nodes[node].neighbors[i]) == Tail(nodes[node].neighbors[i])) {
+            nodes[node].neighbors[i] = nodes[node].neighbors.back();
+            nodes[node].neighbors.pop_back();
+            --i;
         }
     }
 
-    return neighbors;
+    return nodes[node].neighbors;
 }
 
 std::vector<VzhuhSolver::EdgeIndex> VzhuhSolver::NonLoopZeroSlackNeighbors(NodeIndex node) {
