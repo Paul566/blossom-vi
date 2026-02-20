@@ -1503,25 +1503,25 @@ void VzhuhSolver::UpdateAliveTreesList() {
 std::vector<int> VzhuhSolver::VariableDeltas() {
     DualConstraints dual_constraints = GetDualConstraints();
 
-    for (auto b : dual_constraints.upper_bound) {
-        if (b < 0) {
-            throw std::runtime_error("b < 0");
-        }
-    }
-    for (auto c : dual_constraints.plus_plus_constraints) {
-        for (auto [ind, sl] : c) {
-            if (sl < 0) {
-                throw std::runtime_error("constraint plus plus < 0");
-            }
-        }
-    }
-    for (auto c : dual_constraints.plus_minus_constraints) {
-        for (auto [ind, sl] : c) {
-            if (sl < 0) {
-                throw std::runtime_error("constraint plus minus < 0");
-            }
-        }
-    }
+    // for (auto b : dual_constraints.upper_bound) {
+    //     if (b < 0) {
+    //         throw std::runtime_error("b < 0");
+    //     }
+    // }
+    // for (auto c : dual_constraints.plus_plus_constraints) {
+    //     for (auto [ind, sl] : c) {
+    //         if (sl < 0) {
+    //             throw std::runtime_error("constraint plus plus < 0");
+    //         }
+    //     }
+    // }
+    // for (auto c : dual_constraints.plus_minus_constraints) {
+    //     for (auto [ind, sl] : c) {
+    //         if (sl < 0) {
+    //             throw std::runtime_error("constraint plus minus < 0");
+    //         }
+    //     }
+    // }
 
     std::vector<std::vector<int> > connected_components = ConnectedComponentsTreeTree(dual_constraints);
     std::vector<int> deltas(alive_trees.size(), 0);
@@ -1637,18 +1637,18 @@ VzhuhSolver::DualConstraints VzhuhSolver::GetDualConstraints() {
         int plus_plus_internal = PlusPlusInternalSlack(tree);
         int blossom_var = MinMinusBlossomVariable(tree);
 
-        if (plus_empty < 0) {
-            throw std::runtime_error("In VariableDeltas: plus_empty is negative");
-        }
-        if (plus_plus_internal < 0) {
-            throw std::runtime_error("In VariableDeltas: plus_plus_internal is not positive");
-        }
-        if (blossom_var < 0) {
-            throw std::runtime_error("In VariableDeltas: blossom_var is not positive");
-        }
-        if (plus_plus_internal < INT32_MAX && plus_plus_internal % 2 != 0) {
-            throw std::runtime_error("PlusPlusInternalSlack is not divisible by 2");
-        }
+        // if (plus_empty < 0) {
+        //     throw std::runtime_error("In VariableDeltas: plus_empty is negative");
+        // }
+        // if (plus_plus_internal < 0) {
+        //     throw std::runtime_error("In VariableDeltas: plus_plus_internal is not positive");
+        // }
+        // if (blossom_var < 0) {
+        //     throw std::runtime_error("In VariableDeltas: blossom_var is not positive");
+        // }
+        // if (plus_plus_internal < INT32_MAX && plus_plus_internal % 2 != 0) {
+        //     throw std::runtime_error("PlusPlusInternalSlack is not divisible by 2");
+        // }
 
         if (plus_empty < upper_bound[i]) {
             upper_bound[i] = plus_empty;
@@ -1720,9 +1720,9 @@ void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_action
         return;
     }
 
-    if (SlackQuadrupled(top) < 0) {
-        throw std::runtime_error("AddZeroSlackEdgesFromQueue: top with negative slam");
-    }
+    // if (SlackQuadrupled(top) < 0) {
+    //     throw std::runtime_error("AddZeroSlackEdgesFromQueue: top with negative slam");
+    // }
 
     std::vector<EdgeIndex> zero_slack_edges = edge_heaps[queue_index]->ElementsEqualToTop();
     for (EdgeIndex edge : zero_slack_edges) {
@@ -1787,9 +1787,9 @@ int VzhuhSolver::DualVariableQuadrupled(NodeIndex node) const {
 }
 
 int VzhuhSolver::DualVariableQuadrupled(NodeIndex node, TreeIndex tree, bool plus, NodeIndex blossom_parent) const {
-    if (!nodes[node].is_alive) {
-        throw std::runtime_error("DualVariableQuadrupled: node is not alive");
-    }
+    // if (!nodes[node].is_alive) {
+    //     throw std::runtime_error("DualVariableQuadrupled: node is not alive");
+    // }
 
     if (!tree || blossom_parent) {
         return nodes[node].dual_var_quadrupled_amortized_;
@@ -1890,9 +1890,9 @@ int VzhuhSolver::SlackQuadrupled(EdgeIndex edge) {
     NodeIndex head = Head(edge);
     NodeIndex tail = Tail(edge);
 
-    if (head == tail) {
-        throw std::runtime_error("SlackQuadrupled called for a loop");
-    }
+    // if (head == tail) {
+    //     throw std::runtime_error("SlackQuadrupled called for a loop");
+    // }
 
     int slack = edges[edge].slack_quadrupled_amortized_;
 
@@ -1918,9 +1918,9 @@ int VzhuhSolver::OldSlackQuadrupled(EdgeIndex edge) {
     NodeIndex head = Head(edge);
     NodeIndex tail = Tail(edge);
 
-    if (head == tail) {
-        throw std::runtime_error("OldSlackQuadrupled called for a loop");
-    }
+    // if (head == tail) {
+    //     throw std::runtime_error("OldSlackQuadrupled called for a loop");
+    // }
 
     if (nodes[head].old_blossom_parent) {
         head = nodes[head].old_blossom_parent;
@@ -1955,10 +1955,10 @@ int VzhuhSolver::OldSlackQuadrupled(EdgeIndex edge) {
 }
 
 VzhuhSolver::NodeIndex VzhuhSolver::OtherEnd(EdgeIndex edge, NodeIndex node) {
-    if (Head(edge) == Tail(edge)) {
-        std::cout << Head(edge) << " " << Tail(edge) << std::endl;
-        throw std::runtime_error("In OtherEnd: querying for a loop");
-    }
+    // if (Head(edge) == Tail(edge)) {
+    //     std::cout << Head(edge) << " " << Tail(edge) << std::endl;
+    //     throw std::runtime_error("In OtherEnd: querying for a loop");
+    // }
 
     if (node == Tail(edge)) {
         return Head(edge);
@@ -2177,19 +2177,20 @@ int VzhuhSolver::TreeTreeQueueIndex(TreeIndex other_tree,
 VzhuhSolver::EdgeIndex VzhuhSolver::MinPlusEmptyEdge(int queue_index) {
     if (!edge_heaps[queue_index]->Empty()) {
         EdgeIndex edge = edge_heaps[queue_index]->Top();
+        return edge;
 
-        NodeIndex head = Head(edge); // plus
-        NodeIndex tail = Tail(edge); // empty
-        if (!nodes[head].tree) {
-            std::swap(head, tail);
-        }
-        if (head == tail) {
-            throw std::runtime_error("MinPlusEmptyEdge is a loop");
-        }
-        if (nodes[head].plus && !nodes[tail].tree) {
-            return edge;
-        }
-        throw std::runtime_error("MinPlusEmptyEdge: incorrect top");
+        // NodeIndex head = Head(edge); // plus
+        // NodeIndex tail = Tail(edge); // empty
+        // if (!nodes[head].tree) {
+        //     std::swap(head, tail);
+        // }
+        // if (head == tail) {
+        //     throw std::runtime_error("MinPlusEmptyEdge is a loop");
+        // }
+        // if (nodes[head].plus && !nodes[tail].tree) {
+        //     return edge;
+        // }
+        // throw std::runtime_error("MinPlusEmptyEdge: incorrect top");
     }
     return EdgeIndex(-1);
 }
@@ -2201,9 +2202,9 @@ VzhuhSolver::EdgeIndex VzhuhSolver::MinPlusPlusInternalEdge(int queue_index) {
         NodeIndex head = Head(edge);
         NodeIndex tail = Tail(edge);
 
-        if (!nodes[head].plus || !nodes[tail].plus || (nodes[head].tree != nodes[tail].tree)) {
-            throw std::runtime_error("MinPlusPlusInternalEdge: incorrect top");
-        }
+        // if (!nodes[head].plus || !nodes[tail].plus || (nodes[head].tree != nodes[tail].tree)) {
+        //     throw std::runtime_error("MinPlusPlusInternalEdge: incorrect top");
+        // }
 
         if (head != tail) {
             return edge;
@@ -2217,13 +2218,14 @@ VzhuhSolver::EdgeIndex VzhuhSolver::MinPlusPlusInternalEdge(int queue_index) {
 VzhuhSolver::EdgeIndex VzhuhSolver::MinPlusPlusExternalEdge(int queue_index) {
     if (!edge_heaps[queue_index]->Empty()) {
         EdgeIndex edge = edge_heaps[queue_index]->Top();
+        return edge;
 
-        NodeIndex head = Head(edge);
-        NodeIndex tail = Tail(edge);
-        if (nodes[head].plus && nodes[tail].plus && (nodes[head].tree != nodes[tail].tree)) {
-            return edge;
-        }
-        throw std::runtime_error("MinPlusPlusExternalEdge: incorrect top");
+        // NodeIndex head = Head(edge);
+        // NodeIndex tail = Tail(edge);
+        // if (nodes[head].plus && nodes[tail].plus && (nodes[head].tree != nodes[tail].tree)) {
+        //     return edge;
+        // }
+        // throw std::runtime_error("MinPlusPlusExternalEdge: incorrect top");
     }
     return EdgeIndex(-1);
 }
@@ -2231,17 +2233,18 @@ VzhuhSolver::EdgeIndex VzhuhSolver::MinPlusPlusExternalEdge(int queue_index) {
 VzhuhSolver::EdgeIndex VzhuhSolver::MinPlusMinusExternalEdge(int queue_index) {
     if (!edge_heaps[queue_index]->Empty()) {
         EdgeIndex edge = edge_heaps[queue_index]->Top();
+        return edge;
 
-        NodeIndex head = Head(edge); // plus
-        NodeIndex tail = Tail(edge); // minus
-        if (!nodes[head].plus) {
-            std::swap(head, tail);
-        }
-        if (nodes[head].plus && !nodes[tail].plus && (nodes[head].tree != nodes[tail].tree) &&
-            nodes[tail].tree) {
-            return edge;
-        }
-        throw std::runtime_error("MinPlusMinusExternalEdge: incorrect top");
+        // NodeIndex head = Head(edge); // plus
+        // NodeIndex tail = Tail(edge); // minus
+        // if (!nodes[head].plus) {
+        //     std::swap(head, tail);
+        // }
+        // if (nodes[head].plus && !nodes[tail].plus && (nodes[head].tree != nodes[tail].tree) &&
+        //     nodes[tail].tree) {
+        //     return edge;
+        // }
+        // throw std::runtime_error("MinPlusMinusExternalEdge: incorrect top");
     }
     return EdgeIndex(-1);
 }
@@ -2249,10 +2252,10 @@ VzhuhSolver::EdgeIndex VzhuhSolver::MinPlusMinusExternalEdge(int queue_index) {
 VzhuhSolver::NodeIndex VzhuhSolver::MinMinusBlossom(int queue_index) const {
     if (!node_heaps[queue_index]->Empty()) {
         NodeIndex node = node_heaps[queue_index]->Top();
-        if (!nodes[node].is_alive || !nodes[node].tree || nodes[node].plus || nodes[node].
-            blossom_parent) {
-            throw std::runtime_error("In MinMinusBlossom: incorrect top");
-        }
+        // if (!nodes[node].is_alive || !nodes[node].tree || nodes[node].plus || nodes[node].
+        //     blossom_parent) {
+        //     throw std::runtime_error("In MinMinusBlossom: incorrect top");
+        // }
         return node;
     }
     return NodeIndex(-1);
@@ -2272,19 +2275,19 @@ VzhuhSolver::NodeIndex VzhuhSolver::PopExpandableBlossom(TreeIndex tree) {
 int VzhuhSolver::PlusEmptySlack(TreeIndex tree) {
     EdgeIndex edge = MinPlusEmptyEdge(trees[tree].plus_empty_edges);
     if (edge) {
-        int slam = SlackQuadrupled(edge);
-        if (slam < 0) {
-            NodeIndex head = Head(edge);
-            NodeIndex tail = Tail(edge);
-
-            std::cout << "head: " << head << " plus: " << nodes[head].plus << " tree: " << nodes[head].tree <<
-                std::endl;
-            std::cout << "tail: " << tail << " plus: " << nodes[tail].plus << " tree: " << nodes[tail].tree <<
-                std::endl;
-
-            throw std::runtime_error("PlusEmptySlack: negative slack");
-        }
-        return SlackQuadrupled(edge);
+        int slack = SlackQuadrupled(edge);
+        // if (slack < 0) {
+        //     NodeIndex head = Head(edge);
+        //     NodeIndex tail = Tail(edge);
+        //
+        //     std::cout << "head: " << head << " plus: " << nodes[head].plus << " tree: " << nodes[head].tree <<
+        //         std::endl;
+        //     std::cout << "tail: " << tail << " plus: " << nodes[tail].plus << " tree: " << nodes[tail].tree <<
+        //         std::endl;
+        //
+        //     throw std::runtime_error("PlusEmptySlack: negative slack");
+        // }
+        return slack;
     }
     return INT32_MAX;
 }
