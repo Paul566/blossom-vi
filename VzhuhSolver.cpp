@@ -1129,7 +1129,9 @@ void VzhuhSolver::UpdateEdgeSlack(EdgeIndex edge) {
     edges[edge].slack_quadrupled_amortized_ += (old_slack - new_slack);
     edges[edge].must_be_updated = false;
 
-    AddEdgeToQueue(edge);
+    if (Receptacle(Head(edge)) != Receptacle(Tail(edge))) {
+        AddEdgeToQueue(edge);
+    }
 }
 
 void VzhuhSolver::AddNeighborsToActionable(NodeIndex node) {
