@@ -1054,18 +1054,28 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
     // old_plus, old_tree, old_blossom_parent, is_in_record for nodes
 
     std::vector<EdgeIndex> edges_to_update;
+    int num_edges_to_update = 0;
+    for (NodeIndex node : record.changed_sign) {
+        if (!nodes[node].is_alive) {
+            continue;
+        }
+        if (!nodes[node].old_blossom_parent &&
+            nodes[node].old_plus == nodes[node].plus &&
+            nodes[node].old_tree == nodes[node].tree) {
+            continue;
+            }
+
+        num_edges_to_update += NonLoopNeighbors(node).size();
+    }
+    edges_to_update.reserve(num_edges_to_update);
 
     for (NodeIndex node : record.changed_sign) {
         if (!nodes[node].is_alive) {
             continue;
         }
-
-        nodes[node].is_in_record = false;
-
         if (nodes[node].blossom_parent) {
             throw std::runtime_error("UpdateQueues: non-top node in record");
         }
-
         if (!nodes[node].old_blossom_parent &&
             nodes[node].old_plus == nodes[node].plus &&
             nodes[node].old_tree == nodes[node].tree) {
@@ -1141,6 +1151,7 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
         nodes[node].old_blossom_parent = nodes[node].blossom_parent;
         nodes[node].old_plus = nodes[node].plus;
         nodes[node].old_tree = nodes[node].tree;
+        nodes[node].is_in_record = false;
     }
 }
 
