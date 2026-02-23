@@ -1831,6 +1831,8 @@ int VzhuhSolver::DualVariableQuadrupled(NodeIndex node, TreeIndex tree, bool plu
 }
 
 std::vector<VzhuhSolver::EdgeIndex>& VzhuhSolver::NonLoopNeighbors(NodeIndex node) {
+    // TODO avoid calling Head and Tail for every edge on the list
+
     if (IsElementary(node)) {
         return adj_list[node.index];
     }
@@ -1841,28 +1843,45 @@ std::vector<VzhuhSolver::EdgeIndex>& VzhuhSolver::NonLoopNeighbors(NodeIndex nod
 
     // otherwise, compute neighbors
 
+    // mark the vertices, collect the lists
     std::queue<NodeIndex> queue;
+    std::vector<std::vector<EdgeIndex> * > lists;
+    int total_length = 0;
     queue.push(node);
+    ++nodes_label_cnt;
+    nodes[node].label = nodes_label_cnt;
     while (!queue.empty()) {
         NodeIndex cur = queue.front();
         queue.pop();
+
         for (NodeIndex child : nodes[cur].blossom_children) {
+            nodes[child].label = nodes_label_cnt;
+
             if (IsElementary(child)) {
-                nodes[node].neighbors.insert(nodes[node].neighbors.end(), adj_list[child.index].begin(), adj_list[child.index].end());
+                lists.push_back(&adj_list[child.index]);
+                total_length += adj_list[child.index].size();
             } else if (!nodes[child].neighbors.empty()) {
-                nodes[node].neighbors.insert(nodes[node].neighbors.end(), nodes[child].neighbors.begin(), nodes[child].neighbors.end());
-            } else {
+                lists.push_back(&nodes[child].neighbors);
+                total_length += nodes[child].neighbors.size();
+            }else {
                 queue.push(child);
             }
         }
     }
 
-    // remove loops
-    for (int i = 0; i < static_cast<int>(nodes[node].neighbors.size()); ++i) {
-        if (Head(nodes[node].neighbors[i]) == Tail(nodes[node].neighbors[i])) {
-            nodes[node].neighbors[i] = nodes[node].neighbors.back();
-            nodes[node].neighbors.pop_back();
-            --i;
+    // add non-loops to neighbors
+    nodes[node].neighbors.reserve(total_length);
+    for (auto list_ptr : lists) {
+        for (EdgeIndex edge : *list_ptr) {
+            while (nodes[edges[edge].head].blossom_parent && nodes[edges[edge].head].label != nodes_label_cnt) {
+                edges[edge].head = nodes[edges[edge].head].blossom_parent;
+            }
+            while (nodes[edges[edge].tail].blossom_parent && nodes[edges[edge].tail].label != nodes_label_cnt) {
+                edges[edge].tail = nodes[edges[edge].tail].blossom_parent;
+            }
+            if (nodes[edges[edge].head].label != nodes_label_cnt || nodes[edges[edge].tail].label != nodes_label_cnt) {
+                nodes[node].neighbors.push_back(edge);
+            }
         }
     }
 
