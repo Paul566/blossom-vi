@@ -17,22 +17,25 @@ class Heap {
             }
         }
 
+        ~Heap() {
+            for (Handle *handle : handles_) {
+                delete handle;
+            }
+        }
+
         bool Empty() {
             return heap_.empty();
         }
 
-        Handle *Push(T value, int key=0) { // TODO remove the default value for key
-            auto handle = std::make_unique<Handle>();
+        Handle *Push(T value, int key) {
+            Handle *handle = new Handle{};
             handle->index = heap_.size();
+            handles_.push_back(handle);
 
-            Handle *handle_ptr = handle.get();
-            // TODO consider using raw pointers, reallocation of a vector of unique_ptr is a bit more expensive
-            handles_.emplace_back(std::move(handle));
-
-            heap_.emplace_back(value, key, handle_ptr);
+            heap_.emplace_back(value, key, handle);
             SiftUp(heap_.size() - 1);
 
-            return handle_ptr;
+            return handle;
         }
 
         const T &Top() {
@@ -90,7 +93,7 @@ class Heap {
         // debugging purposes
         void ValidateHeap(const std::string &msg = "") {
             for (std::size_t i = 1; i < heap_.size(); ++i) {
-                if (heap_[i].key < heap_[Parent(i)].key ) {
+                if (heap_[i].key < heap_[Parent(i)].key) {
                     std::cout << msg << std::endl;
                     std::cout << i << " " << Parent(i) << std::endl;
                     throw std::runtime_error("Incorrect heap");
@@ -98,7 +101,7 @@ class Heap {
             }
         }
 
-    // private:
+        // private:
         struct Node {
             T value;
             int key;
@@ -107,7 +110,7 @@ class Heap {
 
         int d_;
         std::vector<Node> heap_;
-        std::vector<std::unique_ptr<Handle> > handles_;
+        std::vector<Handle *> handles_;
 
         int Parent(int i) const {
             return (i - 1) / d_;
@@ -170,6 +173,5 @@ class Heap {
                 SiftUp(i);
             }
         }
-
 };
 #endif //BLOSSOM_VI_HEAP_H

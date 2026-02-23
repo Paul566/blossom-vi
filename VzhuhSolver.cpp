@@ -2027,7 +2027,6 @@ VzhuhSolver::NodeIndex VzhuhSolver::OtherElementaryEnd(EdgeIndex edge, NodeIndex
 
 VzhuhSolver::NodeIndex VzhuhSolver::Head(EdgeIndex edge) {
     while (nodes[edges[edge].head].blossom_parent) {
-        // throw std::runtime_error("Head is not amortized now");
         edges[edge].head = nodes[edges[edge].head].blossom_parent;
     }
     return edges[edge].head;
@@ -2035,7 +2034,6 @@ VzhuhSolver::NodeIndex VzhuhSolver::Head(EdgeIndex edge) {
 
 VzhuhSolver::NodeIndex VzhuhSolver::Tail(EdgeIndex edge) {
     while (nodes[edges[edge].tail].blossom_parent) {
-        // throw std::runtime_error("tail is not amortized now");
         edges[edge].tail = nodes[edges[edge].tail].blossom_parent;
     }
     return edges[edge].tail;

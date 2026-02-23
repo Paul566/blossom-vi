@@ -97,7 +97,7 @@ class VzhuhSolver {
         struct Node {
             NodeHeap::Handle *handle;
             std::vector<NodeIndex> blossom_children;
-            std::vector<EdgeIndex> neighbors;
+            std::vector<EdgeIndex> neighbors;   // TODO make sure we don't use too much memory
 
             NodeIndex blossom_parent;
             NodeIndex old_blossom_parent;
