@@ -115,6 +115,7 @@ class VzhuhSolver {
             bool is_alive;
             bool plus;
             bool old_plus;
+            bool is_in_record;
 
             explicit Node(int index);
         };
@@ -315,6 +316,7 @@ class VzhuhSolver {
         std::vector<std::pair<TreeIndex, int> > PlusMinusExternalSlacks(TreeIndex tree);
 
         void DeleteDuplicates(std::vector<NodeIndex> *node_list);
+        void AddNodeToRecord(NodeIndex node, PrimalUpdateRecord *record);
 
         static int InitNumVertices(const std::vector<std::tuple<int, int, int> > &edge_list_);
 };

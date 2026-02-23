@@ -102,7 +102,7 @@ VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : head(head_), tail(t
 
 VzhuhSolver::Node::Node(int index) : blossom_parent(-1), old_blossom_parent(-1), matched_edge(-1),
                                      minus_parent(-1), receptacle_(index), tree(-1), old_tree(-1),
-                                     tree_var_at_birth(0) {
+                                     tree_var_at_birth(0), is_in_record(false) {
     is_alive = true;
     dual_var_quadrupled_amortized_ = 0;
     plus = false;
@@ -479,7 +479,6 @@ bool VzhuhSolver::MakePrimalUpdates() {
     }
 
     // update queues and amortized variables phase
-    DeleteDuplicates(&record.changed_sign);
     UpdateQueues(record);
     if (params.debug) {
         ValidateQueues();
@@ -515,7 +514,6 @@ bool VzhuhSolver::MakePrimalUpdates() {
     if (params.verbose) {
         std::cout << "shrinking phase" << std::endl;
     }
-    // DeleteDuplicates(&record.changed_sign);
     std::vector<std::vector<NodeIndex> > future_blossoms = OrganizeBlossomChildren(record);
     for (std::vector<NodeIndex> &children : future_blossoms) {
         Shrink(children);
@@ -588,7 +586,7 @@ void VzhuhSolver::Expand(NodeIndex blossom, PrimalUpdateRecord *record) {
     UpdateInternalStructure(blossom, old_receptacle, new_receptacle, elder_child, record);
 
     for (NodeIndex child : nodes[blossom].blossom_children) {
-        record->changed_sign.push_back(child);
+        AddNodeToRecord(child, record);
         AddNeighborsToActionable(child);
         if (nodes[child].tree) {
             trees[nodes[child].tree].tree_nodes.push_back(child);
@@ -728,11 +726,11 @@ void VzhuhSolver::UpdateInternalStructure(NodeIndex blossom,
     cur_node = elder_child;
     for (EdgeIndex edge : path) {
         nodes[cur_node].label = nodes_label_cnt;
-        record->changed_sign.push_back(cur_node);
+        AddNodeToRecord(cur_node, record);
         cur_node = OtherEnd(edge, cur_node);
     }
     nodes[new_receptacle].label = nodes_label_cnt;
-    record->changed_sign.push_back(new_receptacle);
+    AddNodeToRecord(new_receptacle, record);
 
     // clear the part that goes to waste
     for (NodeIndex child : nodes[blossom].blossom_children) {
@@ -832,7 +830,7 @@ void VzhuhSolver::ExpandChildBeforeGrow(NodeIndex blossom, PrimalUpdateRecord *r
     }
 
     for (NodeIndex child : nodes[blossom].blossom_children) {
-        record->changed_sign.push_back(child);
+        AddNodeToRecord(child, record);
         if (nodes[child].tree) {
             AddNeighborsToActionable(child);
         }
@@ -883,8 +881,8 @@ void VzhuhSolver::Grow(NodeIndex parent, EdgeIndex edge, PrimalUpdateRecord *rec
     nodes[grandchild].tree = tree;
     nodes[grandchild].plus = true;
 
-    record->changed_sign.push_back(child);
-    record->changed_sign.push_back(grandchild);
+    AddNodeToRecord(child, record);
+    AddNodeToRecord(grandchild, record);
 
     trees[tree].tree_nodes.push_back(child);
     trees[tree].tree_nodes.push_back(grandchild);
@@ -944,13 +942,13 @@ void VzhuhSolver::UpdateCherryPath(NodeIndex lower_node, NodeIndex upper_node, P
     NodeIndex receptacle = Receptacle(upper_node);
     nodes[Receptacle(upper_node)].receptacle_ = receptacle; // TODO does this line do anything?
 
-    record->changed_sign.push_back(lower_node);
+    AddNodeToRecord(lower_node, record);
     while (lower_node != upper_node) {
         NodeIndex parent = OtherEnd(nodes[lower_node].matched_edge, lower_node);
         NodeIndex grandparent = OtherEnd(nodes[parent].minus_parent, parent);
 
-        record->changed_sign.push_back(parent);
-        record->changed_sign.push_back(grandparent);
+        AddNodeToRecord(parent, record);
+        AddNodeToRecord(grandparent, record);
 
         nodes[Receptacle(lower_node)].receptacle_ = receptacle;
         nodes[Receptacle(parent)].receptacle_ = receptacle;
@@ -1042,7 +1040,7 @@ void VzhuhSolver::ClearTree(TreeIndex tree, PrimalUpdateRecord *record) {
             AddNeighborsToActionable(node);
         }
 
-        record->changed_sign.push_back(node);
+        AddNodeToRecord(node, record);
         nodes[node].tree = TreeIndex(-1);
         nodes[node].minus_parent = EdgeIndex(-1);
         nodes[node].receptacle_ = node;
@@ -1053,7 +1051,7 @@ void VzhuhSolver::ClearTree(TreeIndex tree, PrimalUpdateRecord *record) {
 void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
     // updates amortized slams and variables,
     // edge_heaps, node_heaps
-    // old_plus, old_tree, old_blossom_parent for nodes
+    // old_plus, old_tree, old_blossom_parent, is_in_record for nodes
 
     std::vector<EdgeIndex> edges_to_update;
 
@@ -1061,6 +1059,8 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
         if (!nodes[node].is_alive) {
             continue;
         }
+
+        nodes[node].is_in_record = false;
 
         if (nodes[node].blossom_parent) {
             throw std::runtime_error("UpdateQueues: non-top node in record");
@@ -2411,6 +2411,14 @@ void VzhuhSolver::DeleteDuplicates(std::vector<NodeIndex> *node_list) {
             --i;
         }
     }
+}
+
+void VzhuhSolver::AddNodeToRecord(NodeIndex node, PrimalUpdateRecord *record) {
+    if (nodes[node].is_in_record) {
+        return;
+    }
+    record->changed_sign.push_back(node);
+    nodes[node].is_in_record = true;
 }
 
 int VzhuhSolver::InitNumVertices(const std::vector<std::tuple<int, int, int> > &edge_list_) {
