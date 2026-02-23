@@ -515,7 +515,7 @@ bool VzhuhSolver::MakePrimalUpdates() {
     if (params.verbose) {
         std::cout << "shrinking phase" << std::endl;
     }
-    DeleteDuplicates(&record.changed_sign);
+    // DeleteDuplicates(&record.changed_sign);
     std::vector<std::vector<NodeIndex> > future_blossoms = OrganizeBlossomChildren(record);
     for (std::vector<NodeIndex> &children : future_blossoms) {
         Shrink(children);
