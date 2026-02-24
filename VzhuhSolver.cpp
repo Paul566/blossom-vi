@@ -7,13 +7,25 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
                                                             params(params_),
                                                             num_vertices_elementary(InitNumVertices(edge_list_)),
                                                             current_round(0) {
+    // TODO check validity of edge_list_
+
     nodes.reserve(2 * num_vertices_elementary);
     for (int i = 0; i < num_vertices_elementary; ++i) {
         nodes.emplace_back(i);
     }
 
+    // reserve for adj list
+    std::vector<int> degrees(num_vertices_elementary, 0);
+    for (auto [from, to, weight] : edge_list_) {
+        ++degrees[from];
+        ++degrees[to];
+    }
+
     adj_list = std::vector<std::vector<int> >(num_vertices_elementary, std::vector<int>());
-    // zero_slack_adj_list = std::vector<std::vector<int> >(num_vertices_elementary, std::vector<int>());
+    for (int i = 0; i < num_vertices_elementary; ++i) {
+        adj_list[i].reserve(degrees[i]);
+    }
+
     edges.reserve(edge_list_.size());
     for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
         int head = std::get<0>(edge_list_[i]);
