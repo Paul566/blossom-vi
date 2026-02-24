@@ -1182,9 +1182,14 @@ void VzhuhSolver::UpdateEdgeSlack(EdgeIndex edge) {
 }
 
 void VzhuhSolver::AddNeighborsToActionable(NodeIndex node) {
-    std::vector<EdgeIndex> *grandchild_neighbors = &NonLoopZeroSlackNeighbors(node);
-    for (EdgeIndex neighbor_edge : *grandchild_neighbors) {
-        actionable_edges.push(neighbor_edge);
+    // std::vector<EdgeIndex> *grandchild_neighbors = &NonLoopZeroSlackNeighbors(node);
+    // for (EdgeIndex neighbor_edge : *grandchild_neighbors) {
+    //     actionable_edges.push(neighbor_edge);
+    // }
+    for (EdgeIndex edge : NonLoopNeighbors(node)) {
+        if (edges[edge].is_in_zero_slack_set) {
+            actionable_edges.push(edge);
+        }
     }
 }
 
@@ -1934,7 +1939,7 @@ std::vector<VzhuhSolver::EdgeIndex> &VzhuhSolver::NonLoopZeroSlackNeighbors(Node
     // }
 
     for (EdgeIndex edge : NonLoopNeighbors(node)) {
-        if (SlackQuadrupled(edge) == 0) {
+        if (edges[edge].is_in_zero_slack_set) {
             nodes[node].zero_slack_neighbors.push_back(edge);
         }
     }
