@@ -88,7 +88,7 @@ class VzhuhSolver {
             NodeIndex elementary_head;
             NodeIndex elementary_tail;
             bool matched;
-            bool is_in_zero_slack_set;
+            bool maybe_has_zero_slack;
             bool must_be_updated;
             bool maybe_was_loop;
             Edge(int head_, int tail_, int weight_);
@@ -200,8 +200,9 @@ class VzhuhSolver {
         std::vector<std::unique_ptr<EdgeHeap> > edge_heaps;
 
         std::vector<std::vector<EdgeIndex> > adj_list;
-        std::vector<std::vector<EdgeIndex> > zero_slack_adj_list;
+        // std::vector<std::vector<EdgeIndex> > zero_slack_adj_list;
         std::queue<EdgeIndex> actionable_edges;
+        std::queue<NodeIndex> actionable_nodes;
 
         int nodes_label_cnt; // TODO make int64_t
 
@@ -232,6 +233,7 @@ class VzhuhSolver {
         // third phase: shrink the cherry blossoms
         // fourth phase: update the queues
         void MakePrimalUpdate(EdgeIndex edge, PrimalUpdateRecord *record);
+        void MakePrimalUpdateForNode(NodeIndex node, PrimalUpdateRecord *record);
 
         void Expand(NodeIndex blossom, PrimalUpdateRecord *record);
         void RestoreEdgeEndsBeforeExpand(NodeIndex blossom);
@@ -246,7 +248,6 @@ class VzhuhSolver {
         void ExpandChildBeforeGrow(NodeIndex blossom, PrimalUpdateRecord *record);
 
         void Grow(NodeIndex parent, EdgeIndex edge, PrimalUpdateRecord *record);
-        void AddNeighborsToActionable(NodeIndex node);
 
         void MakeCherryBlossom(EdgeIndex edge_plus_plus, PrimalUpdateRecord *record);
         std::pair<NodeIndex, NodeIndex> CherryPathBounds(NodeIndex first_vertex, NodeIndex second_vertex);
@@ -275,7 +276,7 @@ class VzhuhSolver {
         std::vector<int> VariableDeltas();
         std::vector<std::vector<int> > ConnectedComponentsTreeTree(const DualConstraints &dual_constraints) const;
         DualConstraints GetDualConstraints();
-        void UpdateZeroSlackSetAndActionable();
+        void InitNextRoundActionable();
         void AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_actionable);
         void CleanLoopsFromQueueTop(TreeIndex tree); // makes top of plus_plus_internal_edges a non-loop
 
