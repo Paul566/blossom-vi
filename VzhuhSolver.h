@@ -30,63 +30,16 @@ class VzhuhSolver {
         // a vector of (quadrupled dual variable, index of the blossom parent or -1)
 
     private:
-        struct Index {
-            int index;
-            explicit Index(int index_) : index(index_) {
-            }
-            explicit operator bool() const {
-                return index >= 0;
-            }
-            bool operator==(const Index &other) const {
-                return index == other.index;
-            }
-            Index &operator++() {
-                ++index;
-                return *this;
-            }
-            Index &operator--() {
-                --index;
-                return *this;
-            }
-            friend bool operator<(Index lhs, int64_t rhs) {
-                return lhs.index < rhs;
-            }
-            friend bool operator>=(Index lhs, int64_t rhs) {
-                return lhs.index >= rhs;
-            }
-            friend bool operator<(Index lhs, Index rhs) {
-                return lhs.index < rhs.index;
-            }
-            friend std::ostream &operator<<(std::ostream &os, const Index &idx) {
-                return os << idx.index;
-            }
-        };
-        struct NodeIndex : public Index {
-            explicit NodeIndex(int index_) : Index(index_) {
-            }
-        };
-        struct EdgeIndex : public Index {
-            explicit EdgeIndex(int index_) : Index(index_) {
-            }
-        };
-        struct TreeIndex : public Index {
-            explicit TreeIndex(int index_) : Index(index_) {
-            }
-        };
-
-        using EdgeHeap = Heap<EdgeIndex>;
-        using NodeHeap = Heap<NodeIndex>;
-
         struct Edge {
-            EdgeHeap::Handle *handle;
+            Heap<int>::Handle *handle;
             int queue_index;
             int weight;
             int slack_quadrupled_amortized_;
             int slack_diff;
-            NodeIndex head;
-            NodeIndex tail;
-            NodeIndex elementary_head;
-            NodeIndex elementary_tail;
+            int head;
+            int tail;
+            int elementary_head;
+            int elementary_tail;
             bool matched;
             bool maybe_has_zero_slack;
             bool must_be_updated;
@@ -95,18 +48,18 @@ class VzhuhSolver {
         };
 
         struct Node {
-            NodeHeap::Handle *handle;
-            std::vector<NodeIndex> blossom_children;
-            std::vector<EdgeIndex> neighbors;   // TODO make sure we don't use too much memory
-            std::vector<EdgeIndex> zero_slack_neighbors;
+            Heap<int>::Handle *handle;
+            std::vector<int> blossom_children;
+            std::vector<int> neighbors;   // TODO make sure we don't use too much memory
+            std::vector<int> zero_slack_neighbors;
 
-            NodeIndex blossom_parent;
-            NodeIndex old_blossom_parent;
-            EdgeIndex matched_edge;
-            EdgeIndex minus_parent;
-            NodeIndex receptacle_; // by default, a node is its own receptacle
-            TreeIndex tree;
-            TreeIndex old_tree;
+            int blossom_parent;
+            int old_blossom_parent;
+            int matched_edge;
+            int minus_parent;
+            int receptacle_; // by default, a node is its own receptacle
+            int tree;
+            int old_tree;
 
             int queue_index;
             int dual_var_quadrupled_amortized_;
@@ -123,13 +76,13 @@ class VzhuhSolver {
         };
 
         struct Tree {
-            std::vector<std::pair<TreeIndex, int> > pq_plus_plus;
-            std::vector<std::pair<TreeIndex, int> > pq_plus_minus;
-            std::vector<std::pair<TreeIndex, int> > pq_minus_plus;
+            std::vector<std::pair<int, int> > pq_plus_plus;
+            std::vector<std::pair<int, int> > pq_plus_minus;
+            std::vector<std::pair<int, int> > pq_minus_plus;
 
-            std::vector<NodeIndex> tree_nodes;
+            std::vector<int> tree_nodes;
 
-            const NodeIndex root; // elementary node
+            const int root; // elementary node
             int dual_var_quadrupled;
             int alive_index;
 
@@ -143,36 +96,6 @@ class VzhuhSolver {
             Tree(int root_, int minus_blossoms_, int plus_empty_edges_, int plus_plus_internal_edges_);
         };
 
-        template <class Obj, class Idx>
-        class Vector {
-            public:
-                Obj &operator[](const Idx idx) {
-                    return obj_vector[idx.index];
-                }
-                const Obj &operator[](const Idx idx) const {
-                    return obj_vector[idx.index];
-                }
-                Obj &Back() {
-                    return obj_vector.back();
-                }
-                std::size_t Size() const {
-                    return obj_vector.size();
-                }
-                void PushBack(const Obj &obj) {
-                    obj_vector.push_back(obj);
-                }
-                template <typename... Args>
-                void EmplaceBack(Args&&... args) {
-                    obj_vector.emplace_back(std::forward<Args>(args)...);
-                }
-                void Reserve(std::size_t size) {
-                    obj_vector.reserve(size);
-                }
-
-            private:
-                std::vector<Obj> obj_vector;
-        };
-
         struct DualConstraints {
             std::vector<int> upper_bound;
             // upper bound on delta_T quadrupled
@@ -183,7 +106,7 @@ class VzhuhSolver {
         };
 
         struct PrimalUpdateRecord {
-            std::vector<NodeIndex> changed_sign;
+            std::vector<int> changed_sign;
         };
 
         const int num_vertices_elementary; // the original number of vertices (i.e. not counting blossoms)
@@ -192,17 +115,17 @@ class VzhuhSolver {
         int aux_counter1;
         int aux_counter2;
 
-        Vector<Node, NodeIndex> nodes;
-        Vector<Edge, EdgeIndex> edges;
-        Vector<Tree, TreeIndex> trees;
-        std::vector<TreeIndex> alive_trees;
-        std::vector<std::unique_ptr<NodeHeap> > node_heaps;
-        std::vector<std::unique_ptr<EdgeHeap> > edge_heaps;
+        std::vector<Node> nodes;
+        std::vector<Edge> edges;
+        std::vector<Tree> trees;
+        std::vector<int> alive_trees;
+        std::vector<std::unique_ptr<Heap<int>> > node_heaps;
+        std::vector<std::unique_ptr<Heap<int>> > edge_heaps;
 
-        std::vector<std::vector<EdgeIndex> > adj_list;
-        // std::vector<std::vector<EdgeIndex> > zero_slack_adj_list;
-        std::queue<EdgeIndex> actionable_edges;
-        std::queue<NodeIndex> actionable_nodes;
+        std::vector<std::vector<int> > adj_list;
+        // std::vector<std::vector<int> > zero_slack_adj_list;
+        std::queue<int> actionable_edges;
+        std::queue<int> actionable_nodes;
 
         int nodes_label_cnt; // TODO make int64_t
 
@@ -212,63 +135,62 @@ class VzhuhSolver {
         // dual_certificate is empty unless params.compute_dual_certificate is true
 
         void PrintGraph() const ;
-        void PrintNode(NodeIndex node) const ;
+        void PrintNode(int node) const ;
 
         void GreedyInit();
         void InitializeTrees();
 
         void ComputeMatching();
         void ComputePrimalObjective();
-        void UpdateMatching(NodeIndex blossom, NodeIndex new_receptacle);
+        void UpdateMatching(int blossom, int new_receptacle);
         void ComputeDualCertificate();
         void ComputeDualObjectiveQuadrupled();
 
         void DestroyBlossoms();
         void RestoreFinalEdgeEnds();
-        NodeIndex FindFinalReceptacle(NodeIndex blossom);
+        int FindFinalReceptacle(int blossom) const;
 
         bool MakePrimalUpdates();
         // first phase: expand
         // second phase: grow, make cherry blossoms, augment
         // third phase: shrink the cherry blossoms
         // fourth phase: update the queues
-        void MakePrimalUpdate(EdgeIndex edge, PrimalUpdateRecord *record);
-        void MakePrimalUpdateForNode(NodeIndex node, PrimalUpdateRecord *record);
+        void MakePrimalUpdate(int edge, PrimalUpdateRecord *record);
+        void MakePrimalUpdateForNode(int node, PrimalUpdateRecord *record);
 
-        void Expand(NodeIndex blossom, PrimalUpdateRecord *record);
-        void RestoreEdgeEndsBeforeExpand(NodeIndex blossom);
-        void RotateReceptacle(NodeIndex blossom, NodeIndex new_receptacle);
-        void UpdateInternalStructure(NodeIndex blossom,
-                                     NodeIndex old_receptacle,
-                                     NodeIndex new_receptacle,
-                                     NodeIndex elder_child,
+        void Expand(int blossom, PrimalUpdateRecord *record);
+        void RestoreEdgeEndsBeforeExpand(int blossom);
+        void RotateReceptacle(int blossom, int new_receptacle);
+        void UpdateInternalStructure(int blossom,
+                                     int old_receptacle,
+                                     int new_receptacle,
+                                     int elder_child,
                                      PrimalUpdateRecord *record);
-        std::vector<EdgeIndex> EvenPathToReceptacle(NodeIndex node);
-        std::vector<EdgeIndex> OddPathToReceptacle(NodeIndex node);
-        void ExpandChildBeforeGrow(NodeIndex blossom, PrimalUpdateRecord *record);
+        std::vector<int> EvenPathToReceptacle(int node);
+        std::vector<int> OddPathToReceptacle(int node);
+        void ExpandChildBeforeGrow(int blossom, PrimalUpdateRecord *record);
 
-        void Grow(NodeIndex parent, EdgeIndex edge, PrimalUpdateRecord *record);
+        void Grow(int parent, int edge, PrimalUpdateRecord *record);
 
-        void MakeCherryBlossom(EdgeIndex edge_plus_plus, PrimalUpdateRecord *record);
-        std::pair<NodeIndex, NodeIndex> CherryPathBounds(NodeIndex first_vertex, NodeIndex second_vertex);
-        void UpdateCherryPath(NodeIndex lower_node, NodeIndex upper_node, PrimalUpdateRecord *record);
+        void MakeCherryBlossom(int edge_plus_plus, PrimalUpdateRecord *record);
+        std::pair<int, int> CherryPathBounds(int first_vertex, int second_vertex);
+        void UpdateCherryPath(int lower_node, int upper_node, PrimalUpdateRecord *record);
 
-        void Augment(EdgeIndex edge_plus_plus, PrimalUpdateRecord *record);
-        std::vector<EdgeIndex> PathToRoot(NodeIndex node_plus);
-        void AugmentPath(const std::vector<EdgeIndex> &path);
-        void ClearTree(TreeIndex tree, PrimalUpdateRecord *record);
+        void Augment(int edge_plus_plus, PrimalUpdateRecord *record);
+        std::vector<int> PathToRoot(int node_plus);
+        void AugmentPath(const std::vector<int> &path);
+        void ClearTree(int tree, PrimalUpdateRecord *record);
 
         void UpdateQueues(const PrimalUpdateRecord &record);
         // updates amortized slam and variables, edge_heaps and node_heaps, old_tree, old_plus, old_blossom_parent
-        void UpdateEdgeSlack(EdgeIndex edge);
-        std::vector<std::vector<NodeIndex> > OrganizeBlossomChildren(const PrimalUpdateRecord &record);
-        void Shrink(std::vector<NodeIndex> &children);
+        void UpdateEdgeSlack(int edge);
+        std::vector<std::vector<int> > OrganizeBlossomChildren(const PrimalUpdateRecord &record);
+        void Shrink(std::vector<int> &children);
 
         // for debug:
         void ValidateQueues();
         auto NodeVariables() const -> std::vector<int>;
         std::vector<int> EdgeSlacks();
-        void ValidateZeroSlackAdjList();
         void ValidateEvenOddPaths();
 
         bool MakeDualUpdates();
@@ -278,51 +200,51 @@ class VzhuhSolver {
         DualConstraints GetDualConstraints();
         void InitNextRoundActionable();
         void AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_actionable);
-        void CleanLoopsFromQueueTop(TreeIndex tree); // makes top of plus_plus_internal_edges a non-loop
+        void CleanLoopsFromQueueTop(int tree); // makes top of plus_plus_internal_edges a non-loop
 
-        bool IsElementary(NodeIndex node) const;
-        NodeIndex TopBlossom(NodeIndex node) const;
-        NodeIndex Receptacle(NodeIndex node);
-        int DualVariableQuadrupled(NodeIndex node) const;
-        int DualVariableQuadrupled(NodeIndex node, TreeIndex tree, bool plus, NodeIndex blossom_parent) const;
-        std::vector<EdgeIndex>& NonLoopNeighbors(NodeIndex node);
-        std::vector<EdgeIndex>& NonLoopZeroSlackNeighbors(NodeIndex node);
-        std::vector<NodeIndex> ElementaryBlossomDescendants(NodeIndex node) const;
+        bool IsElementary(int node) const;
+        int TopBlossom(int node) const;
+        int Receptacle(int node);
+        int DualVariableQuadrupled(int node) const;
+        int DualVariableQuadrupled(int node, int tree, bool plus, int blossom_parent) const;
+        std::vector<int>& NonLoopNeighbors(int node);
+        std::vector<int>& NonLoopZeroSlackNeighbors(int node);
+        std::vector<int> ElementaryBlossomDescendants(int node) const;
 
-        int SlackQuadrupled(EdgeIndex edge);
-        int OldSlackQuadrupled(EdgeIndex edge);
-        NodeIndex OtherEnd(EdgeIndex edge, NodeIndex node);
-        NodeIndex OtherElementaryEnd(EdgeIndex edge, NodeIndex node) const;
-        NodeIndex Head(EdgeIndex edge);
-        NodeIndex Tail(EdgeIndex edge);
-        NodeIndex PlusPlusLCA(NodeIndex first_vertex, NodeIndex second_vertex);
+        int SlackQuadrupled(int edge);
+        int OldSlackQuadrupled(int edge);
+        int OtherEnd(int edge, int node);
+        int OtherElementaryEnd(int edge, int node) const;
+        int Head(int edge);
+        int Tail(int edge);
+        int PlusPlusLCA(int first_vertex, int second_vertex);
 
-        void MakeEdgeMatched(EdgeIndex edge);
-        void MakeEdgeUnmatched(EdgeIndex edge);
+        void MakeEdgeMatched(int edge);
+        void MakeEdgeUnmatched(int edge);
 
-        void AddEdgeToQueue(EdgeIndex edge);
-        void AddEdgeToThisQueue(EdgeIndex edge, int queue_index);
-        void RemoveEdgeFromQueue(EdgeIndex edge);
-        void AddNodeToQueue(NodeIndex node, int queue_index);
-        void RemoveNodeFromQueue(NodeIndex node);
-        void AddPQPlusPlus(TreeIndex first, TreeIndex second, EdgeIndex edge);
-        void AddPQPlusMinus(TreeIndex tree_plus, TreeIndex tree_minus, EdgeIndex edge);
-        int TreeTreeQueueIndex(TreeIndex other_tree, std::vector<std::pair<TreeIndex, int> > *tree_neighbors);
+        void AddEdgeToQueue(int edge);
+        void AddEdgeToThisQueue(int edge, int queue_index);
+        void RemoveEdgeFromQueue(int edge);
+        void AddNodeToQueue(int node, int queue_index);
+        void RemoveNodeFromQueue(int node);
+        void AddPQPlusPlus(int first, int second, int edge);
+        void AddPQPlusMinus(int tree_plus, int tree_minus, int edge);
+        int TreeTreeQueueIndex(int other_tree, std::vector<std::pair<int, int> > *tree_neighbors) const;
 
-        EdgeIndex MinPlusEmptyEdge(int queue_index);
-        EdgeIndex MinPlusPlusInternalEdge(int queue_index);
-        EdgeIndex MinPlusPlusExternalEdge(int queue_index);
-        EdgeIndex MinPlusMinusExternalEdge(int queue_index);
-        NodeIndex MinMinusBlossom(int queue_index) const;
-        NodeIndex PopExpandableBlossom(TreeIndex tree);
-        int PlusEmptySlack(TreeIndex tree);
-        int PlusPlusInternalSlack(TreeIndex tree);
-        int MinMinusBlossomVariable(TreeIndex tree);
-        std::vector<std::pair<TreeIndex, int> > PlusPlusExternalSlacks(TreeIndex tree);
-        std::vector<std::pair<TreeIndex, int> > PlusMinusExternalSlacks(TreeIndex tree);
+        int MinPlusEmptyEdge(int queue_index) const;
+        int MinPlusPlusInternalEdge(int queue_index);
+        int MinPlusPlusExternalEdge(int queue_index) const;
+        int MinPlusMinusExternalEdge(int queue_index) const;
+        int MinMinusBlossom(int queue_index) const;
+        int PopExpandableBlossom(int tree) const;
+        int PlusEmptySlack(int tree);
+        int PlusPlusInternalSlack(int tree);
+        int MinMinusBlossomVariable(int tree) const;
+        std::vector<std::pair<int, int> > PlusPlusExternalSlacks(int tree);
+        std::vector<std::pair<int, int> > PlusMinusExternalSlacks(int tree);
 
-        void DeleteDuplicates(std::vector<NodeIndex> *node_list);
-        void AddNodeToRecord(NodeIndex node, PrimalUpdateRecord *record);
+        void DeleteDuplicates(std::vector<int> *node_list);
+        void AddNodeToRecord(int node, PrimalUpdateRecord *record);
 
         static int InitNumVertices(const std::vector<std::tuple<int, int, int> > &edge_list_);
 };
