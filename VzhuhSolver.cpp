@@ -1062,9 +1062,9 @@ void VzhuhSolver::ClearTree(TreeIndex tree, PrimalUpdateRecord *record) {
         }
 
         // TODO make better
-        if (num_trees_alive > 0 && !nodes[node].plus) {
-            actionable_nodes.push(node);
-        }
+        // if (num_trees_alive > 0 && !nodes[node].plus) {
+        //     actionable_nodes.push(node);
+        // }
 
         AddNodeToRecord(node, record);
         nodes[node].tree = TreeIndex(-1);
