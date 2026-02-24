@@ -72,7 +72,7 @@ void VzhuhSolver::FindMinPerfectMatching() {
     ComputeMatching();
     ComputePrimalObjective();
 
-    // std::cout << aux_counter2 * 1. / aux_counter1 << " ";
+    // std::cout << aux_counter1 * 1. / aux_counter2 << " ";
 
     if (params.verbose) {
         std::cout << "Primal objective:\t" << primal_objective << std::endl;
@@ -511,7 +511,9 @@ bool VzhuhSolver::MakePrimalUpdates() {
     }
     std::vector<std::vector<int> > future_blossoms = OrganizeBlossomChildren(record);
     for (std::vector<int> &children : future_blossoms) {
+        // if (children.size() > 1) {
         Shrink(children);
+        // }
     }
 
     return action_taken;
@@ -521,9 +523,6 @@ void VzhuhSolver::MakePrimalUpdate(int edge, PrimalUpdateRecord *record) {
     int parent = Head(edge);
     int child = Tail(edge);
 
-    // if (parent == child || OldSlackQuadrupled(edge) != 0) {
-    //     return;
-    // }
     if (parent == child) {
         return;
     }
@@ -1185,10 +1184,7 @@ void VzhuhSolver::UpdateEdgeSlack(int edge) {
     }
 }
 
-std::vector<std::vector<int> > VzhuhSolver::
-OrganizeBlossomChildren(const PrimalUpdateRecord &record) {
-    std::vector<std::vector<int> > result;
-
+std::vector<std::vector<int> > VzhuhSolver::OrganizeBlossomChildren(const PrimalUpdateRecord &record) {
     ++nodes_label_cnt;
     int label_zero = nodes_label_cnt;
 
@@ -1205,20 +1201,43 @@ OrganizeBlossomChildren(const PrimalUpdateRecord &record) {
         if (nodes[receptacle].label < label_zero) {
             nodes[receptacle].label = nodes_label_cnt;
             ++nodes_label_cnt;
-            result.push_back({receptacle});
         }
         if (nodes[node].label < label_zero) {
-            result[nodes[receptacle].label - label_zero].push_back(node);
             nodes[node].label = nodes[receptacle].label;
         }
     }
 
-    // remove singleton lists
-    for (int i = 0; i < static_cast<int>(result.size()); ++i) {
-        if (result[i].size() <= 1) {
-            result[i] = std::move(result.back());
-            result.pop_back();
-            --i;
+    std::vector<int> sizes(nodes_label_cnt - label_zero, 0);
+    std::vector<int> label_diff_to_index(nodes_label_cnt - label_zero, -1);
+
+    for (int node : record.changed_sign) {
+        if (nodes[node].label < label_zero) {
+            continue;
+        }
+        ++sizes[nodes[node].label - label_zero];
+    }
+
+    int index = 0;
+    for (int i = 0; i < static_cast<int>(sizes.size()); ++i) {
+        if (sizes[i] > 1) {
+            label_diff_to_index[i] = index;
+            ++index;
+        }
+    }
+
+    std::vector<std::vector<int> > result(index);
+    for (int i = 0; i < static_cast<int>(sizes.size()); ++i) {
+        if (label_diff_to_index[i] >= 0) {
+            result[label_diff_to_index[i]].reserve(sizes[i]);
+        }
+    }
+
+    for (int node : record.changed_sign) {
+        if (nodes[node].label < label_zero) {
+            continue;
+        }
+        if (label_diff_to_index[nodes[node].label - label_zero] >= 0) {
+            result[label_diff_to_index[nodes[node].label - label_zero]].push_back(node);
         }
     }
 
@@ -2356,19 +2375,6 @@ std::vector<std::pair<int, int> > VzhuhSolver::PlusMinusExternalSlacks(int tree)
         }
     }
     return result;
-}
-
-void VzhuhSolver::DeleteDuplicates(std::vector<int> *node_list) {
-    ++nodes_label_cnt;
-    for (int i = 0; i < static_cast<int>(node_list->size()); ++i) {
-        if (nodes[(*node_list)[i]].label != nodes_label_cnt) {
-            nodes[(*node_list)[i]].label = nodes_label_cnt;
-        } else {
-            (*node_list)[i] = node_list->back();
-            node_list->pop_back();
-            --i;
-        }
-    }
 }
 
 void VzhuhSolver::AddNodeToRecord(int node, PrimalUpdateRecord *record) {

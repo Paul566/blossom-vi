@@ -243,7 +243,6 @@ class VzhuhSolver {
         std::vector<std::pair<int, int> > PlusPlusExternalSlacks(int tree);
         std::vector<std::pair<int, int> > PlusMinusExternalSlacks(int tree);
 
-        void DeleteDuplicates(std::vector<int> *node_list);
         void AddNodeToRecord(int node, PrimalUpdateRecord *record);
 
         static int InitNumVertices(const std::vector<std::tuple<int, int, int> > &edge_list_);
