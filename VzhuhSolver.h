@@ -98,6 +98,7 @@ class VzhuhSolver {
             NodeHeap::Handle *handle;
             std::vector<NodeIndex> blossom_children;
             std::vector<EdgeIndex> neighbors;   // TODO make sure we don't use too much memory
+            std::vector<EdgeIndex> zero_slack_neighbors;
 
             NodeIndex blossom_parent;
             NodeIndex old_blossom_parent;
@@ -111,6 +112,7 @@ class VzhuhSolver {
             int dual_var_quadrupled_amortized_;
             int tree_var_at_birth;
             int label;
+            int round_0slack_neighbors_updated;
 
             bool is_alive;
             bool plus;
@@ -186,6 +188,9 @@ class VzhuhSolver {
 
         const int num_vertices_elementary; // the original number of vertices (i.e. not counting blossoms)
         int num_trees_alive;
+        int current_round;
+        int aux_counter1;
+        int aux_counter2;
 
         Vector<Node, NodeIndex> nodes;
         Vector<Edge, EdgeIndex> edges;
@@ -280,7 +285,7 @@ class VzhuhSolver {
         int DualVariableQuadrupled(NodeIndex node) const;
         int DualVariableQuadrupled(NodeIndex node, TreeIndex tree, bool plus, NodeIndex blossom_parent) const;
         std::vector<EdgeIndex>& NonLoopNeighbors(NodeIndex node);
-        std::vector<EdgeIndex> NonLoopZeroSlackNeighbors(NodeIndex node);
+        std::vector<EdgeIndex>& NonLoopZeroSlackNeighbors(NodeIndex node);
         std::vector<NodeIndex> ElementaryBlossomDescendants(NodeIndex node) const;
 
         int SlackQuadrupled(EdgeIndex edge);
