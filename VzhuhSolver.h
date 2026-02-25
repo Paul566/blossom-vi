@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <queue>
+#include <deque>
 
 #include "Heap.h"
 
@@ -80,7 +81,7 @@ class VzhuhSolver {
             std::vector<std::pair<int, int> > pq_plus_minus;
             std::vector<std::pair<int, int> > pq_minus_plus;
 
-            std::vector<int> tree_nodes;
+            std::deque<int> tree_nodes;
 
             const int root; // elementary node
             int dual_var_quadrupled;

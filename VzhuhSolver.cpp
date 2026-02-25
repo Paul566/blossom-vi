@@ -84,7 +84,7 @@ void VzhuhSolver::FindMinPerfectMatching() {
     ComputeMatching();
     ComputePrimalObjective();
 
-    // std::cout << aux_counter1 * 1. / aux_counter2 << " ";
+    // std::cout << primal_objective << std::endl;
 
     if (params.verbose) {
         std::cout << "Primal objective:\t" << primal_objective << std::endl;
@@ -239,6 +239,8 @@ void VzhuhSolver::GreedyInit() {
 void VzhuhSolver::InitializeTrees() {
     // is called after GreedyInit
     // also initializes queues and actionable_edges
+
+    // TODO no need to populate queues in tree initialization
 
     std::vector<int> roots;
     for (int root_index(0); root_index < num_vertices_elementary; ++root_index) {
@@ -447,6 +449,7 @@ void VzhuhSolver::ComputeDualObjectiveQuadrupled() {
 bool VzhuhSolver::MakePrimalUpdates() {
     bool action_taken = false;
     PrimalUpdateRecord record;
+    record.changed_sign.reserve(num_vertices_elementary);
 
     std::vector<int> variables;
     std::vector<int> slacks;
@@ -620,6 +623,8 @@ void VzhuhSolver::Expand(int blossom, PrimalUpdateRecord *record) {
 void VzhuhSolver::RestoreEdgeEndsBeforeExpand(int blossom) {
     // makes head and tail of the adjacent edges to point to the children of the blossom,
     // make children top blossoms
+
+    // TODO make better
 
     for (int child : nodes[blossom].blossom_children) {
         std::vector<int> elementary_descendants = ElementaryBlossomDescendants(child);
@@ -906,7 +911,7 @@ void VzhuhSolver::Grow(int parent, int edge, PrimalUpdateRecord *record) {
 
     AddNodeToRecord(child, record);
     AddNodeToRecord(grandchild, record);
-
+    
     trees[tree].tree_nodes.push_back(child);
     trees[tree].tree_nodes.push_back(grandchild);
 
@@ -1737,9 +1742,6 @@ void VzhuhSolver::InitNextRoundActionable() {
             std::cout << "updating zero slack set next to tree " << tree << std::endl;
         }
 
-        AddZeroSlackEdgesFromQueue(trees[tree].plus_empty_edges, true);
-        CleanLoopsFromQueueTop(tree);
-        AddZeroSlackEdgesFromQueue(trees[tree].plus_plus_internal_edges, true);
         for (auto [other_tree, queue_index] : trees[tree].pq_plus_plus) {
             if (tree < other_tree) {
                 // to avoid double work
@@ -1749,6 +1751,9 @@ void VzhuhSolver::InitNextRoundActionable() {
         for (auto [_, queue_index] : trees[tree].pq_plus_minus) {
             AddZeroSlackEdgesFromQueue(queue_index, false);
         }
+        AddZeroSlackEdgesFromQueue(trees[tree].plus_empty_edges, true);
+        CleanLoopsFromQueueTop(tree);
+        AddZeroSlackEdgesFromQueue(trees[tree].plus_plus_internal_edges, true);
     }
 }
 

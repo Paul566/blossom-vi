@@ -370,7 +370,11 @@ EdgeListType TesterWeighted::ReadWeightedEdgeList(const std::string &filename) {
         throw std::runtime_error("Failed to open file: " + filename);
     }
 
+    int n, m;
+    infile >> n >> m;
+
     std::vector<std::tuple<int, int, int> > edge_list;
+    edge_list.reserve(m);
     int u, v, weight;
 
     while (infile >> u >> v >> weight) {
