@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.30)
 project(blossom_vi)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 add_executable(blossom_vi main.cpp
         unweighted/Edge.h
@@ -24,4 +24,5 @@ add_executable(blossom_vi main.cpp
         TesterWeighted.cpp
         Heap.h
         VzhuhSolver.cpp
-        VzhuhSolver.h)
+        VzhuhSolver.h
+        PairingHeap.h)

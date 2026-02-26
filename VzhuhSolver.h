@@ -4,9 +4,10 @@
 #include <memory>
 #include <queue>
 #include <deque>
+#include <iostream>
 #include <stack>
 
-#include "Heap.h"
+#include "PairingHeap.h"
 
 struct SolverParameters {
     bool compute_dual_certificate = false;
@@ -33,7 +34,11 @@ class VzhuhSolver {
 
     private:
         struct Edge {
-            Heap<int>::Handle *handle;
+            PairingHeap<Edge> *heap;
+            Edge *heap_child;
+            Edge *heap_next;
+            Edge *heap_prev;
+            const int index;
             int queue_index;
             int weight;
             int slack_quadrupled_amortized_;
@@ -46,15 +51,21 @@ class VzhuhSolver {
             bool maybe_has_zero_slack;
             bool must_be_updated;
             bool maybe_was_loop;
-            Edge(int head_, int tail_, int weight_);
+            Edge(int head_, int tail_, int weight_, int index_);
+            int Key() const;
         };
 
         struct Node {
-            Heap<int>::Handle *handle;
+            PairingHeap<Node> *heap;
+            Node *heap_child;
+            Node *heap_next;
+            Node *heap_prev;
+
             std::vector<int> blossom_children;
-            std::vector<int> neighbors;   // TODO make sure we don't use too much memory
+            std::vector<int> neighbors; // TODO make sure we don't use too much memory
             std::vector<int> zero_slack_neighbors;
 
+            int index;
             int blossom_parent;
             int old_blossom_parent;
             int matched_edge;
@@ -74,7 +85,8 @@ class VzhuhSolver {
             bool old_plus;
             bool is_in_record;
 
-            explicit Node(int index);
+            explicit Node(int index_);
+            int Key() const;
         };
 
         struct Tree {
@@ -119,12 +131,13 @@ class VzhuhSolver {
         int aux_counter3;
         int aux_counter4;
 
+        // TODO REALLOCATION
         std::vector<Node> nodes;
         std::vector<Edge> edges;
         std::vector<Tree> trees;
         std::vector<int> alive_trees;
-        std::vector<std::unique_ptr<Heap<int>> > node_heaps;
-        std::vector<std::unique_ptr<Heap<int>> > edge_heaps;
+        std::vector<std::unique_ptr<PairingHeap<Node> > > node_heaps;
+        std::vector<std::unique_ptr<PairingHeap<Edge> > > edge_heaps;
 
         std::vector<std::vector<int> > adj_list;
         // std::vector<std::vector<int> > zero_slack_adj_list;
@@ -138,8 +151,8 @@ class VzhuhSolver {
         // a vector of (quadrupled dual variable, index of the blossom parent or -1)
         // dual_certificate is empty unless params.compute_dual_certificate is true
 
-        void PrintGraph() const ;
-        void PrintNode(int node) const ;
+        void PrintGraph() const;
+        void PrintNode(int node) const;
 
         void GreedyInit();
         void InitializeTrees();
@@ -211,8 +224,8 @@ class VzhuhSolver {
         int Receptacle(int node);
         int DualVariableQuadrupled(int node) const;
         int DualVariableQuadrupled(int node, int tree, bool plus, int blossom_parent) const;
-        std::vector<int>& NonLoopNeighbors(int node);
-        std::vector<int>& NonLoopZeroSlackNeighbors(int node);
+        std::vector<int> &NonLoopNeighbors(int node);
+        std::vector<int> &NonLoopZeroSlackNeighbors(int node);
         std::vector<int> ElementaryBlossomDescendants(int node) const;
 
         int SlackQuadrupled(int edge);

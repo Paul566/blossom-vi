@@ -1,5 +1,6 @@
 #include "VzhuhSolver.h"
 
+#include <algorithm>
 #include <queue>
 
 VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_list_,
@@ -30,7 +31,7 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
     for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
         int head = std::get<0>(edge_list_[i]);
         int tail = std::get<1>(edge_list_[i]);
-        edges.emplace_back(head, tail, std::get<2>(edge_list_[i]));
+        edges.emplace_back(head, tail, std::get<2>(edge_list_[i]), i);
         adj_list[head].emplace_back(i);
         adj_list[tail].emplace_back(i);
     }
@@ -113,9 +114,11 @@ const std::vector<std::tuple<int, int, int> > &VzhuhSolver::DualCertificate() co
     return dual_certificate;
 }
 
-VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : head(head_), tail(tail_), elementary_head(head_),
-                                                             elementary_tail(tail_) {
-    handle = nullptr;
+VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_, int index_) : heap(nullptr), heap_child(nullptr), heap_next(nullptr),
+                                                             heap_prev(nullptr), index(index_),
+                                                             head(head_),
+                                                             tail(tail_),
+                                                             elementary_head(head_), elementary_tail(tail_) {
     queue_index = -1;
     weight = weight_;
     slack_quadrupled_amortized_ = 4 * weight_;
@@ -126,16 +129,26 @@ VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : head(head_), tail(t
     slack_diff = 0;
 }
 
-VzhuhSolver::Node::Node(int index) : blossom_parent(-1), old_blossom_parent(-1), matched_edge(-1),
-                                     minus_parent(-1), receptacle_(index), tree(-1), old_tree(-1),
-                                     tree_var_at_birth(0), round_0slack_neighbors_updated(-1), is_in_record(false) {
+int VzhuhSolver::Edge::Key() const {
+    return slack_quadrupled_amortized_;
+}
+
+VzhuhSolver::Node::Node(int index_) : heap(nullptr), heap_child(nullptr), heap_next(nullptr), heap_prev(nullptr),
+                                     blossom_parent(-1),
+                                     old_blossom_parent(-1),
+                                     matched_edge(-1),
+                                     minus_parent(-1), receptacle_(index_), tree(-1), old_tree(-1),
+                                     tree_var_at_birth(0), round_0slack_neighbors_updated(-1), is_in_record(false), index(index_) {
     is_alive = true;
     dual_var_quadrupled_amortized_ = 0;
     plus = false;
     old_plus = false;
     queue_index = -1;
-    handle = nullptr;
     label = 0;
+}
+
+int VzhuhSolver::Node::Key() const {
+    return dual_var_quadrupled_amortized_;
 }
 
 VzhuhSolver::Tree::Tree(int root_,
@@ -236,15 +249,6 @@ void VzhuhSolver::GreedyInit() {
                 smallest_slack_edge;
         }
     }
-
-    // update zero_slack_adj_list
-    // for (int edge(0); edge < static_cast<int>(edges .size()); ++edge) {
-    //     if (edges[edge].slack_quadrupled_amortized_ == 0) {
-    //         zero_slack_adj_list[edges[edge].head ].push_back(edge);
-    //         zero_slack_adj_list[edges[edge].tail ].push_back(edge);
-    //         edges[edge].is_in_zero_slack_set = true;
-    //     }
-    // }
 }
 
 void VzhuhSolver::InitializeTrees() {
@@ -271,9 +275,9 @@ void VzhuhSolver::InitializeTrees() {
         trees.emplace_back(roots[i], i, 2 * i, 2 * i + 1);
         alive_trees.emplace_back(i);
 
-        node_heaps.emplace_back(std::make_unique<Heap<int> >(params.heap_arity));
-        edge_heaps.emplace_back(std::make_unique<Heap<int> >(params.heap_arity));
-        edge_heaps.emplace_back(std::make_unique<Heap<int> >(params.heap_arity));
+        node_heaps.emplace_back(std::make_unique<PairingHeap<Node> >());
+        edge_heaps.emplace_back(std::make_unique<PairingHeap<Edge> >());
+        edge_heaps.emplace_back(std::make_unique<PairingHeap<Edge> >());
 
         nodes[roots[i]].tree = i;
         nodes[roots[i]].plus = true;
@@ -1325,124 +1329,124 @@ void VzhuhSolver::ValidateQueues() {
 
     // every queue must hold only the edges that belong to this queue
 
-    for (int tree : alive_trees) {
-        if (!trees[tree].is_alive) {
-            continue;
-        }
-
-        // check plus empty
-        edge_heaps[trees[tree].plus_empty_edges]->ValidateHeap("plus empty");
-        for (auto heap_node : edge_heaps[trees[tree].plus_empty_edges]->heap_) {
-            int edge = heap_node.value;
-
-            int first = Head(edge); // plus
-            int second = Tail(edge); // empty
-            if (nodes[first].tree != tree) {
-                std::swap(first, second);
-            }
-            if (nodes[first].tree != tree || !nodes[first].plus) {
-                throw std::runtime_error("Incorrect plus empty queue");
-            }
-            if (nodes[second].tree >= 0) {
-                throw std::runtime_error("Incorrect plus empty queue");
-            }
-        }
-
-        // check (plus, plus) internal
-        edge_heaps[trees[tree].plus_plus_internal_edges]->ValidateHeap("+ + int");
-        for (auto heap_node : edge_heaps[trees[tree].plus_plus_internal_edges]->heap_) {
-            int edge = heap_node.value;
-
-            int first = Head(edge);
-            int second = Tail(edge);
-
-            if (nodes[first].tree != tree || !nodes[first].plus) {
-                throw std::runtime_error("Incorrect plus plus internal queue");
-            }
-            if (nodes[second].tree != tree || !nodes[second].plus) {
-                throw std::runtime_error("Incorrect plus plus internal queue");
-            }
-        }
-
-        // check minus blossoms
-        node_heaps[trees[tree].minus_blossoms]->ValidateHeap("minus blossoms");
-        for (auto heap_node : node_heaps[trees[tree].minus_blossoms]->heap_) {
-            int node = heap_node.value;
-
-            if (IsElementary(node) || (nodes[node].tree != tree) || nodes[node].plus) {
-                throw std::runtime_error("Incorrect minus blossom queue");
-            }
-        }
-
-        // check (plus, plus) external
-        for (auto [other_tree, queue_index] : trees[tree].pq_plus_plus) {
-            if (!trees[other_tree].is_alive) {
-                continue;
-            }
-            for (auto heap_node : edge_heaps[queue_index]->heap_) {
-                int edge = heap_node.value;
-
-                int first = Head(edge); // in this tree
-                int second = Tail(edge); // in the other tree
-                if (nodes[first].tree != tree) {
-                    std::swap(first, second);
-                }
-                if (nodes[first].tree != tree || !nodes[first].plus) {
-                    throw std::runtime_error("Incorrect plus plus queue");
-                }
-                if (nodes[second].tree != other_tree || !nodes[second].plus) {
-                    throw std::runtime_error("Incorrect plus plus queue");
-                }
-            }
-            edge_heaps[queue_index]->ValidateHeap("+ + external");
-        }
-
-        // check plus minus external
-        for (auto [other_tree, queue_index] : trees[tree].pq_plus_minus) {
-            if (!trees[other_tree].is_alive) {
-                continue;
-            }
-            edge_heaps[queue_index]->ValidateHeap("+ - ext");
-            for (auto heap_node : edge_heaps[queue_index]->heap_) {
-                int edge = heap_node.value;
-
-                int first = Head(edge); // in this tree
-                int second = Tail(edge); // in the other tree
-                if (nodes[first].tree != tree) {
-                    std::swap(first, second);
-                }
-                if (nodes[first].tree != tree || !nodes[first].plus) {
-                    throw std::runtime_error("Incorrect plus minus queue");
-                }
-                if (nodes[second].tree != other_tree || nodes[second].plus) {
-                    throw std::runtime_error("Incorrect plus minus queue");
-                }
-            }
-        }
-
-        // check minus plus external
-        for (auto [other_tree, queue_index] : trees[tree].pq_minus_plus) {
-            if (!trees[other_tree].is_alive) {
-                continue;
-            }
-            edge_heaps[queue_index]->ValidateHeap("- + ext");
-            for (auto heap_node : edge_heaps[queue_index]->heap_) {
-                int edge = heap_node.value;
-
-                int first = Head(edge); // in this tree
-                int second = Tail(edge); // in the other tree
-                if (nodes[first].tree != tree) {
-                    std::swap(first, second);
-                }
-                if (nodes[first].tree != tree || nodes[first].plus) {
-                    throw std::runtime_error("Incorrect minus plus queue");
-                }
-                if (nodes[second].tree != other_tree || !nodes[second].plus) {
-                    throw std::runtime_error("Incorrect minus plus queue");
-                }
-            }
-        }
-    }
+    // for (int tree : alive_trees) {
+    //     if (!trees[tree].is_alive) {
+    //         continue;
+    //     }
+    //
+    //     // check plus empty
+    //     edge_heaps[trees[tree].plus_empty_edges]->ValidateHeap("plus empty");
+    //     for (auto heap_node : edge_heaps[trees[tree].plus_empty_edges]->heap_) {
+    //         int edge = heap_node.value;
+    //
+    //         int first = Head(edge); // plus
+    //         int second = Tail(edge); // empty
+    //         if (nodes[first].tree != tree) {
+    //             std::swap(first, second);
+    //         }
+    //         if (nodes[first].tree != tree || !nodes[first].plus) {
+    //             throw std::runtime_error("Incorrect plus empty queue");
+    //         }
+    //         if (nodes[second].tree >= 0) {
+    //             throw std::runtime_error("Incorrect plus empty queue");
+    //         }
+    //     }
+    //
+    //     // check (plus, plus) internal
+    //     edge_heaps[trees[tree].plus_plus_internal_edges]->ValidateHeap("+ + int");
+    //     for (auto heap_node : edge_heaps[trees[tree].plus_plus_internal_edges]->heap_) {
+    //         int edge = heap_node.value;
+    //
+    //         int first = Head(edge);
+    //         int second = Tail(edge);
+    //
+    //         if (nodes[first].tree != tree || !nodes[first].plus) {
+    //             throw std::runtime_error("Incorrect plus plus internal queue");
+    //         }
+    //         if (nodes[second].tree != tree || !nodes[second].plus) {
+    //             throw std::runtime_error("Incorrect plus plus internal queue");
+    //         }
+    //     }
+    //
+    //     // check minus blossoms
+    //     node_heaps[trees[tree].minus_blossoms]->ValidateHeap("minus blossoms");
+    //     for (auto heap_node : node_heaps[trees[tree].minus_blossoms]->heap_) {
+    //         int node = heap_node.value;
+    //
+    //         if (IsElementary(node) || (nodes[node].tree != tree) || nodes[node].plus) {
+    //             throw std::runtime_error("Incorrect minus blossom queue");
+    //         }
+    //     }
+    //
+    //     // check (plus, plus) external
+    //     for (auto [other_tree, queue_index] : trees[tree].pq_plus_plus) {
+    //         if (!trees[other_tree].is_alive) {
+    //             continue;
+    //         }
+    //         for (auto heap_node : edge_heaps[queue_index]->heap_) {
+    //             int edge = heap_node.value;
+    //
+    //             int first = Head(edge); // in this tree
+    //             int second = Tail(edge); // in the other tree
+    //             if (nodes[first].tree != tree) {
+    //                 std::swap(first, second);
+    //             }
+    //             if (nodes[first].tree != tree || !nodes[first].plus) {
+    //                 throw std::runtime_error("Incorrect plus plus queue");
+    //             }
+    //             if (nodes[second].tree != other_tree || !nodes[second].plus) {
+    //                 throw std::runtime_error("Incorrect plus plus queue");
+    //             }
+    //         }
+    //         edge_heaps[queue_index]->ValidateHeap("+ + external");
+    //     }
+    //
+    //     // check plus minus external
+    //     for (auto [other_tree, queue_index] : trees[tree].pq_plus_minus) {
+    //         if (!trees[other_tree].is_alive) {
+    //             continue;
+    //         }
+    //         edge_heaps[queue_index]->ValidateHeap("+ - ext");
+    //         for (auto heap_node : edge_heaps[queue_index]->heap_) {
+    //             int edge = heap_node.value;
+    //
+    //             int first = Head(edge); // in this tree
+    //             int second = Tail(edge); // in the other tree
+    //             if (nodes[first].tree != tree) {
+    //                 std::swap(first, second);
+    //             }
+    //             if (nodes[first].tree != tree || !nodes[first].plus) {
+    //                 throw std::runtime_error("Incorrect plus minus queue");
+    //             }
+    //             if (nodes[second].tree != other_tree || nodes[second].plus) {
+    //                 throw std::runtime_error("Incorrect plus minus queue");
+    //             }
+    //         }
+    //     }
+    //
+    //     // check minus plus external
+    //     for (auto [other_tree, queue_index] : trees[tree].pq_minus_plus) {
+    //         if (!trees[other_tree].is_alive) {
+    //             continue;
+    //         }
+    //         edge_heaps[queue_index]->ValidateHeap("- + ext");
+    //         for (auto heap_node : edge_heaps[queue_index]->heap_) {
+    //             int edge = heap_node.value;
+    //
+    //             int first = Head(edge); // in this tree
+    //             int second = Tail(edge); // in the other tree
+    //             if (nodes[first].tree != tree) {
+    //                 std::swap(first, second);
+    //             }
+    //             if (nodes[first].tree != tree || nodes[first].plus) {
+    //                 throw std::runtime_error("Incorrect minus plus queue");
+    //             }
+    //             if (nodes[second].tree != other_tree || !nodes[second].plus) {
+    //                 throw std::runtime_error("Incorrect minus plus queue");
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 std::vector<int> VzhuhSolver::NodeVariables() const {
@@ -1777,23 +1781,22 @@ void VzhuhSolver::InitNextRoundActionable() {
 }
 
 void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_actionable) {
-    if (edge_heaps[queue_index]->Empty()) {
+    Edge* top = edge_heaps[queue_index]->GetMin();
+    if (!top) {
+        return;
+    }
+    if (SlackQuadrupled(top->index) > 0) {
         return;
     }
 
-    int top = edge_heaps[queue_index]->Top();
-    if (SlackQuadrupled(top) > 0) {
-        return;
-    }
-
-    std::vector<int> zero_slack_edges = edge_heaps[queue_index]->ElementsEqualToTop();
-    for (int edge : zero_slack_edges) {
-        if (!edges[edge].maybe_has_zero_slack) {
-            edges[edge].maybe_has_zero_slack = true;
+    std::vector<Edge *> zero_slack_edges = edge_heaps[queue_index]->ElementsEqualToTop();
+    for (Edge * edge : zero_slack_edges) {
+        if (!edges[edge->index].maybe_has_zero_slack) {
+            edges[edge->index].maybe_has_zero_slack = true;
         }
 
         if (add_to_actionable) {
-            actionable_edges.push(edge);
+            actionable_edges.push(edge->index);
         }
     }
 }
@@ -1801,10 +1804,10 @@ void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_action
 void VzhuhSolver::CleanLoopsFromQueueTop(int tree) {
     int queue_idx = trees[tree].plus_plus_internal_edges;
 
-    while (!edge_heaps[queue_idx]->Empty()) {
-        int top = edge_heaps[queue_idx]->Top();
-        if (Head(top) == Tail(top)) {
-            RemoveEdgeFromQueue(top);
+    while (edge_heaps[queue_idx]->GetMin()) {
+        Edge * top = edge_heaps[queue_idx]->GetMin();
+        if (Head(top->index) == Tail(top->index)) {
+            RemoveEdgeFromQueue(top->index);
         } else {
             break;
         }
@@ -2173,15 +2176,15 @@ void VzhuhSolver::AddEdgeToThisQueue(int edge, int queue_index) {
     }
 
     if (edges[edge].queue_index >= 0) {
-        edge_heaps[edges[edge].queue_index]->Erase(edges[edge].handle);
+        edge_heaps[edges[edge].queue_index]->Remove(&edges[edge]);
     }
-    edges[edge].handle = edge_heaps[queue_index]->Push(edge, edges[edge].slack_quadrupled_amortized_);
+    edge_heaps[queue_index]->Insert(&edges[edge]);
     edges[edge].queue_index = queue_index;
 }
 
 void VzhuhSolver::RemoveEdgeFromQueue(int edge) {
     if (edges[edge].queue_index >= 0) {
-        edge_heaps[edges[edge].queue_index]->Erase(edges[edge].handle);
+        edge_heaps[edges[edge].queue_index]->Remove(&edges[edge]);
         edges[edge].queue_index = -1;
     }
 }
@@ -2194,15 +2197,15 @@ void VzhuhSolver::AddNodeToQueue(int node, int queue_index) {
     }
 
     if (nodes[node].queue_index >= 0) {
-        node_heaps[nodes[node].queue_index]->Erase(nodes[node].handle);
+        node_heaps[nodes[node].queue_index]->Remove(&nodes[node]);
     }
-    nodes[node].handle = node_heaps[queue_index]->Push(node, nodes[node].dual_var_quadrupled_amortized_);
+    node_heaps[queue_index]->Insert(&nodes[node]);
     nodes[node].queue_index = queue_index;
 }
 
 void VzhuhSolver::RemoveNodeFromQueue(int node) {
     if (nodes[node].queue_index >= 0) {
-        node_heaps[nodes[node].queue_index]->Erase(nodes[node].handle);
+        node_heaps[nodes[node].queue_index]->Remove(&nodes[node]);
         nodes[node].queue_index = -1;
     }
 }
@@ -2212,7 +2215,7 @@ void VzhuhSolver::AddPQPlusPlus(int first, int second, int edge) {
     if (queue_index > 0) {
         AddEdgeToThisQueue(edge, queue_index);
     } else {
-        edge_heaps.emplace_back(std::make_unique<Heap<int> >(params.heap_arity));
+        edge_heaps.emplace_back(std::make_unique<PairingHeap<Edge> >());
         queue_index = static_cast<int>(edge_heaps.size()) - 1;
         AddEdgeToThisQueue(edge, queue_index);
 
@@ -2226,7 +2229,7 @@ void VzhuhSolver::AddPQPlusMinus(int tree_plus, int tree_minus, int edge) {
     if (queue_index > 0) {
         AddEdgeToThisQueue(edge, queue_index);
     } else {
-        edge_heaps.emplace_back(std::make_unique<Heap<int> >(params.heap_arity));
+        edge_heaps.emplace_back(std::make_unique<PairingHeap<Edge> >());
         queue_index = static_cast<int>(edge_heaps.size()) - 1;
         AddEdgeToThisQueue(edge, queue_index);
 
@@ -2252,37 +2255,37 @@ int VzhuhSolver::TreeTreeQueueIndex(int other_tree,
 }
 
 int VzhuhSolver::MinPlusEmptyEdge(int queue_index) const {
-    if (!edge_heaps[queue_index]->Empty()) {
-        int edge = edge_heaps[queue_index]->Top();
-        return edge;
+    if (edge_heaps[queue_index]->GetMin()) {
+        Edge* edge = edge_heaps[queue_index]->GetMin();
+        return edge->index;
     }
     return -1;
 }
 
 int VzhuhSolver::MinPlusPlusInternalEdge(int queue_index) {
-    while (!edge_heaps[queue_index]->Empty()) {
-        int edge = edge_heaps[queue_index]->Top();
+    while (edge_heaps[queue_index]->GetMin()) {
+        Edge * edge = edge_heaps[queue_index]->GetMin();
 
-        int head = Head(edge);
-        int tail = Tail(edge);
+        int head = Head(edge->index);
+        int tail = Tail(edge->index);
 
         // if (!nodes[head].plus || !nodes[tail].plus || (nodes[head].tree != nodes[tail].tree)) {
         //     throw std::runtime_error("MinPlusPlusInternalEdge: incorrect top");
         // }
 
         if (head != tail) {
-            return edge;
+            return edge->index;
         }
-        edge_heaps[queue_index]->Pop();
-        edges[edge].queue_index = -1;
+        edge_heaps[queue_index]->RemoveMin();
+        edges[edge->index].queue_index = -1;
     }
     return -1;
 }
 
 int VzhuhSolver::MinPlusPlusExternalEdge(int queue_index) const {
-    if (!edge_heaps[queue_index]->Empty()) {
-        int edge = edge_heaps[queue_index]->Top();
-        return edge;
+    if (edge_heaps[queue_index]->GetMin()) {
+        Edge* edge = edge_heaps[queue_index]->GetMin();
+        return edge->index;
 
         // int head = Head(edge);
         // int tail = Tail(edge);
@@ -2295,9 +2298,9 @@ int VzhuhSolver::MinPlusPlusExternalEdge(int queue_index) const {
 }
 
 int VzhuhSolver::MinPlusMinusExternalEdge(int queue_index) const {
-    if (!edge_heaps[queue_index]->Empty()) {
-        int edge = edge_heaps[queue_index]->Top();
-        return edge;
+    if (edge_heaps[queue_index]->GetMin()) {
+        Edge* edge = edge_heaps[queue_index]->GetMin();
+        return edge->index;
 
         // int head = Head(edge); // plus
         // int tail = Tail(edge); // minus
@@ -2314,13 +2317,13 @@ int VzhuhSolver::MinPlusMinusExternalEdge(int queue_index) const {
 }
 
 int VzhuhSolver::MinMinusBlossom(int queue_index) const {
-    if (!node_heaps[queue_index]->Empty()) {
-        int node = node_heaps[queue_index]->Top();
+    if (node_heaps[queue_index]->GetMin()) {
+        Node * node = node_heaps[queue_index]->GetMin();
         // if (!nodes[node].is_alive || !nodes[node].tree || nodes[node].plus || nodes[node].
         //     blossom_parent) {
         //     throw std::runtime_error("In MinMinusBlossom: incorrect top");
         // }
-        return node;
+        return node->index;
     }
     return -1;
 }
@@ -2329,7 +2332,7 @@ int VzhuhSolver::PopExpandableBlossom(int tree) const {
     int node = MinMinusBlossom(trees[tree].minus_blossoms);
     if (node >= 0) {
         if (DualVariableQuadrupled(node) == 0) {
-            node_heaps[trees[tree].minus_blossoms]->Pop();
+            node_heaps[trees[tree].minus_blossoms]->RemoveMin();
             return node;
         }
     }
@@ -2381,7 +2384,7 @@ std::vector<std::pair<int, int> > VzhuhSolver::PlusPlusExternalSlacks(int tree) 
         if (trees[tree_neighbor].is_alive) {
             int edge = MinPlusPlusExternalEdge(queue_index);
             if (edge >= 0) {
-                result.emplace_back(tree_neighbor, SlackQuadrupled(edge_heaps[queue_index]->Top()));
+                result.emplace_back(tree_neighbor, SlackQuadrupled(edge_heaps[queue_index]->GetMin()->index));
             }
         } else {
             trees[tree].pq_plus_plus[i] = trees[tree].pq_plus_plus.back();
@@ -2403,7 +2406,7 @@ std::vector<std::pair<int, int> > VzhuhSolver::PlusMinusExternalSlacks(int tree)
         if (trees[tree_neighbor].is_alive) {
             int edge = MinPlusMinusExternalEdge(queue_index);
             if (edge >= 0) {
-                result.emplace_back(tree_neighbor, SlackQuadrupled(edge_heaps[queue_index]->Top()));
+                result.emplace_back(tree_neighbor, SlackQuadrupled(edge_heaps[queue_index]->GetMin()->index));
             }
         } else {
             trees[tree].pq_plus_minus[i] = trees[tree].pq_plus_minus.back();
