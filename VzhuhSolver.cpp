@@ -40,6 +40,8 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
 
     aux_counter1 = 0;
     aux_counter2 = 0;
+    aux_counter3 = 0;
+    aux_counter4 = 0;
 }
 
 void VzhuhSolver::FindMinPerfectMatching() {
@@ -54,6 +56,15 @@ void VzhuhSolver::FindMinPerfectMatching() {
         if (params.print_statistics) {
             std::cout << "round " << current_round << std::endl;
             std::cout << "trees left: " << alive_trees.size() << std::endl;
+            std::cout << "sample tree sizes: " << trees[alive_trees[0]].tree_nodes.size() << " " << trees[alive_trees[alive_trees.size() / 2]].tree_nodes.size() << " " << trees[alive_trees.back()].tree_nodes.size() << std::endl;
+
+            int min_children = INT32_MAX;
+            for (const Node & node : nodes) {
+                if (!node.blossom_children.empty() && node.blossom_children.size() < min_children) {
+                    min_children = node.blossom_children.size();
+                }
+            }
+            std::cout << "min num children: " << min_children << std::endl;
         }
 
         ++current_round;
@@ -84,7 +95,7 @@ void VzhuhSolver::FindMinPerfectMatching() {
     ComputeMatching();
     ComputePrimalObjective();
 
-    // std::cout << primal_objective << std::endl;
+    // std::cout << aux_counter1 << " " << aux_counter2 << " " << aux_counter3 << " " << aux_counter4 << std::endl;
 
     if (params.verbose) {
         std::cout << "Primal objective:\t" << primal_objective << std::endl;
@@ -587,6 +598,8 @@ void VzhuhSolver::MakePrimalUpdateForNode(int node, PrimalUpdateRecord *record) 
 }
 
 void VzhuhSolver::Expand(int blossom, PrimalUpdateRecord *record) {
+    ++aux_counter2;
+
     if (params.verbose) {
         std::cout << "EXPAND " << blossom << std::endl;
     }
@@ -834,6 +847,8 @@ std::vector<int> VzhuhSolver::OddPathToReceptacle(int node) {
 }
 
 void VzhuhSolver::ExpandChildBeforeGrow(int blossom, PrimalUpdateRecord *record) {
+    ++aux_counter2;
+
     if (nodes[blossom].old_blossom_parent >= 0) {
         // avoid two-level expansion
         return;
@@ -866,6 +881,8 @@ void VzhuhSolver::ExpandChildBeforeGrow(int blossom, PrimalUpdateRecord *record)
 }
 
 void VzhuhSolver::Grow(int parent, int edge, PrimalUpdateRecord *record) {
+    ++aux_counter1;
+
     int child = OtherEnd(edge, parent);
     int tree = nodes[parent].tree;
 
@@ -911,7 +928,7 @@ void VzhuhSolver::Grow(int parent, int edge, PrimalUpdateRecord *record) {
 
     AddNodeToRecord(child, record);
     AddNodeToRecord(grandchild, record);
-    
+
     trees[tree].tree_nodes.push_back(child);
     trees[tree].tree_nodes.push_back(grandchild);
 
@@ -1262,6 +1279,8 @@ std::vector<std::vector<int> > VzhuhSolver::OrganizeBlossomChildren(const Primal
 }
 
 void VzhuhSolver::Shrink(std::vector<int> &children) {
+    ++aux_counter3;
+
     if (params.verbose) {
         std::cout << "SHRINK ";
         for (int node : children) {
@@ -2147,6 +2166,8 @@ void VzhuhSolver::AddEdgeToQueue(int edge) {
 }
 
 void VzhuhSolver::AddEdgeToThisQueue(int edge, int queue_index) {
+    ++aux_counter4;
+
     if (edges[edge].queue_index == queue_index) {
         return;
     }
@@ -2166,6 +2187,8 @@ void VzhuhSolver::RemoveEdgeFromQueue(int edge) {
 }
 
 void VzhuhSolver::AddNodeToQueue(int node, int queue_index) {
+    ++aux_counter4;
+
     if (nodes[node].queue_index == queue_index) {
         return;
     }
@@ -2352,9 +2375,6 @@ int VzhuhSolver::MinMinusBlossomVariable(int tree) const {
 std::vector<std::pair<int, int> > VzhuhSolver::PlusPlusExternalSlacks(int tree) {
     std::vector<std::pair<int, int> > result;
     result.reserve(trees[tree].pq_plus_plus.size());
-
-    if (params.verbose) {
-    }
 
     for (int i = 0; i < static_cast<int>(trees[tree].pq_plus_plus.size()); ++i) {
         auto [tree_neighbor, queue_index] = trees[tree].pq_plus_plus[i];

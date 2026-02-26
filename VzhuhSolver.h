@@ -4,6 +4,7 @@
 #include <memory>
 #include <queue>
 #include <deque>
+#include <stack>
 
 #include "Heap.h"
 
@@ -115,6 +116,8 @@ class VzhuhSolver {
         int current_round;
         int aux_counter1;
         int aux_counter2;
+        int aux_counter3;
+        int aux_counter4;
 
         std::vector<Node> nodes;
         std::vector<Edge> edges;

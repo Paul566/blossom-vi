@@ -169,7 +169,7 @@ void TesterWeighted::MeasureInstance(const std::string &filename,
     std::vector<double> runtimes;
     std::vector<double> init_times;
 
-    std::cout << "runtimes:\t\t\t\t\t" << std::flush;
+    // std::cout << "runtimes:\t\t\t\t\t" << std::flush;
     double total_time = 0.;
     int real_iters = 0;
     for (int i = 0; i < num_iter; ++i) {
@@ -187,13 +187,13 @@ void TesterWeighted::MeasureInstance(const std::string &filename,
         total_time += runtime;
         ++real_iters;
 
-        std::cout << runtime << "\t" << std::flush;
+        // std::cout << runtime << "\t" << std::flush;
         if (total_time > max_time_per_instance) {
             break;
         }
     }
 
-    std::cout << "\naverage runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / real_iters <<
+    std::cout << "average runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / real_iters <<
         std::endl;
     std::cout << std::endl;
 }

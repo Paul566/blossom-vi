@@ -39,9 +39,9 @@ class Heap {
         }
 
         const T &Top() {
-            if (heap_.empty()) {
-                throw std::runtime_error("heap is empty");
-            }
+            // if (heap_.empty()) {
+            //     throw std::runtime_error("heap is empty");
+            // }
             return heap_[0].value;
         }
 
