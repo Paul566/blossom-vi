@@ -52,38 +52,6 @@ class PairingHeap {
             node->heap_child = nullptr;
         }
 
-        std::vector<Obj *> ElementsEqualToTop() {
-            Obj *cur_root = root;
-            RemoveMin();
-            Insert(cur_root);
-
-            std::vector<Obj *> result;
-
-            if (!root) {
-                return result;
-            }
-
-            int min_key = root->Key();
-
-            std::vector<Obj *> stack;
-            stack.push_back(root);
-
-            while (!stack.empty()) {
-                Obj *node = stack.back();
-                stack.pop_back();
-
-                result.push_back(node);
-
-                for (Obj *child = node->heap_child; child; child = child->heap_next) {
-                    if (child->Key() == min_key) {
-                        stack.push_back(child);
-                    }
-                }
-            }
-
-            return result;
-        }
-
     private:
         Obj *root = nullptr;
 

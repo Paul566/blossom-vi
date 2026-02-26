@@ -131,10 +131,9 @@ class VzhuhSolver {
         int aux_counter3;
         int aux_counter4;
 
-        // TODO REALLOCATION
-        std::vector<Node> nodes;
-        std::vector<Edge> edges;
-        std::vector<Tree> trees;
+        std::vector<std::unique_ptr<Node>> nodes;
+        std::vector<std::unique_ptr<Edge>> edges;
+        std::vector<std::unique_ptr<Tree>> trees;
         std::vector<int> alive_trees;
         std::vector<std::unique_ptr<PairingHeap<Node> > > node_heaps;
         std::vector<std::unique_ptr<PairingHeap<Edge> > > edge_heaps;
