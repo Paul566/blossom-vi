@@ -251,11 +251,7 @@ class VzhuhSolver {
         void AddPQPlusMinus(int tree_plus, int tree_minus, int edge);
         int TreeTreeQueueIndex(int other_tree, std::vector<std::pair<int, int> > *tree_neighbors) const;
 
-        int MinPlusEmptyEdge(int queue_index) const;
         int MinPlusPlusInternalEdge(int queue_index);
-        int MinPlusPlusExternalEdge(int queue_index) const;
-        int MinPlusMinusExternalEdge(int queue_index) const;
-        int MinMinusBlossom(int queue_index) const;
         int PopExpandableBlossom(int tree);
         int PlusEmptySlack(int tree);
         int PlusPlusInternalSlack(int tree);

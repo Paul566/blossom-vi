@@ -118,12 +118,12 @@ const std::vector<std::tuple<int, int, int> > &VzhuhSolver::DualCertificate() co
 }
 
 VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : queue_index(-1), heap_child(-1),
-                                                                         heap_next(-1),
-                                                                         heap_prev(-1),
-                                                                         head(head_),
-                                                                         tail(tail_),
-                                                                         elementary_head(head_),
-                                                                         elementary_tail(tail_) {
+                                                             heap_next(-1),
+                                                             heap_prev(-1),
+                                                             head(head_),
+                                                             tail(tail_),
+                                                             elementary_head(head_),
+                                                             elementary_tail(tail_) {
     weight = weight_;
     slack_quadrupled_amortized_ = 4 * weight_;
     matched = false;
@@ -594,10 +594,13 @@ void VzhuhSolver::MakePrimalUpdateForNode(int node, PrimalUpdateRecord *record) 
         return;
     }
 
+    // int tree_var = trees[nodes[node].tree].dual_var_quadrupled;
     for (int edge : NonLoopNeighbors(node)) {
         if (edges[edge].maybe_has_zero_slack) {
             if (OldSlackQuadrupled(edge) == 0) {
                 MakePrimalUpdate(edge, record);
+            } else {
+                edges[edge].maybe_has_zero_slack = false;
             }
         }
     }
@@ -1575,26 +1578,6 @@ void VzhuhSolver::UpdateAliveTreesList() {
 std::vector<int> VzhuhSolver::VariableDeltas() {
     DualConstraints dual_constraints = GetDualConstraints();
 
-    // for (auto b : dual_constraints.upper_bound) {
-    //     if (b < 0) {
-    //         throw std::runtime_error("b < 0");
-    //     }
-    // }
-    // for (auto c : dual_constraints->plus_plus_constraints) {
-    //     for (auto [ind, sl] : c) {
-    //         if (sl < 0) {
-    //             throw std::runtime_error("constraint plus plus < 0");
-    //         }
-    //     }
-    // }
-    // for (auto c : dual_constraints->plus_minus_constraints) {
-    //     for (auto [ind, sl] : c) {
-    //         if (sl < 0) {
-    //             throw std::runtime_error("constraint plus minus < 0");
-    //         }
-    //     }
-    // }
-
     std::vector<std::vector<int> > connected_components = ConnectedComponentsTreeTree(dual_constraints);
     if (params.verbose) {
         std::cout << "num of connected_components : " << connected_components.size() << std::endl;
@@ -1703,63 +1686,40 @@ std::vector<std::vector<int> > VzhuhSolver::ConnectedComponentsTreeTree(const Du
 }
 
 VzhuhSolver::DualConstraints VzhuhSolver::GetDualConstraints() {
-    // get upper_bound
-    std::vector<int> upper_bound(alive_trees.size(), INT32_MAX);
-    for (int i = 0; i < static_cast<int>(alive_trees.size()); ++i) {
-        int tree = alive_trees[i];
-
-        int plus_empty = PlusEmptySlack(tree);
-        int plus_plus_internal = PlusPlusInternalSlack(tree);
-        int blossom_var = MinMinusBlossomVariable(tree);
-
-        // if (plus_empty < 0) {
-        //     throw std::runtime_error("In VariableDeltas: plus_empty is negative");
-        // }
-        // if (plus_plus_internal < 0) {
-        //     throw std::runtime_error("In VariableDeltas: plus_plus_internal is not positive");
-        // }
-        // if (blossom_var < 0) {
-        //     throw std::runtime_error("In VariableDeltas: blossom_var is not positive");
-        // }
-        // if (plus_plus_internal < INT32_MAX && plus_plus_internal % 2 != 0) {
-        //     throw std::runtime_error("PlusPlusInternalSlack is not divisible by 2");
-        // }
-
-        if (plus_empty < upper_bound[i]) {
-            upper_bound[i] = plus_empty;
-        }
-        if (plus_plus_internal / 2 < upper_bound[i]) {
-            upper_bound[i] = plus_plus_internal / 2;
-        }
-        if (blossom_var < upper_bound[i]) {
-            upper_bound[i] = blossom_var;
-        }
-    }
+    DualConstraints result(std::vector<int>(alive_trees.size(), INT32_MAX),
+                           std::vector(alive_trees.size(), std::vector<std::pair<int, int> >()),
+                           std::vector(alive_trees.size(), std::vector<std::pair<int, int> >()));
 
     // update alive indices
     for (int i = 0; i < static_cast<int>(alive_trees.size()); ++i) {
         trees[alive_trees[i]].alive_index = i;
     }
 
-    // get plus_plus_constraints and plus_minus_constraints
-    std::vector plus_plus_constraints(alive_trees.size(), std::vector<std::pair<int, int> >());
-    std::vector plus_minus_constraints(alive_trees.size(), std::vector<std::pair<int, int> >());
     for (int i = 0; i < static_cast<int>(alive_trees.size()); ++i) {
         int tree = alive_trees[i];
 
-        std::vector<std::pair<int, int> > plus_plus_slacks = PlusPlusExternalSlacks(tree);
-        std::vector<std::pair<int, int> > plus_minus_slacks = PlusMinusExternalSlacks(tree);
-        for (auto [other_tree, slack] : plus_plus_slacks) {
-            plus_plus_constraints[i].emplace_back(trees[other_tree].alive_index, slack);
+        // get upper_bound
+        int plus_empty = PlusEmptySlack(tree);
+        int plus_plus_internal = PlusPlusInternalSlack(tree);
+        int blossom_var = MinMinusBlossomVariable(tree);
+
+        if (plus_empty < result.upper_bound[i]) {
+            result.upper_bound[i] = plus_empty;
         }
-        for (auto [other_tree, slack] : plus_minus_slacks) {
-            plus_minus_constraints[i].emplace_back(trees[other_tree].alive_index, slack);
+        if (plus_plus_internal / 2 < result.upper_bound[i]) {
+            result.upper_bound[i] = plus_plus_internal / 2;
         }
+        if (blossom_var < result.upper_bound[i]) {
+            result.upper_bound[i] = blossom_var;
+        }
+
+        // get plus_plus_constraints and plus_minus_constraints
+
+        result.plus_plus_constraints[i] = PlusPlusExternalSlacks(tree);
+        result.plus_minus_constraints[i] = PlusMinusExternalSlacks(tree);
     }
 
-    return std::move(DualConstraints{
-        std::move(upper_bound), std::move(plus_plus_constraints), std::move(plus_minus_constraints)
-    });
+    return result;
 }
 
 void VzhuhSolver::InitNextRoundActionable() {
@@ -2277,10 +2237,6 @@ int VzhuhSolver::TreeTreeQueueIndex(int other_tree,
     return -1;
 }
 
-int VzhuhSolver::MinPlusEmptyEdge(int queue_index) const {
-    return GetMinEdgeHeap(queue_index);
-}
-
 int VzhuhSolver::MinPlusPlusInternalEdge(int queue_index) {
     while (GetMinEdgeHeap(queue_index) >= 0) {
         int edge = GetMinEdgeHeap(queue_index);
@@ -2288,7 +2244,7 @@ int VzhuhSolver::MinPlusPlusInternalEdge(int queue_index) {
         int head = Head(edge);
         int tail = Tail(edge);
 
-
+        // TODO maybe add IsLoop(int edge) function
         if (head != tail) {
             return edge;
         }
@@ -2298,22 +2254,10 @@ int VzhuhSolver::MinPlusPlusInternalEdge(int queue_index) {
     return -1;
 }
 
-int VzhuhSolver::MinPlusPlusExternalEdge(int queue_index) const {
-    return GetMinEdgeHeap(queue_index);
-}
-
-int VzhuhSolver::MinPlusMinusExternalEdge(int queue_index) const {
-    return GetMinEdgeHeap(queue_index);
-}
-
-int VzhuhSolver::MinMinusBlossom(int queue_index) const {
-    return GetMinNodeHeap(queue_index);
-}
-
 int VzhuhSolver::PopExpandableBlossom(int tree) {
-    int node = MinMinusBlossom(trees[tree].minus_blossoms);
+    int node = GetMinNodeHeap(trees[tree].minus_blossoms);
     if (node >= 0) {
-        if (DualVariableQuadrupled(node) == 0) {
+        if (nodes[node].dual_var_quadrupled_amortized_ - trees[tree].dual_var_quadrupled == 0) {
             RemoveMinNodeHeap(trees[tree].minus_blossoms);
             return node;
         }
@@ -2322,21 +2266,9 @@ int VzhuhSolver::PopExpandableBlossom(int tree) {
 }
 
 int VzhuhSolver::PlusEmptySlack(int tree) {
-    int edge = MinPlusEmptyEdge(trees[tree].plus_empty_edges);
+    int edge = GetMinEdgeHeap(trees[tree].plus_empty_edges);
     if (edge >= 0) {
-        int slack = SlackQuadrupled(edge);
-        // if (slack < 0) {
-        //     int head = Head(edge);
-        //     int tail = Tail(edge);
-        //
-        //     std::cout << "head: " << head << " plus: " << nodes[head].plus << " tree: " << nodes[head].tree <<
-        //         std::endl;
-        //     std::cout << "tail: " << tail << " plus: " << nodes[tail].plus << " tree: " << nodes[tail].tree <<
-        //         std::endl;
-        //
-        //     throw std::runtime_error("PlusEmptySlack: negative slack");
-        // }
-        return slack;
+        return edges[edge].slack_quadrupled_amortized_ - trees[tree].dual_var_quadrupled;
     }
     return INT32_MAX;
 }
@@ -2344,15 +2276,15 @@ int VzhuhSolver::PlusEmptySlack(int tree) {
 int VzhuhSolver::PlusPlusInternalSlack(int tree) {
     int edge = MinPlusPlusInternalEdge(trees[tree].plus_plus_internal_edges);
     if (edge >= 0) {
-        return SlackQuadrupled(edge);
+        return edges[edge].slack_quadrupled_amortized_ - 2 * trees[tree].dual_var_quadrupled;
     }
     return INT32_MAX;
 }
 
 int VzhuhSolver::MinMinusBlossomVariable(int tree) const {
-    int node = MinMinusBlossom(trees[tree].minus_blossoms);
+    int node = GetMinNodeHeap(trees[tree].minus_blossoms);
     if (node >= 0) {
-        return DualVariableQuadrupled(node);
+        return nodes[node].dual_var_quadrupled_amortized_ - trees[tree].dual_var_quadrupled;
     }
     return INT32_MAX;
 }
@@ -2361,12 +2293,15 @@ std::vector<std::pair<int, int> > VzhuhSolver::PlusPlusExternalSlacks(int tree) 
     std::vector<std::pair<int, int> > result;
     result.reserve(trees[tree].pq_plus_plus.size());
 
+    int tree_var = trees[tree].dual_var_quadrupled;
     for (int i = 0; i < static_cast<int>(trees[tree].pq_plus_plus.size()); ++i) {
         auto [tree_neighbor, queue_index] = trees[tree].pq_plus_plus[i];
         if (trees[tree_neighbor].is_alive) {
-            int edge = MinPlusPlusExternalEdge(queue_index);
+            int edge = GetMinEdgeHeap(queue_index);
             if (edge >= 0) {
-                result.emplace_back(tree_neighbor, SlackQuadrupled(GetMinEdgeHeap(queue_index)));
+                result.emplace_back(trees[tree_neighbor].alive_index,
+                                    edges[edge].slack_quadrupled_amortized_ - tree_var - trees[tree_neighbor].
+                                    dual_var_quadrupled);
             }
         } else {
             trees[tree].pq_plus_plus[i] = trees[tree].pq_plus_plus.back();
@@ -2378,17 +2313,20 @@ std::vector<std::pair<int, int> > VzhuhSolver::PlusPlusExternalSlacks(int tree) 
 }
 
 std::vector<std::pair<int, int> > VzhuhSolver::PlusMinusExternalSlacks(int tree) {
-    // TODO avoid code duplication
+    // TODO avoid code duplication?
 
     std::vector<std::pair<int, int> > result;
     result.reserve(trees[tree].pq_plus_minus.size());
 
+    int tree_var = trees[tree].dual_var_quadrupled;
     for (int i = 0; i < static_cast<int>(trees[tree].pq_plus_minus.size()); ++i) {
         auto [tree_neighbor, queue_index] = trees[tree].pq_plus_minus[i];
         if (trees[tree_neighbor].is_alive) {
-            int edge = MinPlusMinusExternalEdge(queue_index);
+            int edge = GetMinEdgeHeap(queue_index);
             if (edge >= 0) {
-                result.emplace_back(tree_neighbor, SlackQuadrupled(GetMinEdgeHeap(queue_index)));
+                result.emplace_back(trees[tree_neighbor].alive_index,
+                                    edges[edge].slack_quadrupled_amortized_ - tree_var + trees[tree_neighbor].
+                                    dual_var_quadrupled);
             }
         } else {
             trees[tree].pq_plus_minus[i] = trees[tree].pq_plus_minus.back();

@@ -7,7 +7,7 @@ int main() {
 	// tester.RunInstances(MatchingPlusGraphGenerator(8, 16, 0, 10), 100000, false);
 	tester.RunInstances(MatchingPlusGraphGenerator(100, 500, -1000, 1000), 1000, false);
 
-	int iterations = 1;
+	int iterations = 10;
 	tester.MeasureBenchmark("../tests-weighted", iterations, 20);
 
 	// tester.MeasureInstance("../tests-weighted/delaunay-100000-299968", 10, 20, false);
