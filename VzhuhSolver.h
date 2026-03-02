@@ -7,8 +7,6 @@
 #include <iostream>
 #include <stack>
 
-#include "PairingHeap.h"
-
 struct SolverParameters {
     bool compute_dual_certificate = false;
     bool verbose = false;
@@ -34,12 +32,12 @@ class VzhuhSolver {
 
     private:
         struct Edge {
-            PairingHeap<Edge> *heap;
-            Edge *heap_child;
-            Edge *heap_next;
-            Edge *heap_prev;
-            const int index;
             int queue_index;
+            int heap_child;
+            int heap_next;
+            int heap_prev;
+
+            const int index;
             int weight;
             int slack_quadrupled_amortized_;
             int slack_diff;
@@ -56,10 +54,10 @@ class VzhuhSolver {
         };
 
         struct Node {
-            PairingHeap<Node> *heap;
-            Node *heap_child;
-            Node *heap_next;
-            Node *heap_prev;
+            int queue_index;
+            int heap_child;
+            int heap_next;
+            int heap_prev;
 
             std::vector<int> blossom_children;
             std::vector<int> neighbors; // TODO make sure we don't use too much memory
@@ -74,7 +72,6 @@ class VzhuhSolver {
             int tree;
             int old_tree;
 
-            int queue_index;
             int dual_var_quadrupled_amortized_;
             int tree_var_at_birth;
             int label;
@@ -101,13 +98,20 @@ class VzhuhSolver {
             int alive_index;
 
             // indices of the heaps
-            const int minus_blossoms;
-            const int plus_empty_edges;
-            const int plus_plus_internal_edges;
+            int minus_blossoms;
+            int plus_empty_edges;
+            int plus_plus_internal_edges;
 
             bool is_alive;
 
             Tree(int root_, int minus_blossoms_, int plus_empty_edges_, int plus_plus_internal_edges_);
+        };
+
+        struct EdgeHeap {
+            int root = -1;
+        };
+        struct NodeHeap {
+            int root = -1;
         };
 
         struct DualConstraints {
@@ -131,12 +135,12 @@ class VzhuhSolver {
         int aux_counter3;
         int aux_counter4;
 
-        std::vector<std::unique_ptr<Node>> nodes;
-        std::vector<std::unique_ptr<Edge>> edges;
-        std::vector<std::unique_ptr<Tree>> trees;
+        std::vector<Node> nodes;
+        std::vector<Edge> edges;
+        std::vector<Tree> trees;
         std::vector<int> alive_trees;
-        std::vector<std::unique_ptr<PairingHeap<Node> > > node_heaps;
-        std::vector<std::unique_ptr<PairingHeap<Edge> > > edge_heaps;
+        std::vector<EdgeHeap> edge_heaps;
+        std::vector<NodeHeap> node_heaps;
 
         std::vector<std::vector<int> > adj_list;
         // std::vector<std::vector<int> > zero_slack_adj_list;
@@ -252,7 +256,7 @@ class VzhuhSolver {
         int MinPlusPlusExternalEdge(int queue_index) const;
         int MinPlusMinusExternalEdge(int queue_index) const;
         int MinMinusBlossom(int queue_index) const;
-        int PopExpandableBlossom(int tree) const;
+        int PopExpandableBlossom(int tree);
         int PlusEmptySlack(int tree);
         int PlusPlusInternalSlack(int tree);
         int MinMinusBlossomVariable(int tree) const;
@@ -262,6 +266,22 @@ class VzhuhSolver {
         void AddNodeToRecord(int node, PrimalUpdateRecord *record);
 
         static int InitNumVertices(const std::vector<std::tuple<int, int, int> > &edge_list_);
+
+        int GetMinEdgeHeap(int heap_index) const;
+        void InsertEdgeHeap(int edge, int heap_index);
+        void RemoveMinEdgeHeap(int heap_index);
+        void RemoveEdgeHeap(int edge);
+        int MeldEdgeHeap(int edge_a, int edge_b);
+        int TwoPassMergeEdgeHeap(int edge_first);
+        void CutEdgeHeap(int edge);
+        // TODO avoid duplication
+        int GetMinNodeHeap(int heap_index) const;
+        void InsertNodeHeap(int node, int heap_index);
+        void RemoveMinNodeHeap(int heap_index);
+        void RemoveNodeHeap(int node);
+        int MeldNodeHeap(int node_a, int node_b);
+        int TwoPassMergeNodeHeap(int node_first);
+        void CutNodeHeap(int node);
 };
 
 #endif //BLOSSOM_VI_VZHUHSOLVER_H
