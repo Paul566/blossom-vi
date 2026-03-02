@@ -1728,41 +1728,58 @@ void VzhuhSolver::InitNextRoundActionable() {
             std::cout << "updating zero slack set next to tree " << tree << std::endl;
         }
 
+        int tree_var = trees[tree].dual_var_quadrupled;
         for (auto [other_tree, queue_index] : trees[tree].pq_plus_plus) {
             if (tree < other_tree) {
-                // to avoid double work
+                int top_edge = GetMinEdgeHeap(queue_index);
+                if (top_edge >= 0) {
+                    if (edges[top_edge].slack_quadrupled_amortized_ - tree_var - trees[other_tree].dual_var_quadrupled == 0) {
+                        AddZeroSlackEdgesFromQueue(queue_index, true);
+                    }
+                }
+            }
+        }
+        for (auto [other_tree, queue_index] : trees[tree].pq_plus_minus) {
+            int top_edge = GetMinEdgeHeap(queue_index);
+            if (top_edge >= 0) {
+                if (edges[top_edge].slack_quadrupled_amortized_ - tree_var + trees[other_tree].dual_var_quadrupled == 0) {
+                    AddZeroSlackEdgesFromQueue(queue_index, false);
+                }
+            }
+        }
+
+        int queue_index = trees[tree].plus_empty_edges;
+        int top_edge = GetMinEdgeHeap(queue_index);
+        if (top_edge >= 0) {
+            if (edges[top_edge].slack_quadrupled_amortized_ - tree_var == 0) {
                 AddZeroSlackEdgesFromQueue(queue_index, true);
             }
         }
-        for (auto [_, queue_index] : trees[tree].pq_plus_minus) {
-            AddZeroSlackEdgesFromQueue(queue_index, false);
-        }
-        AddZeroSlackEdgesFromQueue(trees[tree].plus_empty_edges, true);
+
         CleanLoopsFromQueueTop(tree);
-        AddZeroSlackEdgesFromQueue(trees[tree].plus_plus_internal_edges, true);
+        queue_index = trees[tree].plus_plus_internal_edges;
+        top_edge = GetMinEdgeHeap(queue_index);
+        if (top_edge >= 0) {
+            if (edges[top_edge].slack_quadrupled_amortized_ - 2 * tree_var == 0) {
+                AddZeroSlackEdgesFromQueue(queue_index, true);
+            }
+        }
     }
 }
 
 void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_actionable) {
     int top_edge = GetMinEdgeHeap(queue_index);
-    if (top_edge < 0) {
-        return;
-    }
-    if (SlackQuadrupled(top_edge) > 0) {
-        return;
-    }
-
     RemoveMinEdgeHeap(queue_index);
     InsertEdgeHeap(top_edge, queue_index);
 
     int min_key = edges[top_edge].slack_quadrupled_amortized_;
 
-    std::vector<int> stack;
-    stack.push_back(GetMinEdgeHeap(queue_index));
+    std::stack<int> stack;
+    stack.push(GetMinEdgeHeap(queue_index));
 
     while (!stack.empty()) {
-        int edge = stack.back();
-        stack.pop_back();
+        int edge = stack.top();
+        stack.pop();
 
         if (!edges[edge].maybe_has_zero_slack) {
             edges[edge].maybe_has_zero_slack = true;
@@ -1773,7 +1790,7 @@ void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_action
 
         for (int child = edges[edge].heap_child; child >= 0; child = edges[child].heap_next) {
             if (edges[child].slack_quadrupled_amortized_ == min_key) {
-                stack.push_back(child);
+                stack.push(child);
             }
         }
     }
