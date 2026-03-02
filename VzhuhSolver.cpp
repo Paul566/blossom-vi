@@ -31,7 +31,7 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
     for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
         int head = std::get<0>(edge_list_[i]);
         int tail = std::get<1>(edge_list_[i]);
-        edges.emplace_back(Edge(head, tail, std::get<2>(edge_list_[i]), i));
+        edges.emplace_back(Edge(head, tail, std::get<2>(edge_list_[i])));
         adj_list[head].emplace_back(i);
         adj_list[tail].emplace_back(i);
     }
@@ -117,9 +117,9 @@ const std::vector<std::tuple<int, int, int> > &VzhuhSolver::DualCertificate() co
     return dual_certificate;
 }
 
-VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_, int index_) : queue_index(-1), heap_child(-1),
+VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : queue_index(-1), heap_child(-1),
                                                                          heap_next(-1),
-                                                                         heap_prev(-1), index(index_),
+                                                                         heap_prev(-1),
                                                                          head(head_),
                                                                          tail(tail_),
                                                                          elementary_head(head_),
@@ -138,7 +138,6 @@ int VzhuhSolver::Edge::Key() const {
 }
 
 VzhuhSolver::Node::Node(int index_) : queue_index(-1), heap_child(-1), heap_next(-1), heap_prev(-1),
-                                      index(index_),
                                       blossom_parent(-1),
                                       old_blossom_parent(-1),
                                       matched_edge(-1), minus_parent(-1), receptacle_(index_), tree(-1),
@@ -1789,7 +1788,7 @@ void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_action
     if (top_edge < 0) {
         return;
     }
-    if (SlackQuadrupled(edges[top_edge].index) > 0) {
+    if (SlackQuadrupled(top_edge) > 0) {
         return;
     }
 

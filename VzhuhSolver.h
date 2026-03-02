@@ -37,7 +37,7 @@ class VzhuhSolver {
             int heap_next;
             int heap_prev;
 
-            const int index;
+            // const int index;
             int weight;
             int slack_quadrupled_amortized_;
             int slack_diff;
@@ -49,7 +49,7 @@ class VzhuhSolver {
             bool maybe_has_zero_slack;
             bool must_be_updated;
             bool maybe_was_loop;
-            Edge(int head_, int tail_, int weight_, int index_);
+            Edge(int head_, int tail_, int weight_);
             int Key() const;
         };
 
@@ -63,7 +63,7 @@ class VzhuhSolver {
             std::vector<int> neighbors; // TODO make sure we don't use too much memory
             std::vector<int> zero_slack_neighbors;
 
-            int index;
+            // int index;
             int blossom_parent;
             int old_blossom_parent;
             int matched_edge;
