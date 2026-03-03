@@ -1154,13 +1154,20 @@ void VzhuhSolver::UpdateQueuesRecordTraversal() {
         }
 
         // update dual_var_quadrupled_amortized_
-        // TODO make better
-        int old_variable = DualVariableQuadrupled(node,
-                                                  nodes[node].old_tree,
-                                                  nodes[node].old_plus,
-                                                  nodes[node].old_blossom_parent);
-        int new_variable = DualVariableQuadrupled(node);
-        nodes[node].dual_var_quadrupled_amortized_ += (old_variable - new_variable);
+        if (nodes[node].old_tree >= 0 && nodes[node].old_blossom_parent < 0) {
+            if (nodes[node].old_plus) {
+                nodes[node].dual_var_quadrupled_amortized_ += trees[nodes[node].old_tree].dual_var_quadrupled;
+            } else {
+                nodes[node].dual_var_quadrupled_amortized_ -= trees[nodes[node].old_tree].dual_var_quadrupled;
+            }
+        }
+        if (nodes[node].tree >= 0 && nodes[node].blossom_parent < 0) {
+            if (nodes[node].plus) {
+                nodes[node].dual_var_quadrupled_amortized_ -= trees[nodes[node].tree].dual_var_quadrupled;
+            } else {
+                nodes[node].dual_var_quadrupled_amortized_ += trees[nodes[node].tree].dual_var_quadrupled;
+            }
+        }
 
         // update minus_blossoms queues
         if (!IsElementary(node)) {
@@ -2105,16 +2112,14 @@ int VzhuhSolver::OldSlackQuadrupled(int edge) {
 }
 
 int VzhuhSolver::OtherEnd(int edge, int node) {
-    // if (Head(edge) == Tail(edge)) {
-    //     std::cout << Head(edge) << " " << Tail(edge) << std::endl;
-    //     throw std::runtime_error("In OtherEnd: querying for a loop");
-    // }
+    int head = Head(edge);
+    int tail = Tail(edge);
 
-    if (node == Tail(edge)) {
-        return Head(edge);
+    if (node == tail) {
+        return head;
     }
-    if (node == Head(edge)) {
-        return Tail(edge);
+    if (node == head) {
+        return tail;
     }
     throw std::runtime_error("In OtherEnd");
 }
