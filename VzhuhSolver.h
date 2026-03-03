@@ -45,6 +45,7 @@ class VzhuhSolver {
             int tail;
             int elementary_head;
             int elementary_tail;
+            int last_round_updated;
             bool matched;
             bool maybe_has_zero_slack;
             bool must_be_updated;
@@ -75,7 +76,7 @@ class VzhuhSolver {
             int dual_var_quadrupled_amortized_;
             int tree_var_at_birth;
             int label;
-            // int round_0slack_neighbors_updated;
+            int slack_diff;
 
             bool is_alive;
             bool plus;
@@ -138,7 +139,7 @@ class VzhuhSolver {
         std::vector<int> alive_trees;
         std::vector<EdgeHeap> edge_heaps;
         std::vector<NodeHeap> node_heaps;
-        
+
         std::vector<int> primal_update_record;
 
         std::vector<std::vector<int> > adj_list;
@@ -173,10 +174,10 @@ class VzhuhSolver {
         // third phase: shrink the cherry blossoms
         // fourth phase: update the queues
         // TODO make record a field, don't make a new vector every time
-        void MakePrimalUpdate(int edge );
-        void MakePrimalUpdateForNode(int node );
+        void MakePrimalUpdate(int edge);
+        void MakePrimalUpdateForNode(int node);
 
-        void Expand(int blossom );
+        void Expand(int blossom);
         void RestoreEdgeEndsBeforeExpand(int blossom);
         void RotateReceptacle(int blossom, int new_receptacle);
         void UpdateInternalStructure(int blossom,
@@ -185,22 +186,24 @@ class VzhuhSolver {
                                      int elder_child);
         std::vector<int> EvenPathToReceptacle(int node);
         std::vector<int> OddPathToReceptacle(int node);
-        void ExpandChildBeforeGrow(int blossom );
+        void ExpandChildBeforeGrow(int blossom);
 
-        void Grow(int parent, int edge );
+        void Grow(int parent, int edge);
 
-        void MakeCherryBlossom(int edge_plus_plus );
+        void MakeCherryBlossom(int edge_plus_plus);
         std::pair<int, int> CherryPathBounds(int first_vertex, int second_vertex);
-        void UpdateCherryPath(int lower_node, int upper_node );
+        void UpdateCherryPath(int lower_node, int upper_node);
 
-        void Augment(int edge_plus_plus );
+        void Augment(int edge_plus_plus);
         std::vector<int> PathToRoot(int node_plus);
         void AugmentPath(const std::vector<int> &path);
-        void ClearTree(int tree );
+        void ClearTree(int tree);
 
         void UpdateQueues();
         // updates amortized slam and variables, edge_heaps and node_heaps, old_tree, old_plus, old_blossom_parent
+        void UpdateQueuesRecordTraversal();
         void UpdateEdgeSlack(int edge);
+        void UpdateEdgeInfo(int edge, int endpoint, int other_endpoint, int queue_index);
         std::vector<std::vector<int> > OrganizeBlossomChildren();
         void Shrink(std::vector<int> &children);
 
@@ -225,7 +228,6 @@ class VzhuhSolver {
         int DualVariableQuadrupled(int node) const;
         int DualVariableQuadrupled(int node, int tree, bool plus, int blossom_parent) const;
         std::vector<int> &NonLoopNeighbors(int node);
-        // std::vector<int> &NonLoopZeroSlackNeighbors(int node);
         std::vector<int> ElementaryBlossomDescendants(int node) const;
 
         int SlackQuadrupled(int edge);
@@ -256,7 +258,7 @@ class VzhuhSolver {
         std::vector<std::pair<int, int> > PlusPlusExternalSlacks(int tree);
         std::vector<std::pair<int, int> > PlusMinusExternalSlacks(int tree);
 
-        void AddNodeToRecord(int node );
+        void AddNodeToRecord(int node);
 
         static int InitNumVertices(const std::vector<std::tuple<int, int, int> > &edge_list_);
 
