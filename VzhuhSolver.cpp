@@ -141,7 +141,8 @@ VzhuhSolver::Node::Node(int index_) : queue_index(-1), heap_child(-1), heap_next
                                       blossom_parent(-1),
                                       old_blossom_parent(-1),
                                       matched_edge(-1), minus_parent(-1), receptacle_(index_), tree(-1),
-                                      old_tree(-1), tree_var_at_birth(0), round_0slack_neighbors_updated(-1),
+                                      old_tree(-1), tree_var_at_birth(0),
+                                        //round_0slack_neighbors_updated(-1),
                                       is_in_record(false) {
     is_alive = true;
     dual_var_quadrupled_amortized_ = 0;
@@ -594,10 +595,44 @@ void VzhuhSolver::MakePrimalUpdateForNode(int node, PrimalUpdateRecord *record) 
         return;
     }
 
-    // int tree_var = trees[nodes[node].tree].dual_var_quadrupled;
+    int old_top = node;
+    if (nodes[old_top].old_blossom_parent >= 0) {
+        old_top = nodes[old_top].old_blossom_parent;
+    }
+    int delta_slack = 0;
+    if (nodes[old_top].old_tree >= 0) {
+        if (nodes[old_top].old_plus) {
+            delta_slack = - trees[nodes[old_top].old_tree].dual_var_quadrupled;
+        } else {
+            delta_slack = trees[nodes[old_top].old_tree].dual_var_quadrupled;
+        }
+    }
     for (int edge : NonLoopNeighbors(node)) {
         if (edges[edge].maybe_has_zero_slack) {
-            if (OldSlackQuadrupled(edge) == 0) {
+            // compute the old slack to compare it to 0
+            int slack = edges[edge].slack_quadrupled_amortized_;
+
+            int neighbor = OtherEnd(edge, node);
+            if (nodes[neighbor].old_blossom_parent >= 0) {
+                neighbor = nodes[neighbor].old_blossom_parent;
+            }
+
+            if (old_top == neighbor) {
+                // used to be a loop, but the node got expanded
+                slack -= - 2 * nodes[old_top].tree_var_at_birth;
+            } else {
+                slack += delta_slack;
+                if (nodes[neighbor].old_tree >= 0) {
+                    if (nodes[neighbor].old_plus) {
+                        slack -= trees[nodes[neighbor].old_tree].dual_var_quadrupled;
+                    } else {
+                        slack += trees[nodes[neighbor].old_tree].dual_var_quadrupled;
+                    }
+                }
+            }
+
+            if (slack == 0) {
+                // TODO use the information about head/tail that we know here
                 MakePrimalUpdate(edge, record);
             } else {
                 edges[edge].maybe_has_zero_slack = false;
@@ -607,8 +642,6 @@ void VzhuhSolver::MakePrimalUpdateForNode(int node, PrimalUpdateRecord *record) 
 }
 
 void VzhuhSolver::Expand(int blossom, PrimalUpdateRecord *record) {
-    ++aux_counter2;
-
     if (params.verbose) {
         std::cout << "EXPAND " << blossom << std::endl;
     }
@@ -857,8 +890,6 @@ std::vector<int> VzhuhSolver::OddPathToReceptacle(int node) {
 }
 
 void VzhuhSolver::ExpandChildBeforeGrow(int blossom, PrimalUpdateRecord *record) {
-    ++aux_counter2;
-
     if (nodes[blossom].old_blossom_parent >= 0) {
         // avoid two-level expansion
         return;
@@ -891,8 +922,6 @@ void VzhuhSolver::ExpandChildBeforeGrow(int blossom, PrimalUpdateRecord *record)
 }
 
 void VzhuhSolver::Grow(int parent, int edge, PrimalUpdateRecord *record) {
-    ++aux_counter1;
-
     int child = OtherEnd(edge, parent);
     int tree = nodes[parent].tree;
 
@@ -1106,6 +1135,8 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
     // edge_heaps, node_heaps
     // old_plus, old_tree, old_blossom_parent, is_in_record for nodes
 
+    // std::cout << record.changed_sign.size() << " \t";
+
     std::vector<int> edges_to_update;
     int num_edges_to_update = 0;
     for (int node : record.changed_sign) {
@@ -1194,10 +1225,19 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
         }
     }
 
+    // std::cout << edges_to_update.size() << " \t" << edges_to_update.size() * 1. / record.changed_sign.size() << " \t";
+
     // update the edges
+    // int both_ends_in_record = 0;
     for (int edge : edges_to_update) {
         UpdateEdgeSlack(edge);
+
+        // if (nodes[Head(edge)].is_in_record && nodes[Tail(edge)].is_in_record) {
+        //     ++both_ends_in_record;
+        // }
     }
+
+    // std::cout << both_ends_in_record * 1. / edges_to_update.size() << std::endl;
 
     // update old_plus, old_tree, old_blossom_parent
     for (int node : record.changed_sign) {
@@ -1289,8 +1329,6 @@ std::vector<std::vector<int> > VzhuhSolver::OrganizeBlossomChildren(const Primal
 }
 
 void VzhuhSolver::Shrink(std::vector<int> &children) {
-    ++aux_counter3;
-
     if (params.verbose) {
         std::cout << "SHRINK ";
         for (int node : children) {
@@ -1920,27 +1958,19 @@ std::vector<int> &VzhuhSolver::NonLoopNeighbors(int node) {
     return nodes[node].neighbors;
 }
 
-std::vector<int> &VzhuhSolver::NonLoopZeroSlackNeighbors(int node) {
-    ++aux_counter1;
-
-    // if (IsElementary(node)) {
-    //     return zero_slack_adj_list[node ];
-    // }
-
-    if (nodes[node].round_0slack_neighbors_updated == current_round) {
-        return nodes[node].zero_slack_neighbors;
-    }
-
-    ++aux_counter2;
-
-    for (int edge : NonLoopNeighbors(node)) {
-        if (edges[edge].maybe_has_zero_slack) {
-            nodes[node].zero_slack_neighbors.push_back(edge);
-        }
-    }
-
-    return nodes[node].zero_slack_neighbors;
-}
+// std::vector<int> &VzhuhSolver::NonLoopZeroSlackNeighbors(int node) {
+//     if (nodes[node].round_0slack_neighbors_updated == current_round) {
+//         return nodes[node].zero_slack_neighbors;
+//     }
+//
+//     for (int edge : NonLoopNeighbors(node)) {
+//         if (edges[edge].maybe_has_zero_slack) {
+//             nodes[node].zero_slack_neighbors.push_back(edge);
+//         }
+//     }
+//
+//     return nodes[node].zero_slack_neighbors;
+// }
 
 std::vector<int> VzhuhSolver::ElementaryBlossomDescendants(int node) const {
     if (IsElementary(node)) {
@@ -2169,8 +2199,6 @@ void VzhuhSolver::AddEdgeToQueue(int edge) {
 }
 
 void VzhuhSolver::AddEdgeToThisQueue(int edge, int queue_index) {
-    ++aux_counter4;
-
     if (edges[edge].queue_index == queue_index) {
         return;
     }
@@ -2190,8 +2218,6 @@ void VzhuhSolver::RemoveEdgeFromQueue(int edge) {
 }
 
 void VzhuhSolver::AddNodeToQueue(int node, int queue_index) {
-    ++aux_counter4;
-
     if (nodes[node].queue_index == queue_index) {
         return;
     }

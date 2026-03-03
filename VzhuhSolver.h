@@ -61,7 +61,7 @@ class VzhuhSolver {
 
             std::vector<int> blossom_children;
             std::vector<int> neighbors; // TODO make sure we don't use too much memory
-            std::vector<int> zero_slack_neighbors;
+            // std::vector<int> zero_slack_neighbors;
 
             // int index;
             int blossom_parent;
@@ -75,7 +75,7 @@ class VzhuhSolver {
             int dual_var_quadrupled_amortized_;
             int tree_var_at_birth;
             int label;
-            int round_0slack_neighbors_updated;
+            // int round_0slack_neighbors_updated;
 
             bool is_alive;
             bool plus;
@@ -175,6 +175,7 @@ class VzhuhSolver {
         // second phase: grow, make cherry blossoms, augment
         // third phase: shrink the cherry blossoms
         // fourth phase: update the queues
+        // TODO make record a field, don't make a new vector every time
         void MakePrimalUpdate(int edge, PrimalUpdateRecord *record);
         void MakePrimalUpdateForNode(int node, PrimalUpdateRecord *record);
 
@@ -228,7 +229,7 @@ class VzhuhSolver {
         int DualVariableQuadrupled(int node) const;
         int DualVariableQuadrupled(int node, int tree, bool plus, int blossom_parent) const;
         std::vector<int> &NonLoopNeighbors(int node);
-        std::vector<int> &NonLoopZeroSlackNeighbors(int node);
+        // std::vector<int> &NonLoopZeroSlackNeighbors(int node);
         std::vector<int> ElementaryBlossomDescendants(int node) const;
 
         int SlackQuadrupled(int edge);
