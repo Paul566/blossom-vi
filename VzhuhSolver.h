@@ -199,10 +199,8 @@ class VzhuhSolver {
         void AugmentPath(const std::vector<int> &path);
         void ClearTree(int tree);
 
-        void UpdateQueues();
         // updates amortized slam and variables, edge_heaps and node_heaps, old_tree, old_plus, old_blossom_parent
         void UpdateQueuesRecordTraversal();
-        void UpdateEdgeSlack(int edge);
         void UpdateEdgeInfo(int edge, int endpoint, int other_endpoint, int queue_index);
         std::vector<std::vector<int> > OrganizeBlossomChildren();
         void Shrink(std::vector<int> &children);
@@ -241,13 +239,10 @@ class VzhuhSolver {
         void MakeEdgeMatched(int edge);
         void MakeEdgeUnmatched(int edge);
 
-        void AddEdgeToQueue(int edge);
         void AddEdgeToThisQueue(int edge, int queue_index);
         void RemoveEdgeFromQueue(int edge);
         void AddNodeToQueue(int node, int queue_index);
         void RemoveNodeFromQueue(int node);
-        void AddPQPlusPlus(int first, int second, int edge);
-        void AddPQPlusMinus(int tree_plus, int tree_minus, int edge);
         int TreeTreeQueueIndex(int other_tree, std::vector<std::pair<int, int> > *tree_neighbors) const;
 
         int MinPlusPlusInternalEdge(int queue_index);
