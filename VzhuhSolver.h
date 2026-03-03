@@ -37,8 +37,6 @@ class VzhuhSolver {
             int heap_next;
             int heap_prev;
 
-            // const int index;
-            int weight;
             int slack_quadrupled_amortized_;
             int slack_diff;
             int head;
@@ -67,7 +65,6 @@ class VzhuhSolver {
             std::vector<int> blossom_children;
             std::vector<ArcIndex> neighbors; // TODO make sure we don't use too much memory
 
-            int blossom_parent;
             int old_blossom_parent;
             ArcIndex matched_edge;
             ArcIndex minus_parent;
@@ -136,14 +133,17 @@ class VzhuhSolver {
         int nodes_label_cnt; // TODO make int64_t
 
         std::vector<Node> nodes;
+        std::vector<int> blossom_parents;
+
         std::vector<Edge> edges;
+        std::vector<int> edge_weights;
+
         std::vector<Tree> trees;
         std::vector<int> alive_trees;
         std::vector<EdgeHeap> edge_heaps;
         std::vector<NodeHeap> node_heaps;
 
         std::vector<int> primal_update_record;
-
         std::queue<int> actionable_edges;
         std::queue<int> actionable_nodes;
 
