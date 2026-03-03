@@ -36,6 +36,8 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
         adj_list[tail].emplace_back(i);
     }
 
+    primal_update_record.reserve(num_vertices_elementary);
+
     nodes_label_cnt = 1;
     num_trees_alive = INT32_MAX;
 
@@ -466,8 +468,7 @@ void VzhuhSolver::ComputeDualObjectiveQuadrupled() {
 
 bool VzhuhSolver::MakePrimalUpdates() {
     bool action_taken = false;
-    PrimalUpdateRecord record;
-    record.changed_sign.reserve(num_vertices_elementary);
+    primal_update_record.clear();
 
     std::vector<int> variables;
     std::vector<int> slacks;
@@ -480,7 +481,7 @@ bool VzhuhSolver::MakePrimalUpdates() {
     for (int tree : alive_trees) {
         int blossom = PopExpandableBlossom(tree);
         while (blossom >= 0) {
-            Expand(blossom, &record);
+            Expand(blossom );
             blossom = PopExpandableBlossom(tree);
         }
     }
@@ -490,15 +491,15 @@ bool VzhuhSolver::MakePrimalUpdates() {
     while (!actionable_edges.empty()) {
         int edge = actionable_edges.front();
         actionable_edges.pop();
-        MakePrimalUpdate(edge, &record);
+        MakePrimalUpdate(edge );
     }
     while (!actionable_nodes.empty()) {
         int node = actionable_nodes.front();
         actionable_nodes.pop();
-        MakePrimalUpdateForNode(node, &record);
+        MakePrimalUpdateForNode(node );
     }
 
-    if (!record.changed_sign.empty()) {
+    if (!primal_update_record.empty()) {
         action_taken = true;
     }
 
@@ -507,7 +508,7 @@ bool VzhuhSolver::MakePrimalUpdates() {
     }
 
     // update queues and amortized variables phase
-    UpdateQueues(record);
+    UpdateQueues( );
     if (params.debug) {
         ValidateQueues();
     }
@@ -542,7 +543,7 @@ bool VzhuhSolver::MakePrimalUpdates() {
     if (params.verbose) {
         std::cout << "shrinking phase" << std::endl;
     }
-    std::vector<std::vector<int> > future_blossoms = OrganizeBlossomChildren(record);
+    std::vector<std::vector<int> > future_blossoms = OrganizeBlossomChildren( );
     for (std::vector<int> &children : future_blossoms) {
         // if (children.size() > 1) {
         Shrink(children);
@@ -552,7 +553,7 @@ bool VzhuhSolver::MakePrimalUpdates() {
     return action_taken;
 }
 
-void VzhuhSolver::MakePrimalUpdate(int edge, PrimalUpdateRecord *record) {
+void VzhuhSolver::MakePrimalUpdate(int edge ) {
     int parent = Head(edge);
     int child = Tail(edge);
 
@@ -571,26 +572,26 @@ void VzhuhSolver::MakePrimalUpdate(int edge, PrimalUpdateRecord *record) {
 
     if (nodes[parent].tree == nodes[child].tree) {
         if (nodes[parent].plus && nodes[child].plus) {
-            MakeCherryBlossom(edge, record);
+            MakeCherryBlossom(edge );
             return;
         }
     }
 
     if (nodes[child].tree < 0) {
         if (nodes[parent].plus) {
-            Grow(parent, edge, record);
+            Grow(parent, edge );
             return;
         }
     }
 
     if (nodes[parent].tree != nodes[child].tree) {
         if (nodes[parent].plus && nodes[child].plus) {
-            Augment(edge, record);
+            Augment(edge );
         }
     }
 }
 
-void VzhuhSolver::MakePrimalUpdateForNode(int node, PrimalUpdateRecord *record) {
+void VzhuhSolver::MakePrimalUpdateForNode(int node ) {
     if (!nodes[node].plus || !nodes[node].is_alive) {
         return;
     }
@@ -633,7 +634,7 @@ void VzhuhSolver::MakePrimalUpdateForNode(int node, PrimalUpdateRecord *record) 
 
             if (slack == 0) {
                 // TODO use the information about head/tail that we know here
-                MakePrimalUpdate(edge, record);
+                MakePrimalUpdate(edge );
             } else {
                 edges[edge].maybe_has_zero_slack = false;
             }
@@ -641,7 +642,7 @@ void VzhuhSolver::MakePrimalUpdateForNode(int node, PrimalUpdateRecord *record) 
     }
 }
 
-void VzhuhSolver::Expand(int blossom, PrimalUpdateRecord *record) {
+void VzhuhSolver::Expand(int blossom ) {
     if (params.verbose) {
         std::cout << "EXPAND " << blossom << std::endl;
     }
@@ -664,10 +665,10 @@ void VzhuhSolver::Expand(int blossom, PrimalUpdateRecord *record) {
         elder_child = edges[nodes[blossom].minus_parent].tail;
     }
 
-    UpdateInternalStructure(blossom, old_receptacle, new_receptacle, elder_child, record);
+    UpdateInternalStructure(blossom, old_receptacle, new_receptacle, elder_child );
 
     for (int child : nodes[blossom].blossom_children) {
-        AddNodeToRecord(child, record);
+        AddNodeToRecord(child );
         actionable_nodes.push(child);
         if (nodes[child].tree >= 0) {
             trees[nodes[child].tree].tree_nodes.push_back(child);
@@ -779,8 +780,7 @@ void VzhuhSolver::UpdateMatching(int blossom, int new_receptacle) {
 void VzhuhSolver::UpdateInternalStructure(int blossom,
                                           int old_receptacle,
                                           int new_receptacle,
-                                          int elder_child,
-                                          PrimalUpdateRecord *record) {
+                                          int elder_child) {
     // after expand, the remaining part of the blossom is a path in the tree
 
     RotateReceptacle(blossom, new_receptacle);
@@ -809,11 +809,11 @@ void VzhuhSolver::UpdateInternalStructure(int blossom,
     cur_node = elder_child;
     for (int edge : path) {
         nodes[cur_node].label = nodes_label_cnt;
-        AddNodeToRecord(cur_node, record);
+        AddNodeToRecord(cur_node );
         cur_node = OtherEnd(edge, cur_node);
     }
     nodes[new_receptacle].label = nodes_label_cnt;
-    AddNodeToRecord(new_receptacle, record);
+    AddNodeToRecord(new_receptacle );
 
     // clear the part that goes to waste
     for (int child : nodes[blossom].blossom_children) {
@@ -889,7 +889,7 @@ std::vector<int> VzhuhSolver::OddPathToReceptacle(int node) {
     return path;
 }
 
-void VzhuhSolver::ExpandChildBeforeGrow(int blossom, PrimalUpdateRecord *record) {
+void VzhuhSolver::ExpandChildBeforeGrow(int blossom ) {
     if (nodes[blossom].old_blossom_parent >= 0) {
         // avoid two-level expansion
         return;
@@ -914,14 +914,14 @@ void VzhuhSolver::ExpandChildBeforeGrow(int blossom, PrimalUpdateRecord *record)
     }
 
     for (int child : nodes[blossom].blossom_children) {
-        AddNodeToRecord(child, record);
+        AddNodeToRecord(child );
         if (nodes[child].tree >= 0) {
             actionable_nodes.push(child);
         }
     }
 }
 
-void VzhuhSolver::Grow(int parent, int edge, PrimalUpdateRecord *record) {
+void VzhuhSolver::Grow(int parent, int edge ) {
     int child = OtherEnd(edge, parent);
     int tree = nodes[parent].tree;
 
@@ -949,7 +949,7 @@ void VzhuhSolver::Grow(int parent, int edge, PrimalUpdateRecord *record) {
             if (params.verbose) {
                 std::cout << "EXPAND CHILD, new child/grandchild: ";
             }
-            ExpandChildBeforeGrow(child, record);
+            ExpandChildBeforeGrow(child );
             child = OtherEnd(edge, parent);
             grandchild = OtherEnd(nodes[child].matched_edge, child);
             if (params.verbose) {
@@ -965,8 +965,8 @@ void VzhuhSolver::Grow(int parent, int edge, PrimalUpdateRecord *record) {
     nodes[grandchild].tree = tree;
     nodes[grandchild].plus = true;
 
-    AddNodeToRecord(child, record);
-    AddNodeToRecord(grandchild, record);
+    AddNodeToRecord(child );
+    AddNodeToRecord(grandchild );
 
     trees[tree].tree_nodes.push_back(child);
     trees[tree].tree_nodes.push_back(grandchild);
@@ -974,7 +974,7 @@ void VzhuhSolver::Grow(int parent, int edge, PrimalUpdateRecord *record) {
     actionable_nodes.push(grandchild);
 }
 
-void VzhuhSolver::MakeCherryBlossom(int edge_plus_plus, PrimalUpdateRecord *record) {
+void VzhuhSolver::MakeCherryBlossom(int edge_plus_plus ) {
     int head = Head(edge_plus_plus);
     int tail = Tail(edge_plus_plus);
 
@@ -988,8 +988,8 @@ void VzhuhSolver::MakeCherryBlossom(int edge_plus_plus, PrimalUpdateRecord *reco
 
     auto [first_bound, second_bound] = CherryPathBounds(head, tail);
 
-    UpdateCherryPath(head, first_bound, record);
-    UpdateCherryPath(tail, second_bound, record);
+    UpdateCherryPath(head, first_bound );
+    UpdateCherryPath(tail, second_bound );
 
     if (head != first_bound) {
         nodes[head].minus_parent = edge_plus_plus;
@@ -1022,17 +1022,17 @@ std::pair<int, int> VzhuhSolver::CherryPathBounds(int first_vertex,
     return {first_vertex, second_vertex};
 }
 
-void VzhuhSolver::UpdateCherryPath(int lower_node, int upper_node, PrimalUpdateRecord *record) {
+void VzhuhSolver::UpdateCherryPath(int lower_node, int upper_node ) {
     int receptacle = Receptacle(upper_node);
     nodes[Receptacle(upper_node)].receptacle_ = receptacle; // TODO does this line do anything?
 
-    AddNodeToRecord(lower_node, record);
+    AddNodeToRecord(lower_node );
     while (lower_node != upper_node) {
         int parent = OtherEnd(nodes[lower_node].matched_edge, lower_node);
         int grandparent = OtherEnd(nodes[parent].minus_parent, parent);
 
-        AddNodeToRecord(parent, record);
-        AddNodeToRecord(grandparent, record);
+        AddNodeToRecord(parent );
+        AddNodeToRecord(grandparent );
 
         nodes[Receptacle(lower_node)].receptacle_ = receptacle;
         nodes[Receptacle(parent)].receptacle_ = receptacle;
@@ -1050,7 +1050,7 @@ void VzhuhSolver::UpdateCherryPath(int lower_node, int upper_node, PrimalUpdateR
     }
 }
 
-void VzhuhSolver::Augment(int edge_plus_plus, PrimalUpdateRecord *record) {
+void VzhuhSolver::Augment(int edge_plus_plus ) {
     num_trees_alive -= 2;
 
     int head = Head(edge_plus_plus);
@@ -1079,8 +1079,8 @@ void VzhuhSolver::Augment(int edge_plus_plus, PrimalUpdateRecord *record) {
     int first_tree = nodes[head].tree;
     int second_tree = nodes[tail].tree;
     AugmentPath(path);
-    ClearTree(first_tree, record);
-    ClearTree(second_tree, record);
+    ClearTree(first_tree );
+    ClearTree(second_tree );
 }
 
 std::vector<int> VzhuhSolver::PathToRoot(int node_plus) {
@@ -1109,7 +1109,7 @@ void VzhuhSolver::AugmentPath(const std::vector<int> &path) {
     }
 }
 
-void VzhuhSolver::ClearTree(int tree, PrimalUpdateRecord *record) {
+void VzhuhSolver::ClearTree(int tree ) {
     trees[tree].is_alive = false;
 
     // TODO have a special routine for the last two trees
@@ -1122,7 +1122,7 @@ void VzhuhSolver::ClearTree(int tree, PrimalUpdateRecord *record) {
 
         // TODO make better
 
-        AddNodeToRecord(node, record);
+        AddNodeToRecord(node );
         nodes[node].tree = -1;
         nodes[node].minus_parent = -1;
         nodes[node].receptacle_ = node;
@@ -1130,16 +1130,16 @@ void VzhuhSolver::ClearTree(int tree, PrimalUpdateRecord *record) {
     }
 }
 
-void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
+void VzhuhSolver::UpdateQueues() {
     // updates amortized slams and variables,
     // edge_heaps, node_heaps
     // old_plus, old_tree, old_blossom_parent, is_in_record for nodes
 
-    // std::cout << record.changed_sign.size() << " \t";
+    // std::cout << primal_update_record.size() << " \t";
 
     std::vector<int> edges_to_update;
     int num_edges_to_update = 0;
-    for (int node : record.changed_sign) {
+    for (int node : primal_update_record ) {
         if (!nodes[node].is_alive) {
             continue;
         }
@@ -1153,7 +1153,7 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
     }
     edges_to_update.reserve(num_edges_to_update);
 
-    for (int node : record.changed_sign) {
+    for (int node : primal_update_record) {
         if (!nodes[node].is_alive) {
             continue;
         }
@@ -1225,14 +1225,14 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
         }
     }
 
-    // std::cout << edges_to_update.size() << " \t" << edges_to_update.size() * 1. / record.changed_sign.size() << " \t";
+    // std::cout << edges_to_update.size() << " \t" << edges_to_update.size() * 1. / primal_update_record.size() << " \t";
 
     // update the edges
     // int both_ends_in_record = 0;
     for (int edge : edges_to_update) {
         UpdateEdgeSlack(edge);
 
-        // if (nodes[Head(edge)].is_in_record && nodes[Tail(edge)].is_in_record) {
+        // if (nodes[Head(edge)].is_in_record && nodes[Tail(edge)].is_in_ ) {
         //     ++both_ends_in_record;
         // }
     }
@@ -1240,7 +1240,7 @@ void VzhuhSolver::UpdateQueues(const PrimalUpdateRecord &record) {
     // std::cout << both_ends_in_record * 1. / edges_to_update.size() << std::endl;
 
     // update old_plus, old_tree, old_blossom_parent
-    for (int node : record.changed_sign) {
+    for (int node : primal_update_record) {
         nodes[node].old_blossom_parent = nodes[node].blossom_parent;
         nodes[node].old_plus = nodes[node].plus;
         nodes[node].old_tree = nodes[node].tree;
@@ -1268,11 +1268,11 @@ void VzhuhSolver::UpdateEdgeSlack(int edge) {
     }
 }
 
-std::vector<std::vector<int> > VzhuhSolver::OrganizeBlossomChildren(const PrimalUpdateRecord &record) {
+std::vector<std::vector<int> > VzhuhSolver::OrganizeBlossomChildren() {
     ++nodes_label_cnt;
     int label_zero = nodes_label_cnt;
 
-    for (int node : record.changed_sign) {
+    for (int node : primal_update_record) {
         if (nodes[node].tree < 0) {
             continue;
         }
@@ -1294,7 +1294,7 @@ std::vector<std::vector<int> > VzhuhSolver::OrganizeBlossomChildren(const Primal
     std::vector<int> sizes(nodes_label_cnt - label_zero, 0);
     std::vector<int> label_diff_to_index(nodes_label_cnt - label_zero, -1);
 
-    for (int node : record.changed_sign) {
+    for (int node : primal_update_record) {
         if (nodes[node].label < label_zero) {
             continue;
         }
@@ -1316,7 +1316,7 @@ std::vector<std::vector<int> > VzhuhSolver::OrganizeBlossomChildren(const Primal
         }
     }
 
-    for (int node : record.changed_sign) {
+    for (int node : primal_update_record) {
         if (nodes[node].label < label_zero) {
             continue;
         }
@@ -2380,11 +2380,11 @@ std::vector<std::pair<int, int> > VzhuhSolver::PlusMinusExternalSlacks(int tree)
     return result;
 }
 
-void VzhuhSolver::AddNodeToRecord(int node, PrimalUpdateRecord *record) {
+void VzhuhSolver::AddNodeToRecord(int node ) {
     if (nodes[node].is_in_record) {
         return;
     }
-    record->changed_sign.push_back(node);
+    primal_update_record.push_back(node);
     nodes[node].is_in_record = true;
 }
 

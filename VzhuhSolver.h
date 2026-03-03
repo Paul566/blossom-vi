@@ -123,10 +123,6 @@ class VzhuhSolver {
             // (other_tree_index_alive, slack_plus_minus quadrupled)
         };
 
-        struct PrimalUpdateRecord {
-            std::vector<int> changed_sign;
-        };
-
         const int num_vertices_elementary; // the original number of vertices (i.e. not counting blossoms)
         int num_trees_alive;
         int current_round;
@@ -134,6 +130,7 @@ class VzhuhSolver {
         int aux_counter2;
         int aux_counter3;
         int aux_counter4;
+        int nodes_label_cnt; // TODO make int64_t
 
         std::vector<Node> nodes;
         std::vector<Edge> edges;
@@ -141,13 +138,13 @@ class VzhuhSolver {
         std::vector<int> alive_trees;
         std::vector<EdgeHeap> edge_heaps;
         std::vector<NodeHeap> node_heaps;
+        
+        std::vector<int> primal_update_record;
 
         std::vector<std::vector<int> > adj_list;
         // std::vector<std::vector<int> > zero_slack_adj_list;
         std::queue<int> actionable_edges;
         std::queue<int> actionable_nodes;
-
-        int nodes_label_cnt; // TODO make int64_t
 
         std::vector<std::pair<int, int> > matching;
         std::vector<std::tuple<int, int, int> > dual_certificate;
@@ -176,36 +173,35 @@ class VzhuhSolver {
         // third phase: shrink the cherry blossoms
         // fourth phase: update the queues
         // TODO make record a field, don't make a new vector every time
-        void MakePrimalUpdate(int edge, PrimalUpdateRecord *record);
-        void MakePrimalUpdateForNode(int node, PrimalUpdateRecord *record);
+        void MakePrimalUpdate(int edge );
+        void MakePrimalUpdateForNode(int node );
 
-        void Expand(int blossom, PrimalUpdateRecord *record);
+        void Expand(int blossom );
         void RestoreEdgeEndsBeforeExpand(int blossom);
         void RotateReceptacle(int blossom, int new_receptacle);
         void UpdateInternalStructure(int blossom,
                                      int old_receptacle,
                                      int new_receptacle,
-                                     int elder_child,
-                                     PrimalUpdateRecord *record);
+                                     int elder_child);
         std::vector<int> EvenPathToReceptacle(int node);
         std::vector<int> OddPathToReceptacle(int node);
-        void ExpandChildBeforeGrow(int blossom, PrimalUpdateRecord *record);
+        void ExpandChildBeforeGrow(int blossom );
 
-        void Grow(int parent, int edge, PrimalUpdateRecord *record);
+        void Grow(int parent, int edge );
 
-        void MakeCherryBlossom(int edge_plus_plus, PrimalUpdateRecord *record);
+        void MakeCherryBlossom(int edge_plus_plus );
         std::pair<int, int> CherryPathBounds(int first_vertex, int second_vertex);
-        void UpdateCherryPath(int lower_node, int upper_node, PrimalUpdateRecord *record);
+        void UpdateCherryPath(int lower_node, int upper_node );
 
-        void Augment(int edge_plus_plus, PrimalUpdateRecord *record);
+        void Augment(int edge_plus_plus );
         std::vector<int> PathToRoot(int node_plus);
         void AugmentPath(const std::vector<int> &path);
-        void ClearTree(int tree, PrimalUpdateRecord *record);
+        void ClearTree(int tree );
 
-        void UpdateQueues(const PrimalUpdateRecord &record);
+        void UpdateQueues();
         // updates amortized slam and variables, edge_heaps and node_heaps, old_tree, old_plus, old_blossom_parent
         void UpdateEdgeSlack(int edge);
-        std::vector<std::vector<int> > OrganizeBlossomChildren(const PrimalUpdateRecord &record);
+        std::vector<std::vector<int> > OrganizeBlossomChildren();
         void Shrink(std::vector<int> &children);
 
         // for debug:
@@ -260,7 +256,7 @@ class VzhuhSolver {
         std::vector<std::pair<int, int> > PlusPlusExternalSlacks(int tree);
         std::vector<std::pair<int, int> > PlusMinusExternalSlacks(int tree);
 
-        void AddNodeToRecord(int node, PrimalUpdateRecord *record);
+        void AddNodeToRecord(int node );
 
         static int InitNumVertices(const std::vector<std::tuple<int, int, int> > &edge_list_);
 
