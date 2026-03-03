@@ -54,6 +54,10 @@ class VzhuhSolver {
             int Key() const;
         };
 
+        struct ArcIndex {
+            int index = -1;
+        };
+
         struct Node {
             int queue_index;
             int heap_child;
@@ -61,14 +65,12 @@ class VzhuhSolver {
             int heap_prev;
 
             std::vector<int> blossom_children;
-            std::vector<int> neighbors; // TODO make sure we don't use too much memory
-            // std::vector<int> zero_slack_neighbors;
+            std::vector<ArcIndex> neighbors; // TODO make sure we don't use too much memory
 
-            // int index;
             int blossom_parent;
             int old_blossom_parent;
-            int matched_edge;
-            int minus_parent;
+            ArcIndex matched_edge;
+            ArcIndex minus_parent;
             int receptacle_; // by default, a node is its own receptacle
             int tree;
             int old_tree;
@@ -142,8 +144,6 @@ class VzhuhSolver {
 
         std::vector<int> primal_update_record;
 
-        std::vector<std::vector<int> > adj_list;
-        // std::vector<std::vector<int> > zero_slack_adj_list;
         std::queue<int> actionable_edges;
         std::queue<int> actionable_nodes;
 
@@ -184,11 +184,11 @@ class VzhuhSolver {
                                      int old_receptacle,
                                      int new_receptacle,
                                      int elder_child);
-        std::vector<int> EvenPathToReceptacle(int node);
-        std::vector<int> OddPathToReceptacle(int node);
+        std::vector<ArcIndex> EvenPathToReceptacle(int node);
+        std::vector<ArcIndex> OddPathToReceptacle(int node);
         void ExpandChildBeforeGrow(int blossom);
 
-        void Grow(int parent, int edge);
+        void Grow(int parent, ArcIndex arc);
 
         void MakeCherryBlossom(int edge_plus_plus);
         std::pair<int, int> CherryPathBounds(int first_vertex, int second_vertex);
@@ -210,6 +210,7 @@ class VzhuhSolver {
         auto NodeVariables() const -> std::vector<int>;
         std::vector<int> EdgeSlacks();
         void ValidateEvenOddPaths();
+        void ValidateArcs();
 
         bool MakeDualUpdates();
         void UpdateAliveTreesList();
@@ -225,13 +226,15 @@ class VzhuhSolver {
         int Receptacle(int node);
         int DualVariableQuadrupled(int node) const;
         int DualVariableQuadrupled(int node, int tree, bool plus, int blossom_parent) const;
-        std::vector<int> &NonLoopNeighbors(int node);
+        std::vector<ArcIndex> &NonLoopNeighbors(int node);
         std::vector<int> ElementaryBlossomDescendants(int node) const;
 
         int SlackQuadrupled(int edge);
         int OldSlackQuadrupled(int edge);
-        int OtherEnd(int edge, int node);
-        int OtherElementaryEnd(int edge, int node) const;
+        int OtherEnd(ArcIndex arc);
+        int ThisEnd(ArcIndex arc);
+        ArcIndex ReverseArc(ArcIndex arc);
+        int OtherElementaryEnd(ArcIndex arc) const;
         int Head(int edge);
         int Tail(int edge);
         int PlusPlusLCA(int first_vertex, int second_vertex);
