@@ -21,6 +21,9 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
         ++degrees[from];
         ++degrees[to];
     }
+    for (int i = 0; i < num_vertices_elementary; ++i) {
+        nodes[i].neighbors.reserve(degrees[i]);
+    }
     
     edges.reserve(edge_list_.size());
     for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
@@ -2012,9 +2015,12 @@ std::vector<VzhuhSolver::ArcIndex> &VzhuhSolver::NonLoopNeighbors(int node) {
                 nodes_label_cnt) {
                 edges[edge].tail = nodes[edges[edge].tail].blossom_parent;
             }
-            if (nodes[edges[edge].head].label != nodes_label_cnt || nodes[edges[edge].tail].label !=
-                nodes_label_cnt) {
+            if (nodes[edges[edge].head].label != nodes_label_cnt) {
                 nodes[node].neighbors.push_back(arc);
+                edges[edge].tail = node;
+            } else if (nodes[edges[edge].tail].label != nodes_label_cnt) {
+                nodes[node].neighbors.push_back(arc);
+                edges[edge].head = node;
             }
         }
     }
