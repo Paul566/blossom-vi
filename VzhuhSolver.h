@@ -38,14 +38,12 @@ class VzhuhSolver {
             int heap_prev;
 
             int slack_quadrupled_amortized_;
-            int slack_diff;
             int last_round_updated;
             bool matched;
             bool maybe_has_zero_slack;
             bool must_be_updated;
             bool maybe_was_loop;
             Edge(int head_, int tail_, int weight_);
-            int Key() const;
         };
 
         struct ArcIndex {
@@ -79,7 +77,6 @@ class VzhuhSolver {
             bool is_in_record;
 
             explicit Node(int index_);
-            int Key() const;
         };
 
         struct Tree {
@@ -89,7 +86,6 @@ class VzhuhSolver {
 
             std::deque<int> tree_nodes;
 
-            const int root; // elementary node
             int dual_var_quadrupled;
             int alive_index;
 
@@ -143,6 +139,7 @@ class VzhuhSolver {
         std::vector<EdgeHeap> edge_heaps;
         std::vector<int8_t> edge_heap_alive;
         std::vector<NodeHeap> node_heaps;
+        std::vector<int> roots; // elementary node
 
         std::vector<int> primal_update_record;
         std::queue<int> actionable_edges;
@@ -208,7 +205,12 @@ class VzhuhSolver {
         void HandleIncidentPlus(int node);
         void HandleIncidentMinus(int node);
         void UpdateQueuesThirdPass();
-        void UpdateEdgeInfo(int edge, int endpoint, int other_endpoint, int queue_index, bool was_loop, bool check_receptacles);
+        void UpdateEdgeInfo(int edge,
+                            int endpoint,
+                            int other_endpoint,
+                            int queue_index,
+                            bool was_loop,
+                            bool check_receptacles);
         std::vector<std::vector<int> > OrganizeBlossomChildren();
         void Shrink(std::vector<int> &children);
 

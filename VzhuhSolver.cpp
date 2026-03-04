@@ -140,11 +140,6 @@ VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : queue_index(-1), he
     maybe_has_zero_slack = false;
     must_be_updated = false;
     maybe_was_loop = true;
-    slack_diff = 0;
-}
-
-int VzhuhSolver::Edge::Key() const {
-    return slack_quadrupled_amortized_;
 }
 
 VzhuhSolver::Node::Node(int index_) : queue_index(-1), heap_child(-1), heap_next(-1), heap_prev(-1),
@@ -160,20 +155,16 @@ VzhuhSolver::Node::Node(int index_) : queue_index(-1), heap_child(-1), heap_next
     label = 0;
 }
 
-int VzhuhSolver::Node::Key() const {
-    return dual_var_quadrupled_amortized_;
-}
-
 VzhuhSolver::Tree::Tree(int root_,
                         int minus_blossoms_,
                         int plus_empty_edges_,
-                        int plus_plus_internal_edges_) : root(root_), minus_blossoms(minus_blossoms_),
+                        int plus_plus_internal_edges_) : minus_blossoms(minus_blossoms_),
                                                          plus_empty_edges(plus_empty_edges_),
                                                          plus_plus_internal_edges(plus_plus_internal_edges_) {
     is_alive = true;
     dual_var_quadrupled = 0;
     alive_index = 0;
-    tree_nodes = {root};
+    tree_nodes = {root_};
 }
 
 void VzhuhSolver::PrintGraph() const {
@@ -200,7 +191,7 @@ void VzhuhSolver::PrintGraph() const {
         if (!trees[tree].is_alive) {
             continue;
         }
-        std::cout << "root: " << trees[tree].root << " var: " << trees[tree].dual_var_quadrupled / 4.
+        std::cout << "root: " << roots[tree] << " var: " << trees[tree].dual_var_quadrupled / 4.
             << std::endl;
     }
 }
@@ -267,7 +258,6 @@ void VzhuhSolver::InitializeTrees() {
 
     // TODO no need to populate queues in tree initialization
 
-    std::vector<int> roots;
     for (int root_index(0); root_index < num_vertices_elementary; ++root_index) {
         if (nodes[root_index].matched_edge.index >= 0) {
             continue;
@@ -1107,7 +1097,7 @@ void VzhuhSolver::Augment(int edge_plus_plus) {
 }
 
 std::vector<int> VzhuhSolver::PathToRoot(int node_plus) {
-    int root = TopBlossom(trees[nodes[node_plus].tree].root);
+    int root = TopBlossom(roots[nodes[node_plus].tree]);
 
     std::vector<int> path;
     while (node_plus != root) {
