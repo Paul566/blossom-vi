@@ -141,6 +141,7 @@ class VzhuhSolver {
         std::vector<Tree> trees;
         std::vector<int> alive_trees;
         std::vector<EdgeHeap> edge_heaps;
+        std::vector<int8_t> edge_heap_alive;
         std::vector<NodeHeap> node_heaps;
 
         std::vector<int> primal_update_record;
