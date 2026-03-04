@@ -2076,7 +2076,7 @@ int VzhuhSolver::DualVariableQuadrupled(int node, int tree, bool plus, int bloss
     return nodes[node].dual_var_quadrupled_amortized_ - trees[tree].dual_var_quadrupled;
 }
 
-std::vector<VzhuhSolver::ArcIndex> &VzhuhSolver::NonLoopNeighbors(int node) {
+boost::container::small_vector<VzhuhSolver::ArcIndex, 8> &VzhuhSolver::NonLoopNeighbors(int node) {
     if (!nodes[node].neighbors.empty()) {
         return nodes[node].neighbors;
     }
@@ -2085,7 +2085,7 @@ std::vector<VzhuhSolver::ArcIndex> &VzhuhSolver::NonLoopNeighbors(int node) {
 
     // mark the vertices, collect the lists
     std::queue<int> queue;
-    std::vector<std::vector<ArcIndex> *> lists;
+    std::vector<boost::container::small_vector<ArcIndex, 8> *> lists;
     int total_length = 0;
     queue.push(node);
     ++nodes_label_cnt;
@@ -2369,7 +2369,7 @@ void VzhuhSolver::RemoveNodeFromQueue(int node) {
 }
 
 int VzhuhSolver::TreeTreeQueueIndex(int other_tree,
-                                    std::vector<std::pair<int, int> > *tree_neighbors) const {
+                                    boost::container::small_vector<std::pair<int, int>, 8> *tree_neighbors) const {
     // may delete dead trees from the tree_neighbors
     for (int i = 0; i < static_cast<int>(tree_neighbors->size()); ++i) {
         if ((*tree_neighbors)[i].first == other_tree) {

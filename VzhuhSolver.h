@@ -6,13 +6,13 @@
 #include <deque>
 #include <iostream>
 #include <stack>
+#include <boost/container/small_vector.hpp>
 
 struct SolverParameters {
     bool compute_dual_certificate = false;
     bool verbose = false;
     bool print_statistics = true;
     bool debug = false;
-    int heap_arity = 4;
 };
 
 class VzhuhSolver {
@@ -57,7 +57,7 @@ class VzhuhSolver {
             int heap_prev;
 
             std::vector<int> blossom_children;
-            std::vector<ArcIndex> neighbors; // TODO make sure we don't use too much memory
+            boost::container::small_vector<ArcIndex, 8> neighbors; // TODO make sure we don't use too much memory
 
             int old_blossom_parent;
             ArcIndex matched_edge;
@@ -80,9 +80,9 @@ class VzhuhSolver {
         };
 
         struct Tree {
-            std::vector<std::pair<int, int> > pq_plus_plus;
-            std::vector<std::pair<int, int> > pq_plus_minus;
-            std::vector<std::pair<int, int> > pq_minus_plus;
+            boost::container::small_vector<std::pair<int, int>, 8> pq_plus_plus;
+            boost::container::small_vector<std::pair<int, int>, 8> pq_plus_minus;
+            boost::container::small_vector<std::pair<int, int>, 8> pq_minus_plus;
 
             std::deque<int> tree_nodes;
 
@@ -235,7 +235,7 @@ class VzhuhSolver {
         int Receptacle(int node);
         int DualVariableQuadrupled(int node) const;
         int DualVariableQuadrupled(int node, int tree, bool plus, int blossom_parent) const;
-        std::vector<ArcIndex> &NonLoopNeighbors(int node);
+        boost::container::small_vector<ArcIndex, 8> &NonLoopNeighbors(int node);
         std::vector<int> ElementaryBlossomDescendants(int node) const;
 
         int SlackQuadrupled(int edge);
@@ -255,7 +255,7 @@ class VzhuhSolver {
         void RemoveEdgeFromQueue(int edge);
         void AddNodeToQueue(int node, int queue_index);
         void RemoveNodeFromQueue(int node);
-        int TreeTreeQueueIndex(int other_tree, std::vector<std::pair<int, int> > *tree_neighbors) const;
+        int TreeTreeQueueIndex(int other_tree, boost::container::small_vector<std::pair<int, int>, 8> *tree_neighbors) const;
 
         int MinPlusPlusInternalEdge(int queue_index);
         int PopExpandableBlossom(int tree);
