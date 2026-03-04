@@ -39,10 +39,6 @@ class VzhuhSolver {
 
             int slack_quadrupled_amortized_;
             int slack_diff;
-            int head;
-            int tail;
-            int elementary_head;
-            int elementary_tail;
             int last_round_updated;
             bool matched;
             bool maybe_has_zero_slack;
@@ -137,6 +133,10 @@ class VzhuhSolver {
 
         std::vector<Edge> edges;
         std::vector<int> edge_weights;
+        std::vector<int> heads;
+        std::vector<int> tails;
+        std::vector<int> elementary_heads;
+        std::vector<int> elementary_tails;
 
         std::vector<Tree> trees;
         std::vector<int> alive_trees;
@@ -201,7 +201,13 @@ class VzhuhSolver {
 
         // updates amortized slam and variables, edge_heaps and node_heaps, old_tree, old_plus, old_blossom_parent
         void UpdateQueuesRecordTraversal();
-        void UpdateEdgeInfo(int edge, int endpoint, int other_endpoint, int queue_index);
+        void UpdateQueuesFirstPass();
+        void UpdateQueuesSecondPass();
+        void HandleIncidentEmpty(int node);
+        void HandleIncidentPlus(int node);
+        void HandleIncidentMinus(int node);
+        void UpdateQueuesThirdPass();
+        void UpdateEdgeInfo(int edge, int endpoint, int other_endpoint, int queue_index, bool was_loop, bool check_receptacles);
         std::vector<std::vector<int> > OrganizeBlossomChildren();
         void Shrink(std::vector<int> &children);
 

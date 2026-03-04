@@ -26,15 +26,23 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
     for (int i = 0; i < num_vertices_elementary; ++i) {
         nodes[i].neighbors.reserve(degrees[i]);
     }
-    
+
     edges.reserve(edge_list_.size());
     edge_weights.reserve(edge_list_.size());
+    heads.reserve(edge_list_.size());
+    tails.reserve(edge_list_.size());
+    elementary_heads.reserve(edge_list_.size());
+    elementary_tails.reserve(edge_list_.size());
     for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
         int head = std::get<0>(edge_list_[i]);
         int tail = std::get<1>(edge_list_[i]);
 
         edges.emplace_back(Edge(head, tail, std::get<2>(edge_list_[i])));
         edge_weights.push_back(std::get<2>(edge_list_[i]));
+        heads.push_back(head);
+        tails.push_back(tail);
+        elementary_heads.push_back(head);
+        elementary_tails.push_back(tail);
 
         nodes[head].neighbors.emplace_back(i * 2);
         nodes[tail].neighbors.emplace_back(i * 2 + 1);
@@ -126,10 +134,7 @@ const std::vector<std::tuple<int, int, int> > &VzhuhSolver::DualCertificate() co
 VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : queue_index(-1), heap_child(-1),
                                                              heap_next(-1),
                                                              heap_prev(-1),
-                                                             head(head_),
-                                                             tail(tail_),
-                                                             elementary_head(head_),
-                                                             elementary_tail(tail_), last_round_updated(-1) {
+                                                             last_round_updated(-1) {
     slack_quadrupled_amortized_ = 4 * weight_;
     matched = false;
     maybe_has_zero_slack = false;
@@ -236,7 +241,8 @@ void VzhuhSolver::GreedyInit() {
 
         ArcIndex smallest_slack_arc = nodes[i].neighbors.front();
         for (ArcIndex arc : nodes[i].neighbors) {
-            if (edges[arc.index / 2].slack_quadrupled_amortized_ < edges[smallest_slack_arc.index / 2].slack_quadrupled_amortized_) {
+            if (edges[arc.index / 2].slack_quadrupled_amortized_ < edges[smallest_slack_arc.index / 2].
+                slack_quadrupled_amortized_) {
                 smallest_slack_arc = arc;
             }
         }
@@ -333,7 +339,7 @@ void VzhuhSolver::ComputeMatching() {
 
     for (int i(0); i < static_cast<int>(edges.size()); ++i) {
         if (edges[i].matched) {
-            matching.emplace_back(edges[i].elementary_head, edges[i].elementary_tail);
+            matching.emplace_back(elementary_heads[i], elementary_tails[i]);
         }
     }
 }
@@ -401,8 +407,8 @@ void VzhuhSolver::RestoreFinalEdgeEnds() {
     }
 
     for (int edge : edges_to_restore) {
-        int head = edges[edge].elementary_head;
-        int tail = edges[edge].elementary_tail;
+        int head = elementary_heads[edge];
+        int tail = elementary_tails[edge];
 
         while (depths[head] > 0 || depths[tail] > 0) {
             if (depths[head] > depths[tail]) {
@@ -417,15 +423,15 @@ void VzhuhSolver::RestoreFinalEdgeEnds() {
             }
         }
 
-        edges[edge].head = head;
-        edges[edge].tail = tail;
+        heads[edge] = head;
+        tails[edge] = tail;
     }
 }
 
 int VzhuhSolver::FindFinalReceptacle(int blossom) const {
     // TODO double work, use arcs?
     int new_receptacle(-1);
-    int head = edges[nodes[blossom].matched_edge.index / 2].elementary_head;
+    int head = elementary_heads[nodes[blossom].matched_edge.index / 2];
     while (blossom_parents[head] >= 0) {
         if (blossom_parents[head] == blossom) {
             new_receptacle = head;
@@ -434,7 +440,7 @@ int VzhuhSolver::FindFinalReceptacle(int blossom) const {
         head = blossom_parents[head];
     }
     if (new_receptacle < 0) {
-        int tail = edges[nodes[blossom].matched_edge.index / 2].elementary_tail;
+        int tail = elementary_tails[nodes[blossom].matched_edge.index / 2];
         while (blossom_parents[tail] >= 0) {
             if (blossom_parents[tail] == blossom) {
                 new_receptacle = tail;
@@ -544,12 +550,11 @@ bool VzhuhSolver::MakePrimalUpdates() {
         }
         for (int i = 0; i < static_cast<int>(slacks.size()); ++i) {
             if (slacks[i] != new_slacks[i]) {
-                int edge_idx = i;
-                std::cout << "edge " << edges[edge_idx].elementary_head << " " << edges[edge_idx].elementary_tail <<
+                std::cout << "edge " << elementary_heads[i] << " " << elementary_tails[i] <<
                     std::endl;
                 std::cout << "edge index: " << i << std::endl;
-                std::cout << "head: " << Head(edge_idx) << std::endl;
-                std::cout << "tail: " << Tail(edge_idx) << std::endl;
+                std::cout << "head: " << Head(i) << std::endl;
+                std::cout << "tail: " << Tail(i) << std::endl;
                 std::cout << "slacks before/after: " << slacks[i] << " " << new_slacks[i] << std::endl;
                 throw std::runtime_error("slacks do not match");
             }
@@ -678,14 +683,14 @@ void VzhuhSolver::Expand(int blossom) {
     // now OtherEnd is safe
 
     // TODO use arc
-    int new_receptacle = edges[nodes[blossom].matched_edge.index / 2].head;
+    int new_receptacle = heads[nodes[blossom].matched_edge.index / 2];
     if (nodes[new_receptacle].old_blossom_parent != blossom) {
-        new_receptacle = edges[nodes[blossom].matched_edge.index / 2].tail;
+        new_receptacle = tails[nodes[blossom].matched_edge.index / 2];
     }
     int old_receptacle = Receptacle(new_receptacle);
-    int elder_child = edges[nodes[blossom].minus_parent.index / 2].head;
+    int elder_child = heads[nodes[blossom].minus_parent.index / 2];
     if (nodes[elder_child].old_blossom_parent != blossom) {
-        elder_child = edges[nodes[blossom].minus_parent.index / 2].tail;
+        elder_child = tails[nodes[blossom].minus_parent.index / 2];
     }
 
     UpdateInternalStructure(blossom, old_receptacle, new_receptacle, elder_child);
@@ -711,10 +716,10 @@ void VzhuhSolver::RestoreEdgeEndsBeforeExpand(int blossom) {
             for (ArcIndex arc : nodes[descendant].neighbors) {
                 // TODO use arcs
                 int edge = arc.index / 2;
-                if (edges[edge].elementary_head == descendant) {
-                    edges[edge].head = child;
+                if (elementary_heads[edge] == descendant) {
+                    heads[edge] = child;
                 } else {
-                    edges[edge].tail = child;
+                    tails[edge] = child;
                 }
             }
         }
@@ -916,9 +921,9 @@ void VzhuhSolver::ExpandChildBeforeGrow(int blossom) {
     // now OtherEnd, Head, Tail is safe
 
     // TODO use arcs
-    int new_receptacle = edges[nodes[blossom].matched_edge.index / 2].head;
+    int new_receptacle = heads[nodes[blossom].matched_edge.index / 2];
     if (nodes[new_receptacle].old_blossom_parent != blossom) {
-        new_receptacle = edges[nodes[blossom].matched_edge.index / 2].tail;
+        new_receptacle = tails[nodes[blossom].matched_edge.index / 2];
     }
     UpdateMatching(blossom, new_receptacle);
 
@@ -1073,9 +1078,8 @@ void VzhuhSolver::Augment(int edge_plus_plus) {
     int tail = Tail(edge_plus_plus);
 
     if (params.verbose) {
-        std::cout << "AUGMENT " << head << " " << tail << ", elementary ends: " << edges[edge_plus_plus].
-            elementary_head
-            << " " << edges[edge_plus_plus].elementary_tail <<
+        std::cout << "AUGMENT " << head << " " << tail << ", elementary ends: " << elementary_heads[edge_plus_plus]
+            << " " << elementary_tails[edge_plus_plus] <<
             ", is in zero slack set: " << edges[edge_plus_plus].maybe_has_zero_slack << std::endl;
     }
 
@@ -1147,6 +1151,18 @@ void VzhuhSolver::ClearTree(int tree) {
 }
 
 void VzhuhSolver::UpdateQueuesRecordTraversal() {
+    // int num_edges = 0;
+    // for (int node : primal_update_record) {
+    //     num_edges += NonLoopNeighbors(node).size();
+    // }
+    // std::cout << num_edges * 1. / primal_update_record.size() << std::endl;
+
+    UpdateQueuesFirstPass();
+    UpdateQueuesSecondPass();
+    UpdateQueuesThirdPass();
+}
+
+void VzhuhSolver::UpdateQueuesFirstPass() {
     for (int node : primal_update_record) {
         int old_tree = nodes[node].old_tree;
         int old_blossom_parent = nodes[node].old_blossom_parent;
@@ -1213,7 +1229,9 @@ void VzhuhSolver::UpdateQueuesRecordTraversal() {
             }
         }
     }
+}
 
+void VzhuhSolver::UpdateQueuesSecondPass() {
     for (int node : primal_update_record) {
         if (!nodes[node].is_alive || (nodes[node].old_blossom_parent < 0 &&
             nodes[node].old_plus == nodes[node].plus &&
@@ -1222,68 +1240,128 @@ void VzhuhSolver::UpdateQueuesRecordTraversal() {
             continue;
         }
 
-        for (ArcIndex arc : NonLoopNeighbors(node)) {
-            // TODO better logic here
-            // compute the queue index
-            int queue_index = -1;
-
-            int other_end = OtherEnd(arc);
-
-            if (nodes[node].tree == nodes[other_end].tree) {
-                if (nodes[node].tree >= 0) {
-                    if (nodes[node].plus && nodes[other_end].plus) {
-                        queue_index = trees[nodes[node].tree].plus_plus_internal_edges;
-                    }
-                }
+        if (nodes[node].tree >= 0) {
+            if (nodes[node].plus) {
+                HandleIncidentPlus(node);
             } else {
-                // different trees, make head always in some tree
-                int head = node;
-                int tail = other_end;
-                if (nodes[head].tree < 0) {
-                    std::swap(head, tail);
-                }
-
-                if (nodes[head].plus) {
-                    if (nodes[tail].tree < 0) { // (+, 0)
-                        queue_index = trees[nodes[head].tree].plus_empty_edges;
-                    } else {
-                        if (nodes[tail].plus) { // (+, +)
-                            queue_index = TreeTreeQueueIndex(nodes[tail].tree, &trees[nodes[head].tree].pq_plus_plus);
-                            if (queue_index < 0) {
-                                edge_heaps.emplace_back(EdgeHeap());
-                                queue_index = static_cast<int>(edge_heaps.size()) - 1;
-                                trees[nodes[head].tree].pq_plus_plus.emplace_back(nodes[tail].tree, queue_index);
-                                trees[nodes[tail].tree].pq_plus_plus.emplace_back(nodes[head].tree, queue_index);
-                            }
-                        } else {    // (+, -)
-                            queue_index = TreeTreeQueueIndex(nodes[tail].tree, &trees[nodes[head].tree].pq_plus_minus);
-                            if (queue_index < 0) {
-                                edge_heaps.emplace_back(EdgeHeap());
-                                queue_index = static_cast<int>(edge_heaps.size()) - 1;
-                                trees[nodes[tail].tree].pq_minus_plus.emplace_back(nodes[head].tree, queue_index);
-                                trees[nodes[head].tree].pq_plus_minus.emplace_back(nodes[tail].tree, queue_index);
-                            }
-                        }
-                    }
-                } else {
-                    if (nodes[tail].plus) { // (-, +)
-                        queue_index = TreeTreeQueueIndex(nodes[head].tree, &trees[nodes[tail].tree].pq_plus_minus);
-                        if (queue_index < 0) {
-                            edge_heaps.emplace_back(EdgeHeap());
-                            queue_index = static_cast<int>(edge_heaps.size()) - 1;
-                            trees[nodes[tail].tree].pq_plus_minus.emplace_back(nodes[head].tree, queue_index);
-                            trees[nodes[head].tree].pq_minus_plus.emplace_back(nodes[tail].tree, queue_index);
-                        }
-                    }
-                }
+                HandleIncidentMinus(node);
             }
-
-            if (edges[arc.index / 2].last_round_updated < current_round) {
-                UpdateEdgeInfo(arc.index / 2, node, other_end, queue_index);
-            }
+        } else {
+            HandleIncidentEmpty(node);
         }
     }
+}
 
+void VzhuhSolver::HandleIncidentEmpty(int node) {
+    int old_parent = nodes[node].old_blossom_parent;
+
+    for (ArcIndex arc : NonLoopNeighbors(node)) {
+        int queue_index = -1;
+        int other_end = OtherEnd(arc);
+        if (nodes[other_end].tree >= 0 && nodes[other_end].plus) {
+            queue_index = trees[nodes[other_end].tree].plus_empty_edges;
+        }
+
+        bool was_loop = false;
+        if (old_parent >= 0) {
+            was_loop = (old_parent == nodes[other_end].old_blossom_parent);
+        }
+
+        if (edges[arc.index / 2].last_round_updated < current_round) {
+            UpdateEdgeInfo(arc.index / 2, node, other_end, queue_index, was_loop, false);
+        }
+    }
+}
+
+void VzhuhSolver::HandleIncidentPlus(int node) {
+    int tree = nodes[node].tree;
+    int old_parent = nodes[node].old_blossom_parent;
+
+    for (ArcIndex arc : NonLoopNeighbors(node)) {
+        int queue_index = -1;
+        int other_end = OtherEnd(arc);
+        int other_tree = nodes[other_end].tree;
+        bool check_receptacles = false;
+
+        if (tree == other_tree) {
+            if (nodes[other_end].plus) {
+                queue_index = trees[tree].plus_plus_internal_edges;
+                check_receptacles = true;
+            }
+        } else {
+            if (other_tree < 0) {
+                // (+, 0)
+                queue_index = trees[tree].plus_empty_edges;
+            } else {
+                if (nodes[other_end].plus) {
+                    // (+, +)
+                    queue_index = TreeTreeQueueIndex(other_tree, &trees[tree].pq_plus_plus);
+                    if (queue_index < 0) {
+                        edge_heaps.emplace_back(EdgeHeap());
+                        queue_index = static_cast<int>(edge_heaps.size()) - 1;
+                        trees[tree].pq_plus_plus.emplace_back(other_tree, queue_index);
+                        trees[other_tree].pq_plus_plus.emplace_back(tree, queue_index);
+                    }
+                } else {
+                    // (+, -)
+                    queue_index = TreeTreeQueueIndex(other_tree, &trees[tree].pq_plus_minus);
+                    if (queue_index < 0) {
+                        edge_heaps.emplace_back(EdgeHeap());
+                        queue_index = static_cast<int>(edge_heaps.size()) - 1;
+                        trees[other_tree].pq_minus_plus.emplace_back(tree, queue_index);
+                        trees[tree].pq_plus_minus.emplace_back(other_tree, queue_index);
+                    }
+                }
+            }
+        }
+
+        bool was_loop = false;
+        if (old_parent >= 0) {
+            was_loop = (old_parent == nodes[other_end].old_blossom_parent);
+        }
+
+        if (edges[arc.index / 2].last_round_updated < current_round) {
+            UpdateEdgeInfo(arc.index / 2, node, other_end, queue_index, was_loop, check_receptacles);
+        }
+    }
+}
+
+void VzhuhSolver::HandleIncidentMinus(int node) {
+    int tree = nodes[node].tree;
+    int old_parent = nodes[node].old_blossom_parent;
+
+    for (ArcIndex arc : NonLoopNeighbors(node)) {
+        int queue_index = -1;
+        int other_end = OtherEnd(arc);
+        int other_tree = nodes[other_end].tree;
+
+        if (other_tree >= 0) {
+            if (tree != other_tree) {
+                if (nodes[other_end].plus) {
+                    // (-, +)
+                    queue_index = TreeTreeQueueIndex(tree, &trees[other_tree].pq_plus_minus);
+                    if (queue_index < 0) {
+                        edge_heaps.emplace_back(EdgeHeap());
+                        queue_index = static_cast<int>(edge_heaps.size()) - 1;
+                        trees[other_tree].pq_plus_minus.emplace_back(tree, queue_index);
+                        trees[tree].pq_minus_plus.emplace_back(other_tree, queue_index);
+                    }
+                }
+            }
+        }
+
+        bool was_loop = false;
+        if (old_parent >= 0) {
+            was_loop = (old_parent == nodes[other_end].old_blossom_parent);
+        }
+
+        if (edges[arc.index / 2].last_round_updated < current_round) {
+            UpdateEdgeInfo(arc.index / 2, node, other_end, queue_index, was_loop, false);
+        }
+    }
+}
+
+void VzhuhSolver::UpdateQueuesThirdPass() {
     for (int node : primal_update_record) {
         nodes[node].old_blossom_parent = blossom_parents[node];
         nodes[node].old_plus = nodes[node].plus;
@@ -1293,12 +1371,15 @@ void VzhuhSolver::UpdateQueuesRecordTraversal() {
     }
 }
 
-void VzhuhSolver::UpdateEdgeInfo(int edge, int endpoint, int other_endpoint, int queue_index) {
+void VzhuhSolver::UpdateEdgeInfo(int edge,
+                                 int endpoint,
+                                 int other_endpoint,
+                                 int queue_index,
+                                 bool was_loop,
+                                 bool check_receptacles) {
     edges[edge].last_round_updated = current_round;
 
-    if (nodes[endpoint].old_blossom_parent >= 0 && nodes[endpoint].old_blossom_parent == nodes[other_endpoint].
-        old_blossom_parent) {
-        // edge was a loop
+    if (was_loop) {
         edges[edge].slack_quadrupled_amortized_ -= 2 * nodes[nodes[endpoint].old_blossom_parent].tree_var_at_birth;
 
         if (nodes[endpoint].tree >= 0) {
@@ -1322,8 +1403,14 @@ void VzhuhSolver::UpdateEdgeInfo(int edge, int endpoint, int other_endpoint, int
     }
 
     RemoveEdgeFromQueue(edge);
-    if (Receptacle(endpoint) != Receptacle(other_endpoint) && queue_index >= 0) {
-        AddEdgeToThisQueue(edge, queue_index);
+    if (queue_index >= 0) {
+        if (check_receptacles) {
+            if (Receptacle(endpoint) != Receptacle(other_endpoint)) {
+                AddEdgeToThisQueue(edge, queue_index);
+            }
+        } else {
+            AddEdgeToThisQueue(edge, queue_index);
+        }
     }
 }
 
@@ -1583,8 +1670,8 @@ std::vector<int> VzhuhSolver::EdgeSlacks() {
         } else {
             int edge(i);
 
-            int head = edges[edge].elementary_head;
-            int tail = edges[edge].elementary_tail;
+            int head = elementary_heads[edge];
+            int tail = elementary_tails[edge];
 
             while (head != tail) {
                 if (depths[head] > depths[tail]) {
@@ -2014,20 +2101,20 @@ std::vector<VzhuhSolver::ArcIndex> &VzhuhSolver::NonLoopNeighbors(int node) {
         for (ArcIndex arc : *list_ptr) {
             // TODO only update the right end
             int edge = arc.index / 2;
-            while (blossom_parents[edges[edge].head] >= 0 && nodes[edges[edge].head].label !=
+            while (blossom_parents[heads[edge]] >= 0 && nodes[heads[edge]].label !=
                 nodes_label_cnt) {
-                edges[edge].head = blossom_parents[edges[edge].head];
+                heads[edge] = blossom_parents[heads[edge]];
             }
-            while (blossom_parents[edges[edge].tail] >= 0 && nodes[edges[edge].tail].label !=
+            while (blossom_parents[tails[edge]] >= 0 && nodes[tails[edge]].label !=
                 nodes_label_cnt) {
-                edges[edge].tail = blossom_parents[edges[edge].tail];
+                tails[edge] = blossom_parents[tails[edge]];
             }
-            if (nodes[edges[edge].head].label != nodes_label_cnt) {
+            if (nodes[heads[edge]].label != nodes_label_cnt) {
                 nodes[node].neighbors.push_back(arc);
-                edges[edge].tail = node;
-            } else if (nodes[edges[edge].tail].label != nodes_label_cnt) {
+                tails[edge] = node;
+            } else if (nodes[tails[edge]].label != nodes_label_cnt) {
                 nodes[node].neighbors.push_back(arc);
-                edges[edge].head = node;
+                heads[edge] = node;
             }
         }
     }
@@ -2162,32 +2249,32 @@ VzhuhSolver::ArcIndex VzhuhSolver::ReverseArc(ArcIndex arc) {
 
 int VzhuhSolver::OtherElementaryEnd(ArcIndex arc) const {
     if (arc.index % 2 == 1) {
-        return edges[arc.index / 2].elementary_head;
+        return elementary_heads[arc.index / 2];
     }
-    return edges[arc.index / 2].elementary_tail;
+    return elementary_tails[arc.index / 2];
 }
 
 int VzhuhSolver::Head(int edge) {
-    int head = edges[edge].head;
+    int head = heads[edge];
 
     if (blossom_parents[head] >= 0) {
         while (blossom_parents[head] >= 0) {
             head = blossom_parents[head];
         }
-        edges[edge].head = head;
+        heads[edge] = head;
     }
 
     return head;
 }
 
 int VzhuhSolver::Tail(int edge) {
-    int tail = edges[edge].tail;
+    int tail = tails[edge];
 
     if (blossom_parents[tail] >= 0) {
         while (blossom_parents[tail] >= 0) {
             tail = blossom_parents[tail];
         }
-        edges[edge].tail = tail;
+        tails[edge] = tail;
     }
 
     return tail;
