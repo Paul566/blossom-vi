@@ -56,8 +56,8 @@ class VzhuhSolver {
             int heap_next;
             int heap_prev;
 
+            // TODO store children in another way?
             std::vector<int> blossom_children;
-            boost::container::small_vector<ArcIndex, 8> neighbors; // TODO make sure we don't use too much memory
 
             int old_blossom_parent;
             ArcIndex matched_edge;
@@ -80,9 +80,10 @@ class VzhuhSolver {
         };
 
         struct Tree {
-            boost::container::small_vector<std::pair<int, int>, 8> pq_plus_plus;
-            boost::container::small_vector<std::pair<int, int>, 8> pq_plus_minus;
-            boost::container::small_vector<std::pair<int, int>, 8> pq_minus_plus;
+            // TODO do small vectors make sense here?
+            boost::container::small_vector<std::pair<int, int>, 4> pq_plus_plus;
+            boost::container::small_vector<std::pair<int, int>, 4> pq_plus_minus;
+            boost::container::small_vector<std::pair<int, int>, 4> pq_minus_plus;
 
             std::deque<int> tree_nodes;
 
@@ -126,6 +127,8 @@ class VzhuhSolver {
 
         std::vector<Node> nodes;
         std::vector<int> blossom_parents;
+        // TODO consider flattening
+        std::vector<boost::container::small_vector<ArcIndex, 8>> adj_list; // TODO make sure we don't use too much memory
 
         std::vector<Edge> edges;
         std::vector<int> edge_weights;
@@ -255,7 +258,7 @@ class VzhuhSolver {
         void RemoveEdgeFromQueue(int edge);
         void AddNodeToQueue(int node, int queue_index);
         void RemoveNodeFromQueue(int node);
-        int TreeTreeQueueIndex(int other_tree, boost::container::small_vector<std::pair<int, int>, 8> *tree_neighbors) const;
+        int TreeTreeQueueIndex(int other_tree, boost::container::small_vector<std::pair<int, int>, 4> *tree_neighbors) const;
 
         int MinPlusPlusInternalEdge(int queue_index);
         int PopExpandableBlossom(int tree);
