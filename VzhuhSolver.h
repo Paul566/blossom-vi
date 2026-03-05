@@ -80,24 +80,21 @@ class VzhuhSolver {
         };
 
         struct Tree {
-            // TODO do small vectors make sense here?
-            boost::container::small_vector<std::pair<int, int>, 4> pq_plus_plus;
-            boost::container::small_vector<std::pair<int, int>, 4> pq_plus_minus;
-            boost::container::small_vector<std::pair<int, int>, 4> pq_minus_plus;
-
-            std::deque<int> tree_nodes;
-
             int dual_var_quadrupled;
             int alive_index;
+            bool is_alive;
 
+            Tree(int root_);
+        };
+
+        struct TreeHeapInfo {
             // indices of the heaps
             int minus_blossoms;
             int plus_empty_edges;
             int plus_plus_internal_edges;
-
-            bool is_alive;
-
-            Tree(int root_, int minus_blossoms_, int plus_empty_edges_, int plus_plus_internal_edges_);
+            boost::container::small_vector<std::pair<int, int>, 4> pq_plus_plus;
+            boost::container::small_vector<std::pair<int, int>, 4> pq_plus_minus;
+            boost::container::small_vector<std::pair<int, int>, 4> pq_minus_plus;
         };
 
         struct EdgeHeap {
@@ -138,11 +135,14 @@ class VzhuhSolver {
         std::vector<int> elementary_tails;
 
         std::vector<Tree> trees;
+        std::vector<TreeHeapInfo> tree_heap_infos;
         std::vector<int> alive_trees;
+        std::vector<std::deque<int>> tree_nodes;
+        std::vector<int> roots; // elementary node
+
         std::vector<EdgeHeap> edge_heaps;
         std::vector<int8_t> edge_heap_alive;
         std::vector<NodeHeap> node_heaps;
-        std::vector<int> roots; // elementary node
 
         std::vector<int> primal_update_record;
         std::queue<int> actionable_edges;
