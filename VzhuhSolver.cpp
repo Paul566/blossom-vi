@@ -29,25 +29,38 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
         adj_list[i].reserve(degrees[i]);
     }
 
+    // rearrange the edges
+    std::vector<std::vector<std::pair<int, int>>> incident_edges(num_vertices_elementary);
+    for (int i = 0; i < num_vertices_elementary; ++i) {
+        incident_edges[i].reserve(degrees[i]);
+    }
+    for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
+        int head = std::get<0>(edge_list_[i]);
+        int tail = std::get<1>(edge_list_[i]);
+        incident_edges[head].emplace_back(tail, std::get<2>(edge_list_[i]));
+    }
+
     edges.reserve(edge_list_.size());
     edge_weights.reserve(edge_list_.size());
     heads.reserve(edge_list_.size());
     tails.reserve(edge_list_.size());
     elementary_heads.reserve(edge_list_.size());
     elementary_tails.reserve(edge_list_.size());
-    for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
-        int head = std::get<0>(edge_list_[i]);
-        int tail = std::get<1>(edge_list_[i]);
+    int i = 0;
+    for (int from = 0; from < num_vertices_elementary; ++from) {
+        for (auto [to, weight] : incident_edges[from]) {
+            edges.emplace_back(Edge(from, to, weight));
+            edge_weights.push_back(weight);
+            heads.push_back(from);
+            tails.push_back(to);
+            elementary_heads.push_back(from);
+            elementary_tails.push_back(to);
 
-        edges.emplace_back(Edge(head, tail, std::get<2>(edge_list_[i])));
-        edge_weights.push_back(std::get<2>(edge_list_[i]));
-        heads.push_back(head);
-        tails.push_back(tail);
-        elementary_heads.push_back(head);
-        elementary_tails.push_back(tail);
+            adj_list[from].emplace_back(i * 2);
+            adj_list[to].emplace_back(i * 2 + 1);
 
-        adj_list[head].emplace_back(i * 2);
-        adj_list[tail].emplace_back(i * 2 + 1);
+            ++i;
+        }
     }
 
     primal_update_record.reserve(num_vertices_elementary);
