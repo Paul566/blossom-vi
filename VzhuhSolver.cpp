@@ -13,10 +13,12 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
     nodes.reserve(2 * num_vertices_elementary);
     blossom_parents.reserve(2 * num_vertices_elementary);
     adj_list.reserve(2 * num_vertices_elementary);
+    blossom_structures.reserve(2 * num_vertices_elementary);
     for (int i = 0; i < num_vertices_elementary; ++i) {
         nodes.emplace_back(Node(i));
         blossom_parents.push_back(-1);
         adj_list.emplace_back();
+        blossom_structures.emplace_back();
     }
 
     // reserve for adj list
@@ -86,9 +88,9 @@ void VzhuhSolver::FindMinPerfectMatching() {
             std::cout << "trees left: " << alive_trees.size() << std::endl;
 
             int min_children = INT32_MAX;
-            for (Node &node : nodes) {
-                if (!node.blossom_children.empty() && node.blossom_children.size() < min_children) {
-                    min_children = node.blossom_children.size();
+            for (int i = 0; i < nodes.size(); ++i) {
+                if (!blossom_structures[i].blossom_children.empty() && blossom_structures[i].blossom_children.size() < min_children) {
+                    min_children = blossom_structures[i].blossom_children.size();
                 }
             }
             std::cout << "min num children: " << min_children << std::endl;
@@ -366,7 +368,7 @@ void VzhuhSolver::DestroyBlossoms() {
         }
 
         int receptacle = FindFinalReceptacle(blossom);
-        for (int child : nodes[blossom].blossom_children) {
+        for (int child : blossom_structures[blossom].blossom_children) {
             blossom_parents[child] = -1;
         }
         UpdateMatching(blossom, receptacle);
@@ -466,7 +468,7 @@ void VzhuhSolver::ComputeDualCertificate() {
         if (nodes[i].is_alive) {
             node_index_alive[i] = index;
             dual_certificate.emplace_back(index, DualVariableQuadrupled(i), -1);
-            for (int child : nodes[i].blossom_children) {
+            for (int child : blossom_structures[i].blossom_children) {
                 std::get<2>(dual_certificate[node_index_alive[child]]) = index;
             }
             ++index;
@@ -691,7 +693,7 @@ void VzhuhSolver::Expand(int blossom) {
 
     UpdateInternalStructure(blossom, old_receptacle, new_receptacle, elder_child);
 
-    for (int child : nodes[blossom].blossom_children) {
+    for (int child : blossom_structures[blossom].blossom_children) {
         AddNodeToRecord(child);
         actionable_nodes.push(child);
         if (nodes[child].tree >= 0) {
@@ -706,7 +708,7 @@ void VzhuhSolver::RestoreEdgeEndsBeforeExpand(int blossom) {
 
     // TODO make better
 
-    for (int child : nodes[blossom].blossom_children) {
+    for (int child : blossom_structures[blossom].blossom_children) {
         std::vector<int> elementary_descendants = ElementaryBlossomDescendants(child);
         for (int descendant : elementary_descendants) {
             for (ArcIndex arc : adj_list[descendant]) {
@@ -721,7 +723,7 @@ void VzhuhSolver::RestoreEdgeEndsBeforeExpand(int blossom) {
         }
     }
 
-    for (int child : nodes[blossom].blossom_children) {
+    for (int child : blossom_structures[blossom].blossom_children) {
         blossom_parents[child] = -1;
     }
 }
@@ -844,7 +846,7 @@ void VzhuhSolver::UpdateInternalStructure(int blossom,
     AddNodeToRecord(new_receptacle);
 
     // clear the part that goes to waste
-    for (int child : nodes[blossom].blossom_children) {
+    for (int child : blossom_structures[blossom].blossom_children) {
         if (nodes[child].label != nodes_label_cnt) {
             nodes[child].plus = false;
             nodes[child].minus_parent = ArcIndex(-1);
@@ -853,7 +855,7 @@ void VzhuhSolver::UpdateInternalStructure(int blossom,
     }
 
     // reset receptacles
-    for (int child : nodes[blossom].blossom_children) {
+    for (int child : blossom_structures[blossom].blossom_children) {
         nodes[child].receptacle_ = child;
     }
 }
@@ -923,14 +925,14 @@ void VzhuhSolver::ExpandChildBeforeGrow(int blossom) {
     }
     UpdateMatching(blossom, new_receptacle);
 
-    for (int child : nodes[blossom].blossom_children) {
+    for (int child : blossom_structures[blossom].blossom_children) {
         nodes[child].receptacle_ = child;
         nodes[child].plus = false;
         nodes[child].minus_parent = ArcIndex(-1);
         nodes[child].tree = -1;
     }
 
-    for (int child : nodes[blossom].blossom_children) {
+    for (int child : blossom_structures[blossom].blossom_children) {
         AddNodeToRecord(child);
         if (nodes[child].tree >= 0) {
             actionable_nodes.push(child);
@@ -1508,9 +1510,10 @@ void VzhuhSolver::Shrink(std::vector<int> &children) {
     nodes.emplace_back(Node(new_index));
     blossom_parents.push_back(-1);
     adj_list.emplace_back();
+    blossom_structures.emplace_back();
     nodes.back().plus = true;
     nodes.back().old_plus = true;
-    nodes.back().blossom_children = std::move(children);
+    blossom_structures.back().blossom_children = std::move(children);
     nodes.back().matched_edge = nodes[receptacle].matched_edge;
     nodes.back().tree = nodes[receptacle].tree;
     nodes.back().old_tree = nodes.back().tree;
@@ -1518,7 +1521,7 @@ void VzhuhSolver::Shrink(std::vector<int> &children) {
     nodes.back().tree_var_at_birth = trees[nodes.back().tree].dual_var_quadrupled;
 
     // update blossom_parent of the children, set labels to empty, update variables
-    for (int child : nodes.back().blossom_children) {
+    for (int child : blossom_structures.back().blossom_children) {
         if (blossom_parents[child] >= 0) {
             throw std::runtime_error("In Node: some child node already has a parent");
         }
@@ -2100,7 +2103,7 @@ boost::container::small_vector<VzhuhSolver::ArcIndex, 8> &VzhuhSolver::NonLoopNe
         int cur = queue.front();
         queue.pop();
 
-        for (int child : nodes[cur].blossom_children) {
+        for (int child : blossom_structures[cur].blossom_children) {
             nodes[child].label = nodes_label_cnt;
 
             if (!adj_list[child].empty()) {
@@ -2164,7 +2167,7 @@ std::vector<int> VzhuhSolver::ElementaryBlossomDescendants(int node) const {
     while (!queue.empty()) {
         int cur = queue.front();
         queue.pop();
-        for (int child : nodes[cur].blossom_children) {
+        for (int child : blossom_structures[cur].blossom_children) {
             if (IsElementary(child)) {
                 elementary_descendants.push_back(child);
             } else {

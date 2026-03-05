@@ -54,9 +54,6 @@ class VzhuhSolver {
             int heap_next;
             int heap_prev;
 
-            // TODO store children in another way?
-            std::vector<int> blossom_children;
-
             int old_blossom_parent;
             ArcIndex matched_edge;
             ArcIndex minus_parent;
@@ -75,6 +72,10 @@ class VzhuhSolver {
             bool is_in_record;
 
             explicit Node(int index_);
+        };
+
+        struct NodeBlossomStructure {
+            std::vector<int> blossom_children;
         };
 
         struct Tree {
@@ -124,6 +125,7 @@ class VzhuhSolver {
         std::vector<int> blossom_parents;
         // TODO consider flattening
         std::vector<boost::container::small_vector<ArcIndex, 8>> adj_list; // TODO make sure we don't use too much memory
+        std::vector<NodeBlossomStructure> blossom_structures;
 
         std::vector<Edge> edges;
         std::vector<int> edge_weights;
