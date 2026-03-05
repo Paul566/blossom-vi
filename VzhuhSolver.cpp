@@ -46,6 +46,8 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
     tails.reserve(edge_list_.size());
     elementary_heads.reserve(edge_list_.size());
     elementary_tails.reserve(edge_list_.size());
+    matched = std::vector<int8_t>(edge_list_.size(), false);
+    maybe_has_zero_slack = std::vector<int8_t>(edge_list_.size(), true);
     int i = 0;
     for (int from = 0; from < num_vertices_elementary; ++from) {
         for (auto [to, weight] : incident_edges[from]) {
@@ -147,10 +149,6 @@ VzhuhSolver::Edge::Edge(int head_, int tail_, int weight_) : queue_index(-1), he
                                                              heap_prev(-1),
                                                              last_round_updated(-1) {
     slack_quadrupled_amortized_ = 4 * weight_;
-    matched = false;
-    maybe_has_zero_slack = false;
-    must_be_updated = false;
-    maybe_was_loop = true;
 }
 
 VzhuhSolver::Node::Node(int index_) : queue_index(-1), heap_child(-1), heap_next(-1), heap_prev(-1),
@@ -179,7 +177,7 @@ void VzhuhSolver::PrintGraph() const {
         std::cout << i << ": ";
         for (ArcIndex arc : adj_list[i]) {
             std::cout << "(" << OtherElementaryEnd(arc) << " "
-                << edges[arc.index / 2].matched << ") ";
+                << matched[arc.index / 2] << ") ";
         }
         std::cout << std::endl;
     }
@@ -250,7 +248,7 @@ void VzhuhSolver::GreedyInit() {
         }
         if (nodes[OtherElementaryEnd(smallest_slack_arc)].matched_edge.index < 0) {
             // if the other vertex is also unmatched, match the edge
-            edges[smallest_slack_arc.index / 2].matched = true;
+            matched[smallest_slack_arc.index / 2] = true;
             nodes[i].matched_edge = smallest_slack_arc;
             nodes[OtherElementaryEnd(smallest_slack_arc)].matched_edge = ReverseArc(smallest_slack_arc);
         }
@@ -340,7 +338,7 @@ void VzhuhSolver::ComputeMatching() {
     matching.reserve(num_vertices_elementary / 2);
 
     for (int i(0); i < static_cast<int>(edges.size()); ++i) {
-        if (edges[i].matched) {
+        if (matched[i]) {
             matching.emplace_back(elementary_heads[i], elementary_tails[i]);
         }
     }
@@ -349,7 +347,7 @@ void VzhuhSolver::ComputeMatching() {
 void VzhuhSolver::ComputePrimalObjective() {
     primal_objective = 0;
     for (int i(0); i < static_cast<int>(edges.size()); ++i) {
-        if (edges[i].matched) {
+        if (matched[i]) {
             primal_objective += edge_weights[i];
         }
     }
@@ -638,7 +636,7 @@ void VzhuhSolver::MakePrimalUpdateForNode(int node) {
     }
     for (ArcIndex arc : NonLoopNeighbors(node)) {
         int edge = arc.index / 2;
-        if (edges[edge].maybe_has_zero_slack) {
+        if (maybe_has_zero_slack[edge]) {
             // compute the old slack to compare it to 0
             int slack = edges[edge].slack_quadrupled_amortized_;
 
@@ -665,7 +663,7 @@ void VzhuhSolver::MakePrimalUpdateForNode(int node) {
                 // TODO use the information about head/tail that we know here
                 MakePrimalUpdate(edge);
             } else {
-                edges[edge].maybe_has_zero_slack = false;
+                maybe_has_zero_slack[edge] = false;
             }
         }
     }
@@ -828,7 +826,7 @@ void VzhuhSolver::UpdateInternalStructure(int blossom,
     for (ArcIndex arc : path) {
         cur_node = OtherEnd(arc);
 
-        if (edges[arc.index / 2].matched) {
+        if (matched[arc.index / 2]) {
             nodes[cur_node].minus_parent = ArcIndex(-1);
             nodes[cur_node].plus = true;
         } else {
@@ -1082,7 +1080,7 @@ void VzhuhSolver::Augment(int edge_plus_plus) {
     if (params.verbose) {
         std::cout << "AUGMENT " << head << " " << tail << ", elementary ends: " << elementary_heads[edge_plus_plus]
             << " " << elementary_tails[edge_plus_plus] <<
-            ", is in zero slack set: " << edges[edge_plus_plus].maybe_has_zero_slack << std::endl;
+            ", is in zero slack set: " << maybe_has_zero_slack[edge_plus_plus] << std::endl;
     }
 
     std::vector<int> first_path = PathToRoot(head);
@@ -1271,7 +1269,7 @@ void VzhuhSolver::HandleIncidentEmpty(int node) {
 
     for (ArcIndex arc : NonLoopNeighbors(node)) {
         if (edges[arc.index / 2].last_round_updated < current_round) {
-            edges[arc.index / 2].last_round_updated = current_round;
+            
             int queue_index = -1;
             int other_end = OtherEnd(arc);
             if (nodes[other_end].tree >= 0 && nodes[other_end].plus) {
@@ -1284,6 +1282,7 @@ void VzhuhSolver::HandleIncidentEmpty(int node) {
             }
 
             UpdateEdgeInfo(arc.index / 2, node, other_end, queue_index, was_loop, false);
+            edges[arc.index / 2].last_round_updated = current_round;
         }
     }
 }
@@ -2008,8 +2007,8 @@ void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_action
         int edge = stack.top();
         stack.pop();
 
-        if (!edges[edge].maybe_has_zero_slack) {
-            edges[edge].maybe_has_zero_slack = true;
+        if (!maybe_has_zero_slack[edge]) {
+            maybe_has_zero_slack[edge] = true;
         }
         if (add_to_actionable) {
             actionable_edges.push(edge);
@@ -2150,7 +2149,7 @@ boost::container::small_vector<VzhuhSolver::ArcIndex, 8> &VzhuhSolver::NonLoopNe
 //     }
 //
 //     for (int edge : NonLoopNeighbors(node)) {
-//         if (edges[edge].maybe_has_zero_slack) {
+//         if (maybe_has_zero_slack[edge]) {
 //             nodes[node].zero_slack_neighbors.push_back(edge);
 //         }
 //     }
@@ -2341,11 +2340,11 @@ void VzhuhSolver::MakeEdgeMatched(int edge) {
     }
     nodes[Head(edge)].matched_edge = ArcIndex(edge * 2);
     nodes[Tail(edge)].matched_edge = ArcIndex(edge * 2 + 1);
-    edges[edge].matched = true;
+    matched[edge] = true;
 }
 
 void VzhuhSolver::MakeEdgeUnmatched(int edge) {
-    edges[edge].matched = false;
+    matched[edge] = false;
 }
 
 void VzhuhSolver::AddEdgeToThisQueue(int edge, int queue_index) {

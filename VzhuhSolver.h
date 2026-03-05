@@ -39,10 +39,6 @@ class VzhuhSolver {
 
             int slack_quadrupled_amortized_;
             int last_round_updated;
-            bool matched;
-            bool maybe_has_zero_slack;
-            bool must_be_updated;
-            bool maybe_was_loop;
             Edge(int head_, int tail_, int weight_);
         };
 
@@ -133,6 +129,8 @@ class VzhuhSolver {
         std::vector<int> tails;
         std::vector<int> elementary_heads;
         std::vector<int> elementary_tails;
+        std::vector<int8_t> matched;
+        std::vector<int8_t> maybe_has_zero_slack;
 
         std::vector<Tree> trees;
         std::vector<TreeHeapInfo> tree_heap_infos;
