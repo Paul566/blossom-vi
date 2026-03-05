@@ -39,6 +39,8 @@ class VzhuhSolver {
 
             int slack_quadrupled_amortized_;
             int last_round_updated;
+            int head;
+            int tail;
             Edge(int head_, int tail_, int weight_);
         };
 
@@ -125,8 +127,6 @@ class VzhuhSolver {
 
         std::vector<Edge> edges;
         std::vector<int> edge_weights;
-        std::vector<int> heads;
-        std::vector<int> tails;
         std::vector<int> elementary_heads;
         std::vector<int> elementary_tails;
         std::vector<int8_t> matched;
