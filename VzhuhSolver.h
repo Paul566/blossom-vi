@@ -49,11 +49,6 @@ class VzhuhSolver {
         };
 
         struct Node {
-            int queue_index;
-            int heap_child;
-            int heap_next;
-            int heap_prev;
-
             int old_blossom_parent;
             ArcIndex matched_edge;
             ArcIndex minus_parent;
@@ -61,7 +56,6 @@ class VzhuhSolver {
             int tree;
             int old_tree;
 
-            int dual_var_quadrupled_amortized_;
             int tree_var_at_birth;
             int label;
             int slack_diff;
@@ -72,6 +66,15 @@ class VzhuhSolver {
             bool is_in_record;
 
             explicit Node(int index_);
+        };
+
+        struct NodeHeapInfo {
+            int queue_index;
+            int heap_child;
+            int heap_next;
+            int heap_prev;
+
+            int dual_var_quadrupled_amortized_;
         };
 
         struct NodeBlossomStructure {
@@ -93,7 +96,6 @@ class VzhuhSolver {
             int plus_plus_internal_edges;
             boost::container::small_vector<std::pair<int, int>, 4> pq_plus_plus;
             boost::container::small_vector<std::pair<int, int>, 4> pq_plus_minus;
-            // boost::container::small_vector<std::pair<int, int>, 4> pq_minus_plus;
         };
 
         struct EdgeHeap {
@@ -122,6 +124,7 @@ class VzhuhSolver {
         int nodes_label_cnt; // TODO make int64_t
 
         std::vector<Node> nodes;
+        std::vector<NodeHeapInfo> node_heap_infos;
         std::vector<int> blossom_parents;
         // TODO consider flattening
         std::vector<boost::container::small_vector<ArcIndex, 8>> adj_list; // TODO make sure we don't use too much memory
@@ -237,11 +240,10 @@ class VzhuhSolver {
         int Receptacle(int node);
         int DualVariableQuadrupled(int node) const;
         int DualVariableQuadrupled(int node, int tree, bool plus, int blossom_parent) const;
-        boost::container::small_vector<ArcIndex, 8> &NonLoopNeighbors(int node);
+        void UpdateNonLoopNeighbors(int node);
         std::vector<int> ElementaryBlossomDescendants(int node) const;
 
         int SlackQuadrupled(int edge);
-        int OldSlackQuadrupled(int edge);
         int OtherEnd(ArcIndex arc);
         int ThisEnd(ArcIndex arc);
         ArcIndex ReverseArc(ArcIndex arc);
