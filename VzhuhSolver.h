@@ -93,7 +93,7 @@ class VzhuhSolver {
             int plus_plus_internal_edges;
             boost::container::small_vector<std::pair<int, int>, 4> pq_plus_plus;
             boost::container::small_vector<std::pair<int, int>, 4> pq_plus_minus;
-            boost::container::small_vector<std::pair<int, int>, 4> pq_minus_plus;
+            // boost::container::small_vector<std::pair<int, int>, 4> pq_minus_plus;
         };
 
         struct EdgeHeap {
@@ -218,7 +218,6 @@ class VzhuhSolver {
         void Shrink(std::vector<int> &children);
 
         // for debug:
-        void ValidateQueues();
         auto NodeVariables() const -> std::vector<int>;
         std::vector<int> EdgeSlacks();
         void ValidateEvenOddPaths();
