@@ -211,12 +211,7 @@ class VzhuhSolver {
         void HandleIncidentPlus(int node);
         void HandleIncidentMinus(int node);
         void UpdateQueuesThirdPass();
-        void UpdateEdgeInfo(int edge,
-                            int endpoint,
-                            int other_endpoint,
-                            int queue_index,
-                            bool was_loop,
-                            bool check_receptacles);
+
         std::vector<std::vector<int> > OrganizeBlossomChildren();
         void Shrink(std::vector<int> &children);
 
@@ -248,6 +243,7 @@ class VzhuhSolver {
         int ThisEnd(ArcIndex arc);
         ArcIndex ReverseArc(ArcIndex arc);
         int OtherElementaryEnd(ArcIndex arc) const;
+        int ThisElementaryEnd(ArcIndex arc) const;
         int Head(int edge);
         int Tail(int edge);
         int PlusPlusLCA(int first_vertex, int second_vertex);
