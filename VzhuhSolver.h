@@ -126,8 +126,8 @@ class VzhuhSolver {
 
         std::vector<Node> nodes;
         std::vector<NodeHeapInfo> node_heap_infos;
+        // TODO use path compression for finding top blossoms
         std::vector<int> blossom_parents;
-        // TODO consider flattening
         std::vector<boost::container::small_vector<ArcIndex, 8> > adj_list;
         // TODO make sure we don't use too much memory
         std::vector<NodeBlossomStructure> blossom_structures;
@@ -281,11 +281,11 @@ class VzhuhSolver {
 
         int MinPlusPlusInternalEdge(int queue_index);
         int PopExpandableBlossom(int tree);
-        int PlusEmptySlack(int tree);
-        int PlusPlusInternalSlack(int tree);
-        int MinMinusBlossomVariable(int tree) const;
-        std::vector<std::pair<int, int> > PlusPlusExternalSlacks(int tree);
-        std::vector<std::pair<int, int> > PlusMinusExternalSlacks(int tree);
+        // int PlusEmptySlack(int tree);
+        // int PlusPlusInternalSlack(int tree);
+        // int MinMinusBlossomVariable(int tree) const;
+        // std::vector<std::pair<int, int> > PlusPlusExternalSlacks(int tree);
+        // std::vector<std::pair<int, int> > PlusMinusExternalSlacks(int tree);
 
         void AddNodeToRecord(int node);
 

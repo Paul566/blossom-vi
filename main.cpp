@@ -10,7 +10,8 @@ int main() {
 	int iterations = 10;
 	tester.MeasureBenchmark("../tests-weighted", iterations, 20);
 
-	tester.MeasureInstance("../tests-weighted/delaunay-100000-299968", 1, 20, false);
+	// tester.MeasureInstance("../tests-weighted/delaunay-100000-299968", 1, 20, false);
+	// tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999962", 1, 20, false);
 	// tester.MeasureInstance("../tests-weighted/dan59296-177299", 10, 20, false);
     // tester.MeasureInstance("../tests-weighted/sra104815-314222", 10, 20, false);
 	// tester.MeasureInstance("../tests-weighted/ara238025-713594", 1, 20, false);
