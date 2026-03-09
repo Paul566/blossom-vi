@@ -128,20 +128,21 @@ class VzhuhSolver {
         std::vector<NodeHeapInfo> node_heap_infos;
         std::vector<int> blossom_parents;
         // TODO consider flattening
-        std::vector<boost::container::small_vector<ArcIndex, 8>> adj_list; // TODO make sure we don't use too much memory
+        std::vector<boost::container::small_vector<ArcIndex, 8> > adj_list;
+        // TODO make sure we don't use too much memory
         std::vector<NodeBlossomStructure> blossom_structures;
 
         std::vector<Edge> edges;
         std::vector<int> edge_weights;
         std::vector<int> elementary_heads;
         std::vector<int> elementary_tails;
-        std::vector<int8_t> matched;
-        std::vector<int8_t> maybe_has_zero_slack;
+        std::vector<uint8_t> matched;
+        std::vector<uint8_t> maybe_has_zero_slack;
 
         std::vector<Tree> trees;
         std::vector<TreeHeapInfo> tree_heap_infos;
         std::vector<int> alive_trees;
-        std::vector<std::deque<int>> tree_nodes;
+        std::vector<std::deque<int> > tree_nodes;
         std::vector<int> roots; // elementary node
 
         std::vector<EdgeHeap> edge_heaps;
@@ -149,8 +150,10 @@ class VzhuhSolver {
         std::vector<NodeHeap> node_heaps;
 
         std::vector<int> primal_update_record;
-        std::queue<int> actionable_edges;
-        std::queue<int> actionable_nodes;
+        std::vector<int> actionable_edges;
+        int actionable_edges_head;
+        std::vector<int> actionable_nodes;
+        int actionable_nodes_head;
 
         std::vector<ArcIndex> even_path_tmp;
         std::vector<ArcIndex> odd_path_tmp;
@@ -235,21 +238,35 @@ class VzhuhSolver {
         void AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_actionable);
         void CleanLoopsFromQueueTop(int tree); // makes top of plus_plus_internal_edges a non-loop
 
-        bool IsElementary(int node) const;
-        int TopBlossom(int node) const;
-        int Receptacle(int node);
+        bool IsElementary(int node) const {
+            return node < num_vertices_elementary;
+        }
+        int TopBlossom(int node) const {
+            while (blossom_parents[node] >= 0) {
+                node = blossom_parents[node];
+            }
+            return node;
+        }
+        int Receptacle(int node) {
+            int grandparent = node;
+            while (nodes[grandparent].receptacle_ != grandparent) {
+                grandparent = nodes[grandparent].receptacle_;
+            }
+
+            int cur_node = node;
+            while (nodes[cur_node].receptacle_ != grandparent) {
+                int next_node = nodes[cur_node].receptacle_;
+                nodes[cur_node].receptacle_ = grandparent;
+                cur_node = next_node;
+            }
+
+            return grandparent;
+        }
         int DualVariableQuadrupled(int node) const;
         int DualVariableQuadrupled(int node, int tree, bool plus, int blossom_parent) const;
         void UpdateNonLoopNeighbors(int node);
 
         int SlackQuadrupled(int edge);
-        int OtherEnd(ArcIndex arc);
-        int ThisEnd(ArcIndex arc);
-        ArcIndex ReverseArc(ArcIndex arc);
-        int OtherElementaryEnd(ArcIndex arc) const;
-        int ThisElementaryEnd(ArcIndex arc) const;
-        int Head(int edge);
-        int Tail(int edge);
         int PlusPlusLCA(int first_vertex, int second_vertex);
 
         void MakeEdgeMatched(int edge);
@@ -259,7 +276,8 @@ class VzhuhSolver {
         void RemoveEdgeFromQueue(int edge);
         void AddNodeToQueue(int node, int queue_index);
         void RemoveNodeFromQueue(int node);
-        int TreeTreeQueueIndex(int other_tree, boost::container::small_vector<std::pair<int, int>, 4> *tree_neighbors) const;
+        int TreeTreeQueueIndex(int other_tree,
+                               boost::container::small_vector<std::pair<int, int>, 4> *tree_neighbors) const;
 
         int MinPlusPlusInternalEdge(int queue_index);
         int PopExpandableBlossom(int tree);
@@ -288,6 +306,61 @@ class VzhuhSolver {
         int MeldNodeHeap(int node_a, int node_b);
         int TwoPassMergeNodeHeap(int node_first);
         void CutNodeHeap(int node);
+
+        int OtherEnd(ArcIndex arc) {
+            if (arc.index % 2 == 1) {
+                return Head(arc.index >> 1);
+            }
+            return Tail(arc.index >> 1);
+        }
+        int ThisEnd(ArcIndex arc) {
+            if (arc.index % 2 == 0) {
+                return Head(arc.index >> 1);
+            }
+            return Tail(arc.index >> 1);
+        }
+        ArcIndex ReverseArc(ArcIndex arc) {
+            if (arc.index % 2 == 0) {
+                return ArcIndex(arc.index + 1);
+            }
+            return ArcIndex(arc.index - 1);
+        }
+        int OtherElementaryEnd(ArcIndex arc) const {
+            if (arc.index % 2 == 1) {
+                return elementary_heads[arc.index >> 1];
+            }
+            return elementary_tails[arc.index >> 1];
+        }
+        int ThisElementaryEnd(ArcIndex arc) const {
+            if (arc.index % 2 == 0) {
+                return elementary_heads[arc.index >> 1];
+            }
+            return elementary_tails[arc.index >> 1];
+        }
+        int Head(int edge) {
+            int head = edges[edge].head;
+
+            if (blossom_parents[head] >= 0) {
+                while (blossom_parents[head] >= 0) {
+                    head = blossom_parents[head];
+                }
+                edges[edge].head = head;
+            }
+
+            return head;
+        }
+        int Tail(int edge) {
+            int tail = edges[edge].tail;
+
+            if (blossom_parents[tail] >= 0) {
+                while (blossom_parents[tail] >= 0) {
+                    tail = blossom_parents[tail];
+                }
+                edges[edge].tail = tail;
+            }
+
+            return tail;
+        }
 };
 
 #endif //BLOSSOM_VI_VZHUHSOLVER_H
