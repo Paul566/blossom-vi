@@ -32,15 +32,16 @@ class VzhuhSolver {
 
     private:
         struct Edge {
+            int head;
+            int tail;
+            int slack_quadrupled_amortized_;
+            int last_round_updated;
+
             int queue_index;
             int heap_child;
             int heap_next;
             int heap_prev;
 
-            int slack_quadrupled_amortized_;
-            int last_round_updated;
-            int head;
-            int tail;
             Edge(int head_, int tail_, int weight_);
         };
 
@@ -151,6 +152,10 @@ class VzhuhSolver {
         std::queue<int> actionable_edges;
         std::queue<int> actionable_nodes;
 
+        std::vector<ArcIndex> even_path_tmp;
+        std::vector<ArcIndex> odd_path_tmp;
+        std::vector<int> path_to_root;
+
         std::vector<std::pair<int, int> > matching;
         std::vector<std::tuple<int, int, int> > dual_certificate;
         // a vector of (quadrupled dual variable, index of the blossom parent or -1)
@@ -188,8 +193,8 @@ class VzhuhSolver {
                                      int old_receptacle,
                                      int new_receptacle,
                                      int elder_child);
-        std::vector<ArcIndex> EvenPathToReceptacle(int node);
-        std::vector<ArcIndex> OddPathToReceptacle(int node);
+        void EvenPathToReceptacle(int node);
+        void OddPathToReceptacle(int node);
         void ExpandChildBeforeGrow(int blossom);
 
         void Grow(int parent, ArcIndex arc);
@@ -199,8 +204,8 @@ class VzhuhSolver {
         void UpdateCherryPath(int lower_node, int upper_node);
 
         void Augment(int edge_plus_plus);
-        std::vector<int> PathToRoot(int node_plus);
-        void AugmentPath(const std::vector<int> &path);
+        void PathToRoot(int node_plus);
+        void AugmentPathToRoot();
         void ClearTree(int tree);
 
         // updates amortized slam and variables, edge_heaps and node_heaps, old_tree, old_plus, old_blossom_parent
@@ -236,7 +241,6 @@ class VzhuhSolver {
         int DualVariableQuadrupled(int node) const;
         int DualVariableQuadrupled(int node, int tree, bool plus, int blossom_parent) const;
         void UpdateNonLoopNeighbors(int node);
-        std::vector<int> ElementaryBlossomDescendants(int node) const;
 
         int SlackQuadrupled(int edge);
         int OtherEnd(ArcIndex arc);
