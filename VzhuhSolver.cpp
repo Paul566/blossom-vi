@@ -12,12 +12,14 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
 
     nodes.reserve(2 * num_vertices_elementary);
     blossom_parents.reserve(2 * num_vertices_elementary);
+    blossom_ancestors.reserve(2 * num_vertices_elementary);
     adj_list.reserve(2 * num_vertices_elementary);
     blossom_structures.reserve(2 * num_vertices_elementary);
     node_heap_infos.reserve(2 * num_vertices_elementary);
     for (int i = 0; i < num_vertices_elementary; ++i) {
         nodes.emplace_back(Node(i));
-        blossom_parents.push_back(-1);
+        blossom_parents.emplace_back(-1);
+        blossom_ancestors.emplace_back(-1);
         adj_list.emplace_back();
         blossom_structures.emplace_back();
         node_heap_infos.emplace_back(-1, -1, -1, -1, 0);
@@ -123,6 +125,19 @@ void VzhuhSolver::FindMinPerfectMatching() {
     if (params.verbose) {
         std::cout << "Dual objective:\t\t" << dual_objective << std::endl;
     }
+    // int max_depth = 0;
+    // for (int node = 0; node < num_vertices_elementary; ++node) {
+    //     int depth = 0;
+    //     int cur = node;
+    //     while (blossom_parents[cur] >= 0) {
+    //         ++depth;
+    //         cur = blossom_parents[cur];
+    //     }
+    //     if (depth > max_depth) {
+    //         max_depth = depth;
+    //     }
+    // }
+    // std::cout << max_depth << std::endl;
 
     if (params.compute_dual_certificate) {
         ComputeDualCertificate();
@@ -352,6 +367,7 @@ void VzhuhSolver::DestroyBlossoms() {
         int receptacle = FindFinalReceptacle(blossom);
         for (int child : blossom_structures[blossom].blossom_children) {
             blossom_parents[child] = -1;
+            blossom_ancestors[child] = -1;
         }
         UpdateMatching(blossom, receptacle);
         nodes[receptacle].matched_edge = nodes[blossom].matched_edge;
@@ -695,6 +711,7 @@ void VzhuhSolver::RestoreEdgeEndsBeforeExpand(int blossom) {
             int cur = queue.front();
             queue.pop();
             for (int potential_leaf : blossom_structures[cur].blossom_children) {
+                blossom_ancestors[potential_leaf] = child;
                 if (IsElementary(potential_leaf)) {
                     for (ArcIndex arc : adj_list[potential_leaf]) {
                         if (arc.index % 2 == 1) {
@@ -712,6 +729,7 @@ void VzhuhSolver::RestoreEdgeEndsBeforeExpand(int blossom) {
 
     for (int child : blossom_structures[blossom].blossom_children) {
         blossom_parents[child] = -1;
+        blossom_ancestors[child] = -1;
     }
 }
 
@@ -1123,12 +1141,6 @@ void VzhuhSolver::ClearTree(int tree) {
 }
 
 void VzhuhSolver::UpdateQueuesRecordTraversal() {
-    // int num_edges = 0;
-    // for (int node : primal_update_record) {
-    //     num_edges += NonLoopNeighbors(node).size();
-    // }
-    // std::cout << num_edges * 1. / primal_update_record.size() << std::endl;
-
     UpdateQueuesFirstPass();
     UpdateQueuesSecondPass();
     UpdateQueuesThirdPass();
@@ -1145,7 +1157,7 @@ void VzhuhSolver::UpdateQueuesFirstPass() {
         if (!nodes[node].is_alive || (old_blossom_parent < 0 &&
             old_plus == plus &&
             old_tree == tree)) {
-            nodes[node].is_in_record = false;
+            // nodes[node].is_in_record = false;
             continue;
         }
 
@@ -1210,7 +1222,7 @@ void VzhuhSolver::UpdateQueuesSecondPass() {
         if (!nodes[node].is_alive || (nodes[node].old_blossom_parent < 0 &&
             nodes[node].old_plus == nodes[node].plus &&
             nodes[node].old_tree == nodes[node].tree)) {
-            nodes[node].is_in_record = false;
+            // nodes[node].is_in_record = false;
             continue;
         }
 
@@ -1470,6 +1482,7 @@ void VzhuhSolver::Shrink(std::vector<int> &children) {
 
     nodes.emplace_back(Node(new_index));
     blossom_parents.push_back(-1);
+    blossom_ancestors.push_back(-1);
     adj_list.emplace_back();
     blossom_structures.emplace_back();
     nodes.back().plus = true;
@@ -1487,6 +1500,7 @@ void VzhuhSolver::Shrink(std::vector<int> &children) {
             throw std::runtime_error("In Node: some child node already has a parent");
         }
         blossom_parents[child] = new_index;
+        blossom_ancestors[child] = new_index;
         nodes[child].old_blossom_parent = new_index;
         node_heap_infos[child].dual_var_quadrupled_amortized_ += trees[nodes.back().tree].dual_var_quadrupled;
     }
@@ -1966,16 +1980,16 @@ void VzhuhSolver::UpdateNonLoopNeighbors(int node) {
         for (ArcIndex arc : adj_list[descendant]) {
             int edge = arc.index >> 1;
             if (arc.index % 2 == 1) {
-                while (blossom_parents[edges[edge].head] >= 0 && nodes[edges[edge].head].label != nodes_label_cnt) {
-                    edges[edge].head = blossom_parents[edges[edge].head];
+                while (blossom_ancestors[edges[edge].head] >= 0 && nodes[edges[edge].head].label != nodes_label_cnt) {
+                    edges[edge].head = blossom_ancestors[edges[edge].head];
                 }
                 if (nodes[edges[edge].head].label != nodes_label_cnt) {
                     adj_list[node].push_back(arc);
                     edges[edge].tail = node;
                 }
             } else {
-                while (blossom_parents[edges[edge].tail] >= 0 && nodes[edges[edge].tail].label != nodes_label_cnt) {
-                    edges[edge].tail = blossom_parents[edges[edge].tail];
+                while (blossom_ancestors[edges[edge].tail] >= 0 && nodes[edges[edge].tail].label != nodes_label_cnt) {
+                    edges[edge].tail = blossom_ancestors[edges[edge].tail];
                 }
                 if (nodes[edges[edge].tail].label != nodes_label_cnt) {
                     adj_list[node].push_back(arc);

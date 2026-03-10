@@ -128,6 +128,7 @@ class VzhuhSolver {
         std::vector<NodeHeapInfo> node_heap_infos;
         // TODO use path compression for finding top blossoms
         std::vector<int> blossom_parents;
+        std::vector<int> blossom_ancestors;
         std::vector<boost::container::small_vector<ArcIndex, 8> > adj_list;
         // TODO make sure we don't use too much memory
         std::vector<NodeBlossomStructure> blossom_structures;
@@ -340,26 +341,45 @@ class VzhuhSolver {
         int Head(int edge) {
             int head = edges[edge].head;
 
-            if (blossom_parents[head] >= 0) {
-                while (blossom_parents[head] >= 0) {
-                    head = blossom_parents[head];
-                }
-                edges[edge].head = head;
+            if (blossom_ancestors[head] < 0) {
+                return head;
             }
 
-            return head;
+            int top_blossom = head;
+            while (blossom_ancestors[top_blossom] >= 0) {
+                top_blossom = blossom_ancestors[top_blossom];
+            }
+            int next_head = blossom_ancestors[head];
+            while (next_head != top_blossom) {
+                blossom_ancestors[head] = top_blossom;
+                head = next_head;
+                next_head = blossom_ancestors[next_head];
+            }
+            edges[edge].head = top_blossom;
+
+            return top_blossom;
         }
         int Tail(int edge) {
+            // TODO code duplication
             int tail = edges[edge].tail;
 
-            if (blossom_parents[tail] >= 0) {
-                while (blossom_parents[tail] >= 0) {
-                    tail = blossom_parents[tail];
-                }
-                edges[edge].tail = tail;
+            if (blossom_ancestors[tail] < 0) {
+                return tail;
             }
 
-            return tail;
+            int top_blossom = tail;
+            while (blossom_ancestors[top_blossom] >= 0) {
+                top_blossom = blossom_ancestors[top_blossom];
+            }
+            int next_tail = blossom_ancestors[tail];
+            while (next_tail != top_blossom) {
+                blossom_ancestors[tail] = top_blossom;
+                tail = next_tail;
+                next_tail = blossom_ancestors[next_tail];
+            }
+            edges[edge].tail = top_blossom;
+
+            return top_blossom;
         }
 };
 
