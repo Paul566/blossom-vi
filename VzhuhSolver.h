@@ -50,7 +50,6 @@ class VzhuhSolver {
         };
 
         struct Node {
-            int old_blossom_parent;
             ArcIndex matched_edge;
             ArcIndex minus_parent;
             int receptacle_; // by default, a node is its own receptacle
@@ -126,11 +125,11 @@ class VzhuhSolver {
 
         std::vector<Node> nodes;
         std::vector<NodeHeapInfo> node_heap_infos;
-        // TODO use path compression for finding top blossoms
         std::vector<int> blossom_parents;
         std::vector<int> blossom_ancestors;
+        // TODO store neighbors in a linked list
         std::vector<boost::container::small_vector<ArcIndex, 8> > adj_list;
-        // TODO make sure we don't use too much memory
+        // TODO store in another way
         std::vector<NodeBlossomStructure> blossom_structures;
 
         std::vector<Edge> edges;
@@ -186,12 +185,12 @@ class VzhuhSolver {
         // second phase: grow, make cherry blossoms, augment
         // third phase: shrink the cherry blossoms
         // fourth phase: update the queues
-        // TODO make record a field, don't make a new vector every time
         void MakePrimalUpdate(int edge);
         void MakePrimalUpdateForNode(int node);
 
         void Expand(int blossom);
         void RestoreEdgeEndsBeforeExpand(int blossom);
+        void ChangeLoopSlacksBeforeExpand(int blossom);
         void RotateReceptacle(int blossom, int new_receptacle);
         void UpdateInternalStructure(int blossom,
                                      int old_receptacle,
