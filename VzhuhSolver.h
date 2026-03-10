@@ -281,11 +281,6 @@ class VzhuhSolver {
 
         int MinPlusPlusInternalEdge(int queue_index);
         int PopExpandableBlossom(int tree);
-        // int PlusEmptySlack(int tree);
-        // int PlusPlusInternalSlack(int tree);
-        // int MinMinusBlossomVariable(int tree) const;
-        // std::vector<std::pair<int, int> > PlusPlusExternalSlacks(int tree);
-        // std::vector<std::pair<int, int> > PlusMinusExternalSlacks(int tree);
 
         void AddNodeToRecord(int node);
 
