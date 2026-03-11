@@ -1,5 +1,7 @@
 #include "DualUpdater.h"
 
+#include <iostream>
+#include <numeric>
 #include <queue>
 
 DualUpdater::DualUpdater(std::vector<DualConstraintsNode> &&constraints,
@@ -11,7 +13,11 @@ DualUpdater::DualUpdater(std::vector<DualConstraintsNode> &&constraints,
 
 void DualUpdater::FindDeltas() {
     if (params.update_type == Parameters::UpdateType::ConnectedComponents) {
-        FindDeltasCC();
+        for (int i = 0; i < params.repetitions; ++i) {
+            FindDeltasCC();
+            // std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << "\t";
+        }
+        // std::cout << std::endl;
     }
 }
 
@@ -21,6 +27,8 @@ const std::vector<int> & DualUpdater::Deltas() {
 
 void DualUpdater::FindDeltasCC() {
     std::vector<std::vector<int> > connected_components = ConnectedComponents();
+
+    std::vector<int> delta_increase(num_nodes, 0);
 
     std::vector<int> component_index(num_nodes, 0);
     for (int i = 0; i < static_cast<int>(connected_components.size()); ++i) {
@@ -34,43 +42,50 @@ void DualUpdater::FindDeltasCC() {
 
         // find delta for this connected component
         for (int v : connected_components[cc_index]) {
-            if (constraints[v].upper_bound < delta) {
-                delta = constraints[v].upper_bound;
+            if (constraints[v].upper_bound - deltas[v] < delta) {
+                delta = constraints[v].upper_bound - deltas[v];
             }
 
             for (int i = 0; i < constraints[v].plus_plus_constraints.size(); ++i) {
                 int w = constraints[v].plus_plus_neighbors[i];
-                int slack = constraints[v].plus_plus_constraints[i];
+                int slack = constraints[v].plus_plus_constraints[i] - deltas[v] - deltas[w];
 
                 if (component_index[w] == cc_index) {
                     if (slack % 2 != 0) {
                         throw std::runtime_error("In VariableDeltas: slack is not divisible by 2");
                     }
-                    if (slack >> 1 < delta) {
-                        delta = slack >> 1;
+                    if (slack / 2 < delta) {
+                        delta = slack / 2;
                     }
                 } else {
-                    if (slack - deltas[w] < delta) {
-                        delta = slack - deltas[w];
+                    if (slack - delta_increase[w] < delta) {
+                        delta = slack - delta_increase[w];
                     }
                 }
             }
 
             for (int i = 0; i < constraints[v].plus_minus_constraints.size(); ++i) {
                 int w = constraints[v].plus_minus_neighbors[i];
-                int slack = constraints[v].plus_minus_constraints[i];
+                int slack = constraints[v].plus_minus_constraints[i] - deltas[v] + deltas[w];
                 if (component_index[w] == cc_index) {
                     continue;
                 }
-                if (slack + deltas[w] < delta) {
-                    delta = slack + deltas[w];
+                if (slack + delta_increase[w] < delta) {
+                    delta = slack + delta_increase[w];
                 }
             }
         }
 
         // apply delta to this connected component
         for (int v : connected_components[cc_index]) {
-            deltas[v] = delta;
+            delta_increase[v] = delta;
+        }
+    }
+
+    for (int v = 0; v < num_nodes; ++v) {
+        deltas[v] += delta_increase[v];
+        if (delta_increase[v] < 0) {
+            throw std::runtime_error("Negative delta increase");
         }
     }
 
@@ -90,7 +105,7 @@ std::vector<std::vector<int> > DualUpdater::ConnectedComponents() {
     for (int u = 0; u < static_cast<int>(num_nodes); ++u) {
         for (int i = 0; i < constraints[u].plus_minus_constraints.size(); ++i) {
             int v = constraints[u].plus_minus_neighbors[i];
-            int slack = constraints[u].plus_minus_constraints[i];
+            int slack = constraints[u].plus_minus_constraints[i] - deltas[u] + deltas[v];
             if (slack == 0) {
                 adj_list_tree_tree[u].emplace_back(v);
                 adj_list_tree_tree[v].emplace_back(u);

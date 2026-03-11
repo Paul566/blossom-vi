@@ -10,6 +10,7 @@ struct Parameters {
     };
 
     UpdateType update_type = UpdateType::ConnectedComponents;
+    int repetitions = 3;
 };
 
 struct DualConstraintsNode {
