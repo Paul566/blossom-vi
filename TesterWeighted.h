@@ -81,6 +81,9 @@ class TesterWeighted {
 
         static std::vector<std::string> AllFiles(const std::string &directory_path);
         static EdgeListType ReadWeightedEdgeList(const std::string &filename);
+
+        static std::pair<double, double> MeanAndSTD(const std::vector<double>& data);
+        static void PrintTime(double mean, double sigma, int digits=3);
 };
 
 #endif //BLOSSOM_VI_TESTERWEIGHTED_H

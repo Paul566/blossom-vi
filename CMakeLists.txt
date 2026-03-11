@@ -5,24 +5,26 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 add_executable(blossom_vi main.cpp
-        unweighted/Edge.h
-        unweighted/SolverUnweighted.h
-        unweighted/SolverUnweighted.cpp
-        unweighted/Tester.h
-        unweighted/Tester.cpp
-        unweighted/LabeledDisjointSets.h
-        unweighted/LabeledDisjointSets.cpp
-        Node.h
-        Node.cpp
-        EdgeWeighted.h
-        EdgeWeighted.cpp
-        SolverWeighted.h
-        SolverWeighted.cpp
-        Tree.h
-        Tree.cpp
+#        unweighted/Edge.h
+#        unweighted/SolverUnweighted.h
+#        unweighted/SolverUnweighted.cpp
+#        unweighted/Tester.h
+#        unweighted/Tester.cpp
+#        unweighted/LabeledDisjointSets.h
+#        unweighted/LabeledDisjointSets.cpp
+#        Node.h
+#        Node.cpp
+#        EdgeWeighted.h
+#        EdgeWeighted.cpp
+#        SolverWeighted.h
+#        SolverWeighted.cpp
+#        Tree.h
+#        Tree.cpp
         TesterWeighted.h
         TesterWeighted.cpp
-        Heap.h
+#        Heap.h
         VzhuhSolver.cpp
         VzhuhSolver.h
-        PairingHeap.h)
+#        PairingHeap.h
+        DualUpdater.cpp
+        DualUpdater.h)

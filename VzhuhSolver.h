@@ -8,6 +8,8 @@
 #include <stack>
 #include <boost/container/small_vector.hpp>
 
+#include "DualUpdater.h"
+
 struct SolverParameters {
     bool compute_dual_certificate = false;
     bool verbose = false;
@@ -103,15 +105,6 @@ class VzhuhSolver {
         };
         struct NodeHeap {
             int root = -1;
-        };
-
-        struct DualConstraints {
-            std::vector<int> upper_bound;
-            // upper bound on delta_T quadrupled
-            std::vector<std::vector<std::pair<int, int> > > plus_plus_constraints;
-            // (other_tree_index_alive, slack_plus_plus quadrupled)
-            std::vector<std::vector<std::pair<int, int> > > plus_minus_constraints;
-            // (other_tree_index_alive, slack_plus_minus quadrupled)
         };
 
         const int num_vertices_elementary; // the original number of vertices (i.e. not counting blossoms)
@@ -231,9 +224,7 @@ class VzhuhSolver {
 
         bool MakeDualUpdates();
         void UpdateAliveTreesList();
-        std::vector<int> VariableDeltas();
-        std::vector<std::vector<int> > ConnectedComponentsTreeTree(const DualConstraints &dual_constraints) const;
-        DualConstraints GetDualConstraints();
+        std::vector<DualConstraintsNode> GetDualConstraints();
         void InitNextRoundActionable();
         void AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_actionable);
         void CleanLoopsFromQueueTop(int tree); // makes top of plus_plus_internal_edges a non-loop

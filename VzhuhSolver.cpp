@@ -1601,7 +1601,10 @@ bool VzhuhSolver::MakeDualUpdates() {
         std::cout << "DUAL UPDATE" << std::endl;
     }
 
-    std::vector<int> deltas = VariableDeltas();
+    std::vector<DualConstraintsNode> dual_constraints = GetDualConstraints();
+    DualUpdater dual_updater(std::move(dual_constraints));
+    dual_updater.FindDeltas();
+    const std::vector<int>& deltas = dual_updater.Deltas();
     for (int i = 0; i < static_cast<int>(alive_trees.size()); ++i) {
         trees[alive_trees[i]].dual_var_quadrupled += deltas[i];
     }
@@ -1626,120 +1629,8 @@ void VzhuhSolver::UpdateAliveTreesList() {
     }
 }
 
-std::vector<int> VzhuhSolver::VariableDeltas() {
-    DualConstraints dual_constraints = GetDualConstraints();
-
-    std::vector<std::vector<int> > connected_components = ConnectedComponentsTreeTree(dual_constraints);
-    if (params.verbose) {
-        std::cout << "num of connected_components : " << connected_components.size() << std::endl;
-    }
-    std::vector<int> deltas(alive_trees.size(), 0);
-
-    std::vector<int> component_index(alive_trees.size(), 0);
-    for (int i = 0; i < static_cast<int>(connected_components.size()); ++i) {
-        for (int v : connected_components[i]) {
-            component_index[v] = i;
-        }
-    }
-
-    for (int cc_index = 0; cc_index < static_cast<int>(connected_components.size()); ++cc_index) {
-        int delta = INT32_MAX;
-
-        // find delta for this connected component
-        for (int v : connected_components[cc_index]) {
-            if (dual_constraints.upper_bound[v] < delta) {
-                delta = dual_constraints.upper_bound[v];
-            }
-
-            for (auto [w, slack] : dual_constraints.plus_plus_constraints[v]) {
-                if (component_index[w] == cc_index) {
-                    if (slack % 2 != 0) {
-                        throw std::runtime_error("In VariableDeltas: slack is not divisible by 2");
-                    }
-                    if (slack >> 1 < delta) {
-                        delta = slack >> 1;
-                    }
-                } else {
-                    if (slack - deltas[w] < delta) {
-                        delta = slack - deltas[w];
-                    }
-                }
-            }
-
-            for (auto [w, slack] : dual_constraints.plus_minus_constraints[v]) {
-                if (component_index[w] == cc_index) {
-                    continue;
-                }
-                if (slack + deltas[w] < delta) {
-                    delta = slack + deltas[w];
-                }
-            }
-        }
-
-        // apply delta to this connected component
-        for (int v : connected_components[cc_index]) {
-            deltas[v] = delta;
-        }
-    }
-
-    for (int d : deltas) {
-        if (d < 0) {
-            throw std::runtime_error("In VariableDeltas: found negative delta");
-        }
-    }
-
-    return deltas;
-}
-
-std::vector<std::vector<int> > VzhuhSolver::ConnectedComponentsTreeTree(const DualConstraints &dual_constraints) const {
-    // returns a vector of index_of_connected_component
-
-    std::vector<bool> visited(alive_trees.size(), false);
-    std::vector<std::vector<int> > components;
-
-    // Build undirected adjacency list for weak connectivity
-    std::vector<std::vector<int> > adj_list_tree_tree(alive_trees.size(), std::vector<int>());
-    for (int u = 0; u < static_cast<int>(alive_trees.size()); ++u) {
-        for (auto &[v, slack] : dual_constraints.plus_minus_constraints[u]) {
-            if (slack == 0) {
-                adj_list_tree_tree[u].emplace_back(v);
-                adj_list_tree_tree[v].emplace_back(u);
-            }
-        }
-    }
-
-    for (int start = 0; start < static_cast<int>(alive_trees.size()); ++start) {
-        if (!visited[start]) {
-            std::vector<int> comp;
-            std::queue<int> q;
-
-            visited[start] = true;
-            q.push(start);
-
-            while (!q.empty()) {
-                int u = q.front();
-                q.pop();
-                comp.push_back(u);
-
-                for (int v : adj_list_tree_tree[u]) {
-                    if (!visited[v]) {
-                        visited[v] = true;
-                        q.push(v);
-                    }
-                }
-            }
-
-            components.push_back(std::move(comp));
-        }
-    }
-
-    return components;
-}
-
-VzhuhSolver::DualConstraints VzhuhSolver::GetDualConstraints() {
-    DualConstraints result(std::vector<int>(alive_trees.size(), INT32_MAX),
-                           std::vector(alive_trees.size(), std::vector<std::pair<int, int> >()),
-                           std::vector(alive_trees.size(), std::vector<std::pair<int, int> >()));
+std::vector<DualConstraintsNode> VzhuhSolver::GetDualConstraints() {
+    std::vector<DualConstraintsNode> result(alive_trees.size());
 
     // update alive indices
     for (int i = 0; i < static_cast<int>(alive_trees.size()); ++i) {
@@ -1753,37 +1644,37 @@ VzhuhSolver::DualConstraints VzhuhSolver::GetDualConstraints() {
         // get upper_bound
         int edge = GetMinEdgeHeap(tree_heap_infos[tree].plus_empty_edges);
         if (edge >= 0) {
-            result.upper_bound[i] = edges[edge].slack_quadrupled_amortized_ - tree_var;
+            result[i].upper_bound = edges[edge].slack_quadrupled_amortized_ - tree_var;
         }
 
         edge = MinPlusPlusInternalEdge(tree_heap_infos[tree].plus_plus_internal_edges);
         if (edge >= 0) {
             int plus_plus_internal_halved = edges[edge].slack_quadrupled_amortized_ / 2 - tree_var;
-            if (plus_plus_internal_halved < result.upper_bound[i]) {
-                result.upper_bound[i] = plus_plus_internal_halved;
+            if (plus_plus_internal_halved < result[i].upper_bound) {
+                result[i].upper_bound = plus_plus_internal_halved;
             }
         }
 
         int node = GetMinNodeHeap(tree_heap_infos[tree].minus_blossoms);
         if (node >= 0) {
             int blossom_var = node_heap_infos[node].dual_var_quadrupled_amortized_ - tree_var;
-            if (blossom_var < result.upper_bound[i]) {
-                result.upper_bound[i] = blossom_var;
+            if (blossom_var < result[i].upper_bound) {
+                result[i].upper_bound = blossom_var;
             }
         }
 
         // get plus_plus_constraints and plus_minus_constraints
 
-        result.plus_plus_constraints[i].reserve(tree_heap_infos[tree].pq_plus_plus.size());
+        result[i].plus_plus_neighbors.reserve(tree_heap_infos[tree].pq_plus_plus.size());
+        result[i].plus_plus_constraints.reserve(tree_heap_infos[tree].pq_plus_plus.size());
         for (int j = 0; j < static_cast<int>(tree_heap_infos[tree].pq_plus_plus.size()); ++j) {
             auto [tree_neighbor, queue_index] = tree_heap_infos[tree].pq_plus_plus[j];
             if (trees[tree_neighbor].is_alive) {
                 edge = GetMinEdgeHeap(queue_index);
                 if (edge >= 0) {
-                    result.plus_plus_constraints[i].emplace_back(trees[tree_neighbor].alive_index,
-                                                                 edges[edge].slack_quadrupled_amortized_ - tree_var -
-                                                                 trees[tree_neighbor].
-                                                                 dual_var_quadrupled);
+                    result[i].plus_plus_neighbors.emplace_back(trees[tree_neighbor].alive_index);
+                    result[i].plus_plus_constraints.emplace_back(edges[edge].slack_quadrupled_amortized_ - tree_var -
+                        trees[tree_neighbor].dual_var_quadrupled);
                 }
             } else {
                 tree_heap_infos[tree].pq_plus_plus[j] = tree_heap_infos[tree].pq_plus_plus.back();
@@ -1792,16 +1683,16 @@ VzhuhSolver::DualConstraints VzhuhSolver::GetDualConstraints() {
             }
         }
 
-        result.plus_minus_constraints[i].reserve(tree_heap_infos[tree].pq_plus_minus.size());
+        result[i].plus_minus_neighbors.reserve(tree_heap_infos[tree].pq_plus_minus.size());
+        result[i].plus_minus_constraints.reserve(tree_heap_infos[tree].pq_plus_minus.size());
         for (int j = 0; j < static_cast<int>(tree_heap_infos[tree].pq_plus_minus.size()); ++j) {
             auto [tree_neighbor, queue_index] = tree_heap_infos[tree].pq_plus_minus[j];
             if (trees[tree_neighbor].is_alive) {
                 edge = GetMinEdgeHeap(queue_index);
                 if (edge >= 0) {
-                    result.plus_minus_constraints[i].emplace_back(trees[tree_neighbor].alive_index,
-                                                                  edges[edge].slack_quadrupled_amortized_ - tree_var +
-                                                                  trees[tree_neighbor].
-                                                                  dual_var_quadrupled);
+                    result[i].plus_minus_neighbors.emplace_back(trees[tree_neighbor].alive_index);
+                    result[i].plus_minus_constraints.emplace_back(edges[edge].slack_quadrupled_amortized_ - tree_var +
+                        trees[tree_neighbor].dual_var_quadrupled);
                 }
             } else {
                 tree_heap_infos[tree].pq_plus_minus[j] = tree_heap_infos[tree].pq_plus_minus.back();
@@ -1856,8 +1747,8 @@ void VzhuhSolver::InitNextRoundActionable() {
 
 void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_actionable) {
     int top_edge = GetMinEdgeHeap(queue_index);
-    // RemoveMinEdgeHeap(queue_index);
-    // InsertEdgeHeap(top_edge, queue_index);
+    RemoveMinEdgeHeap(queue_index);
+    InsertEdgeHeap(top_edge, queue_index);
 
     int min_key = edges[top_edge].slack_quadrupled_amortized_;
 
@@ -2216,22 +2107,46 @@ int VzhuhSolver::MeldEdgeHeap(int edge_a, int edge_b) {
 }
 
 int VzhuhSolver::TwoPassMergeEdgeHeap(int edge_first) {
-    if (edge_first < 0 || edges[edge_first].heap_next < 0) {
-        return edge_first;
+    if (edge_first < 0) {
+        return -1;
     }
 
-    int a = edge_first;
-    int b = edges[a].heap_next;
-    int rest = edges[b].heap_next;
+    int stack = -1;
 
-    edges[a].heap_next = -1;
-    edges[b].heap_next = -1;
+    // First pass: pair siblings and push meld results onto stack
+    while (edge_first >= 0) {
+        int a = edge_first;
+        int b = edges[edge_first].heap_next;
 
-    int merged = MeldEdgeHeap(a, b);
-    // TODO avoid recursion
-    int remaining = TwoPassMergeEdgeHeap(rest);
+        edge_first = (b >= 0) ? edges[b].heap_next : -1;
+        edges[a].heap_next = -1;
 
-    return MeldEdgeHeap(merged, remaining);
+        int merged;
+        if (b >= 0) {
+            edges[b].heap_next = -1;
+            merged = MeldEdgeHeap(a, b);
+        } else {
+            merged = a;
+        }
+
+        // push onto stack (reverse order)
+        edges[merged].heap_next = stack;
+        stack = merged;
+    }
+
+    // Second pass: meld stack from left to right
+    int result = stack;
+    stack = edges[stack].heap_next;
+    edges[result].heap_next = -1;
+
+    while (stack >= 0) {
+        int next = edges[stack].heap_next;
+        edges[stack].heap_next = -1;
+        result = MeldEdgeHeap(stack, result);
+        stack = next;
+    }
+
+    return result;
 }
 
 void VzhuhSolver::CutEdgeHeap(int edge) {

@@ -193,8 +193,9 @@ void TesterWeighted::MeasureInstance(const std::string &filename,
         }
     }
 
-    std::cout << "average runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / real_iters <<
-        std::endl;
+    auto [mean, sigma] = MeanAndSTD(runtimes);
+    std::cout << "runtime: ";
+    PrintTime(mean, sigma);
     std::cout << std::endl;
 }
 
@@ -382,4 +383,25 @@ EdgeListType TesterWeighted::ReadWeightedEdgeList(const std::string &filename) {
     }
 
     return edge_list;
+}
+
+std::pair<double, double> TesterWeighted::MeanAndSTD(const std::vector<double> &data) {
+    double mean = std::accumulate(data.begin(), data.end(), 0.0) / data.size();
+
+    double sum_sq_diff = 0.;
+    for (double x : data) {
+        sum_sq_diff += (x - mean) * (x - mean);
+    }
+
+    return {mean, std::sqrt(sum_sq_diff / data.size())};
+}
+
+void TesterWeighted::PrintTime(double mean, double sigma, int digits) {
+    std::string s = std::format("{:.{}g}", mean, digits);
+    std::cout << s << " +- ";
+
+    auto pos = s.find('.');
+    int decimals = (pos == std::string::npos) ? 0 : s.size() - pos - 1;
+
+    std::cout << std::format("{:.{}f}", sigma, decimals) << std::endl;
 }
