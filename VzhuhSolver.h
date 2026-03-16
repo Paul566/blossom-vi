@@ -47,6 +47,7 @@ class VzhuhSolver {
             Edge(int head_, int tail_, int weight_);
         };
 
+        // TODO try unsing struct of (edge_index, neighbor_node_index) and avoid OtherEnd() calls
         struct ArcIndex {
             int index = -1;
         };

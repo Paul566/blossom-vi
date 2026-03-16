@@ -1,14 +1,16 @@
 #include "DualUpdater.h"
 
+#include <algorithm>
 #include <iostream>
 #include <numeric>
 #include <queue>
 
 DualUpdater::DualUpdater(std::vector<DualConstraintsNode> &&constraints,
                          const Parameters &params_) : params(params_), num_nodes(constraints.size()) {
-    
     this->constraints = std::move(constraints);
-    deltas = std::vector<int> (num_nodes, 0);
+    deltas = std::vector<int>(num_nodes, 0);
+
+    // ValidateConstraintNonNegativity();
 }
 
 void DualUpdater::FindDeltas() {
@@ -18,11 +20,81 @@ void DualUpdater::FindDeltas() {
             // std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << "\t";
         }
         // std::cout << std::endl;
+        return;
+    }
+
+    if (params.update_type == Parameters::UpdateType::ShortestPaths) {
+        FindDeltasCC();
+        std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << "\t";
+        for (int u = 0; u < num_nodes; ++u) {
+            deltas[u] = 0;
+        }
+
+        FindDeltasShortestPaths();
+        ValidateDeltasFeasibility();
+        std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << std::endl;
+    }
+
+    if (params.update_type == Parameters::UpdateType::LP) {
+        if (num_nodes > 30) {
+            FindDeltasCC();
+        } else {
+            FindDeltasMinCostFlow();
+            ValidateDeltasFeasibility();
+            // std::cout << std::accumulate(deltas.begin(), deltas.end(), 0);
+            FindDeltasCC();
+            // std::cout << " " << std::accumulate(deltas.begin(), deltas.end(), 0) << std::endl;
+            ValidateDeltasFeasibility();
+        }
     }
 }
 
-const std::vector<int> & DualUpdater::Deltas() {
+const std::vector<int> &DualUpdater::Deltas() {
     return deltas;
+}
+
+void DualUpdater::ValidateConstraintNonNegativity() {
+    for (const DualConstraintsNode &node : constraints) {
+        if (node.upper_bound < 0) {
+            throw std::runtime_error("ValidateConstraintNonNegativity: upper_bound");
+        }
+        for (int c : node.plus_plus_constraints) {
+            if (c < 0) {
+                throw std::runtime_error("ValidateConstraintNonNegativity: plus_plus_constraints");
+            }
+        }
+        for (int c : node.plus_minus_constraints) {
+            if (c < 0) {
+                throw std::runtime_error("ValidateConstraintNonNegativity: plus_minus_constraints");
+            }
+        }
+    }
+}
+
+void DualUpdater::ValidateDeltasFeasibility() {
+    for (int u = 0; u < num_nodes; ++u) {
+        if (deltas[u] < 0) {
+            throw std::runtime_error("ValidateDeltasFeasibility: negative delta");
+        }
+
+        if (deltas[u] > constraints[u].upper_bound) {
+            throw std::runtime_error("ValidateDeltasFeasibility: upper_bound");
+        }
+
+        for (int i = 0; i < constraints[u].plus_plus_neighbors.size(); ++i) {
+            int v = constraints[u].plus_plus_neighbors[i];
+            if (deltas[u] + deltas[v] > constraints[u].plus_plus_constraints[i]) {
+                throw std::runtime_error("ValidateDeltasFeasibility: plus plus");
+            }
+        }
+
+        for (int i = 0; i < constraints[u].plus_minus_neighbors.size(); ++i) {
+            int v = constraints[u].plus_minus_neighbors[i];
+            if (deltas[u] - deltas[v] > constraints[u].plus_minus_constraints[i]) {
+                throw std::runtime_error("ValidateDeltasFeasibility: plus minus");
+            }
+        }
+    }
 }
 
 void DualUpdater::FindDeltasCC() {
@@ -139,4 +211,161 @@ std::vector<std::vector<int> > DualUpdater::ConnectedComponents() {
     }
 
     return components;
+}
+
+void DualUpdater::FindDeltasShortestPaths() {
+    RefineUpperBounds();
+    SetDeltasToDists();
+
+    // make plus-plus constraints respected
+    for (int u = 0; u < num_nodes; ++u) {
+        for (int i = 0; i < constraints[u].plus_plus_neighbors.size(); ++i) {
+            int v = constraints[u].plus_plus_neighbors[i];
+            int violation = deltas[u] + deltas[v] - constraints[u].plus_plus_constraints[i];
+            if (violation > 0) {
+                int half_violation = violation / 2;
+                deltas[u] -= half_violation;
+                deltas[v] -= (violation - half_violation);
+
+                if (deltas[u] < 0 || deltas[v] < 0) {
+                    throw std::runtime_error("In FindDeltasShortestPaths: negative deltas");
+                }
+            }
+        }
+    }
+
+    // make the plus minus constraints respected once again
+    std::vector<std::vector<std::pair<int, int>>> reversed_pm(num_nodes);
+    for (int u = 0; u < num_nodes; ++u) {
+        for (int i = 0; i < constraints[u].plus_minus_neighbors.size(); ++i) {
+            reversed_pm[constraints[u].plus_minus_neighbors[i]].emplace_back(u, constraints[u].plus_minus_constraints[i]);
+        }
+    }
+    std::priority_queue<
+        std::pair<int, int>,
+        std::vector<std::pair<int, int> >,
+        std::greater<>
+    > pq;
+    for (int v = 0; v < num_nodes; ++v) {
+        pq.push({deltas[v], v});
+    }
+
+    while (!pq.empty()) {
+        auto [d,u] = pq.top();
+        pq.pop();
+
+        if (d > deltas[u]) {
+            continue;
+        }
+
+        for (auto [v, w] : reversed_pm[u]) {
+            if (deltas[v] > d + w) {
+                deltas[v] = d + w;
+                pq.push({deltas[v], v});
+            }
+        }
+    }
+
+    if (std::all_of(deltas.begin(), deltas.end(), [](auto x) { return x == 0; })) {
+        FindDeltasCC();
+    }
+}
+
+void DualUpdater::SetDeltasToDists() {
+    std::priority_queue<
+        std::pair<int, int>,
+        std::vector<std::pair<int, int> >,
+        std::greater<>
+    > pq;
+
+    std::vector<std::vector<std::pair<int, int>>> reversed_pm(num_nodes);
+    for (int u = 0; u < num_nodes; ++u) {
+        for (int i = 0; i < constraints[u].plus_minus_neighbors.size(); ++i) {
+            reversed_pm[constraints[u].plus_minus_neighbors[i]].emplace_back(u, constraints[u].plus_minus_constraints[i]);
+        }
+    }
+
+
+    for (int v = 0; v < num_nodes; ++v) {
+        deltas[v] = constraints[v].upper_bound;
+        pq.push({deltas[v], v});
+    }
+
+    while (!pq.empty()) {
+        auto [d,u] = pq.top();
+        pq.pop();
+
+        if (d > deltas[u]) {
+            continue;
+        }
+
+        for (auto [v, w] : reversed_pm[u]) {
+            if (deltas[v] > d + w) {
+                deltas[v] = d + w;
+                pq.push({deltas[v], v});
+            }
+        }
+    }
+}
+
+void DualUpdater::RefineUpperBounds() {
+    for (int u = 0; u < num_nodes; ++u) {
+        for (int i = 0; i < constraints[u].plus_plus_neighbors.size(); ++i) {
+            int c = constraints[u].plus_plus_constraints[i];
+            if (c < constraints[u].upper_bound) {
+                constraints[u].upper_bound = c;
+            }
+        }
+    }
+}
+
+void DualUpdater::FindDeltasMinCostFlow() {
+    int source = 2 * num_nodes;
+    int sink = 2 * num_nodes + 1;
+    MinCostFlow mcf(2 * num_nodes + 2);
+    // (delta pluses, delta minuses, source, sink)
+
+    const int INF = 1000000000; // TODO int32max?
+
+    for (int i = 0; i < num_nodes; ++i) {
+        mcf.AddEdge(source, num_nodes + i, 1, 0);
+        mcf.AddEdge(i, sink, 1, 0);
+
+        if (constraints[i].upper_bound < INT32_MAX / 2) {
+            mcf.AddEdge(num_nodes + i, i, INF, 2 * constraints[i].upper_bound);
+        } else {
+            mcf.AddEdge(num_nodes + i, i, INF, INT32_MAX);
+        }
+        mcf.AddEdge(i, num_nodes + i, INF, 0);
+    }
+
+    for (int u = 0; u < num_nodes; ++u) {
+        for (int i = 0; i < constraints[u].plus_plus_neighbors.size(); ++i) {
+            int c = constraints[u].plus_plus_constraints[i];
+            int v = constraints[u].plus_plus_neighbors[i];
+            if (u < v) {
+                mcf.AddEdge(num_nodes + v, u, INF, c);
+                mcf.AddEdge(num_nodes + u, v, INF, c);
+            }
+        }
+
+        for (int i = 0; i < constraints[u].plus_minus_neighbors.size(); ++i) {
+            int c = constraints[u].plus_minus_constraints[i];
+            int v = constraints[u].plus_minus_neighbors[i];
+
+            mcf.AddEdge(v, u, INF, c);
+            mcf.AddEdge(num_nodes + u, num_nodes + v, INF, c);
+        }
+    }
+
+    auto [flow, cost] = mcf.MinCostMaxFlow(source, sink);
+    std::vector<long long> pot = mcf.GetPotentials();
+
+    int source_pot = pot[source];
+    // std::cout << cost / 2. << std::endl;
+    // std::cout << pot[source] << " " << pot[sink] << " " << source_pot << std::endl;
+    for (int u = 0; u < num_nodes; ++u) {
+        deltas[u] = (pot[u] - pot[num_nodes + u]) / 2;
+        // std::cout << pot[u] << " " << pot[num_nodes + u] << " " << constraints[u].upper_bound << std::endl;
+    }
 }

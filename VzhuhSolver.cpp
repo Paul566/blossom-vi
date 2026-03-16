@@ -149,7 +149,7 @@ void VzhuhSolver::FindMinPerfectMatching() {
     ComputePrimalObjective();
 
     std::cout << current_round << " " << primal_objective << std::endl;
-    // std::cout << aux_counter1 << " " << aux_counter2 << " " << aux_counter3 << " " << aux_counter4 << std::endl;
+    std::cout << aux_counter1 << " " << aux_counter2 << " " << aux_counter3 << " " << aux_counter4 << std::endl;
 
     if (params.verbose) {
         std::cout << "Primal objective:\t" << primal_objective << std::endl;
