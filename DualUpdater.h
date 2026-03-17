@@ -13,7 +13,7 @@ struct Parameters {
         LP
     };
 
-    UpdateType update_type = UpdateType::LP;
+    UpdateType update_type = UpdateType::ConnectedComponents;
     int repetitions = 1;
     int LP_threshold = 100; // use CC if more than this many variables
 };
@@ -136,7 +136,7 @@ class DualUpdater {
         std::vector<DualConstraintsNode> constraints;
         std::vector<int> deltas;
 
-        void ValidateConstraintNonNegativity();
+        void ValidateConstraintNonNegativity() const;
         void ValidateDeltasFeasibility();
 
         void FindDeltasCC();

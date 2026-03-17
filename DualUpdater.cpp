@@ -20,15 +20,8 @@ void DualUpdater::FindDeltas() {
     }
 
     if (params.update_type == Parameters::UpdateType::ShortestPaths) {
-        // FindDeltasCC();
-        // // std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << "\t";
-        // for (int u = 0; u < num_nodes; ++u) {
-        //     deltas[u] = 0;
-        // }
-
         FindDeltasShortestPaths();
-        // ValidateDeltasFeasibility();
-        // std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << std::endl;
+        return;
     }
 
     if (params.update_type == Parameters::UpdateType::LP) {
@@ -54,7 +47,7 @@ const std::vector<int> &DualUpdater::Deltas() {
     return deltas;
 }
 
-void DualUpdater::ValidateConstraintNonNegativity() {
+void DualUpdater::ValidateConstraintNonNegativity() const {
     for (const DualConstraintsNode &node : constraints) {
         if (node.upper_bound < 0) {
             throw std::runtime_error("ValidateConstraintNonNegativity: upper_bound");
@@ -170,12 +163,8 @@ void DualUpdater::FindDeltasCC() {
 }
 
 std::vector<std::vector<int> > DualUpdater::ConnectedComponents() {
-    std::vector<bool> visited(num_nodes, false);
-    std::vector<std::vector<int> > components;
-
-    // Build undirected adjacency list for weak connectivity
     std::vector<std::vector<int> > adj_list_tree_tree(num_nodes, std::vector<int>());
-    for (int u = 0; u < static_cast<int>(num_nodes); ++u) {
+    for (int u = 0; u < num_nodes; ++u) {
         for (int i = 0; i < constraints[u].plus_minus_constraints.size(); ++i) {
             int v = constraints[u].plus_minus_neighbors[i];
             int slack = constraints[u].plus_minus_constraints[i] - deltas[u] + deltas[v];
@@ -186,29 +175,31 @@ std::vector<std::vector<int> > DualUpdater::ConnectedComponents() {
         }
     }
 
-    for (int start = 0; start < static_cast<int>(num_nodes); ++start) {
-        if (!visited[start]) {
-            std::vector<int> comp;
-            std::queue<int> q;
+    std::vector<int> component_marker(num_nodes, -1);
+    std::queue<int> queue;  // TODO make vector
+    int cur_component = -1;
+    for (int start = 0; start < num_nodes; ++start) {
+        if (component_marker[start] < 0) {
+            ++cur_component;
+            component_marker[start] = cur_component;
+            queue.push(start);
 
-            visited[start] = true;
-            q.push(start);
-
-            while (!q.empty()) {
-                int u = q.front();
-                q.pop();
-                comp.push_back(u);
-
+            while (!queue.empty()) {
+                int u = queue.front();
+                queue.pop();
                 for (int v : adj_list_tree_tree[u]) {
-                    if (!visited[v]) {
-                        visited[v] = true;
-                        q.push(v);
+                    if (component_marker[v] < 0) {
+                        component_marker[v] = cur_component;
+                        queue.push(v);
                     }
                 }
             }
-
-            components.push_back(std::move(comp));
         }
+    }
+
+    std::vector<std::vector<int> > components(cur_component + 1);
+    for (int u = 0; u < num_nodes; ++u) {
+        components[component_marker[u]].emplace_back(u);
     }
 
     return components;

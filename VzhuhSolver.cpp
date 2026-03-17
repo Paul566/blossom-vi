@@ -126,19 +126,6 @@ void VzhuhSolver::FindMinPerfectMatching() {
     if (params.verbose) {
         std::cout << "Dual objective:\t\t" << dual_objective << std::endl;
     }
-    // int max_depth = 0;
-    // for (int node = 0; node < num_vertices_elementary; ++node) {
-    //     int depth = 0;
-    //     int cur = node;
-    //     while (blossom_parents[cur] >= 0) {
-    //         ++depth;
-    //         cur = blossom_parents[cur];
-    //     }
-    //     if (depth > max_depth) {
-    //         max_depth = depth;
-    //     }
-    // }
-    // std::cout << max_depth << std::endl;
 
     if (params.compute_dual_certificate) {
         ComputeDualCertificate();
@@ -148,8 +135,10 @@ void VzhuhSolver::FindMinPerfectMatching() {
     ComputeMatching();
     ComputePrimalObjective();
 
-    std::cout << current_round << " " << primal_objective << std::endl;
-    std::cout << aux_counter1 << " " << aux_counter2 << " " << aux_counter3 << " " << aux_counter4 << std::endl;
+    if (params.print_statistics) {
+        std::cout << current_round << " " << primal_objective << std::endl;
+        std::cout << aux_counter1 << " " << aux_counter2 << " " << aux_counter3 << " " << aux_counter4 << std::endl;
+    }
 
     if (params.verbose) {
         std::cout << "Primal objective:\t" << primal_objective << std::endl;
