@@ -9,42 +9,43 @@ DualUpdater::DualUpdater(std::vector<DualConstraintsNode> &&constraints,
                          const Parameters &params_) : params(params_), num_nodes(constraints.size()) {
     this->constraints = std::move(constraints);
     deltas = std::vector<int>(num_nodes, 0);
-
-    // ValidateConstraintNonNegativity();
 }
 
 void DualUpdater::FindDeltas() {
     if (params.update_type == Parameters::UpdateType::ConnectedComponents) {
         for (int i = 0; i < params.repetitions; ++i) {
             FindDeltasCC();
-            // std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << "\t";
         }
-        // std::cout << std::endl;
         return;
     }
 
     if (params.update_type == Parameters::UpdateType::ShortestPaths) {
-        FindDeltasCC();
-        std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << "\t";
-        for (int u = 0; u < num_nodes; ++u) {
-            deltas[u] = 0;
-        }
+        // FindDeltasCC();
+        // // std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << "\t";
+        // for (int u = 0; u < num_nodes; ++u) {
+        //     deltas[u] = 0;
+        // }
 
         FindDeltasShortestPaths();
-        ValidateDeltasFeasibility();
-        std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << std::endl;
+        // ValidateDeltasFeasibility();
+        // std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << std::endl;
     }
 
     if (params.update_type == Parameters::UpdateType::LP) {
-        if (num_nodes > 30) {
+        if (num_nodes > params.LP_threshold) {
             FindDeltasCC();
         } else {
+            // FindDeltasCC();
+            // std::cout << std::accumulate(deltas.begin(), deltas.end(), 0) << "\t";
+            // for (int u = 0; u < num_nodes; ++u) {
+            //     deltas[u] = 0;
+            // }
+
             FindDeltasMinCostFlow();
-            ValidateDeltasFeasibility();
             // std::cout << std::accumulate(deltas.begin(), deltas.end(), 0);
             FindDeltasCC();
             // std::cout << " " << std::accumulate(deltas.begin(), deltas.end(), 0) << std::endl;
-            ValidateDeltasFeasibility();
+            // ValidateDeltasFeasibility();
         }
     }
 }
@@ -358,14 +359,9 @@ void DualUpdater::FindDeltasMinCostFlow() {
         }
     }
 
-    auto [flow, cost] = mcf.MinCostMaxFlow(source, sink);
-    std::vector<long long> pot = mcf.GetPotentials();
-
-    int source_pot = pot[source];
-    // std::cout << cost / 2. << std::endl;
-    // std::cout << pot[source] << " " << pot[sink] << " " << source_pot << std::endl;
+    mcf.MinCostMaxFlow(source, sink);
+    std::vector<int64_t> pot = mcf.GetPotentials();
     for (int u = 0; u < num_nodes; ++u) {
         deltas[u] = (pot[u] - pot[num_nodes + u]) / 2;
-        // std::cout << pot[u] << " " << pot[num_nodes + u] << " " << constraints[u].upper_bound << std::endl;
     }
 }
