@@ -162,6 +162,11 @@ class VzhuhSolver {
         void PrintNode(int node) const;
 
         void GreedyInit();
+        void InitMakeSlacksNonnegative();
+        void InitGreedyIncreaseVars();
+        void InitFindLengthThreeAugmentations();
+
+
         void InitializeTrees();
 
         void ComputeMatching();

@@ -9,11 +9,11 @@ int main() {
     // tester.RunInstances(MatchingPlusGraphGenerator(16, 30, 0, 10), 100000, false);
     tester.RunInstances(MatchingPlusGraphGenerator(100, 500, -1000, 1000), 1000, false);
 
-    int iterations = 10;
+    int iterations = 1;
     tester.MeasureBenchmark("../tests-weighted", iterations, 20);
 
     // tester.MeasureInstance("../tests-weighted/delaunay-100000-299968", 1, 20, false);
-    tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999962", 1, 20, false);
+    // tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999962", 1, 20, false);
     // tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999965", 1, 20, false);
     // tester.MeasureInstance("../tests-weighted/dan59296-177299", 10, 20, false);
     // tester.MeasureInstance("../tests-weighted/sra104815-314222", 10, 20, false);
