@@ -47,9 +47,13 @@ class VzhuhSolver {
             Edge(int head_, int tail_, int weight_);
         };
 
-        // TODO try unsing struct of (edge_index, neighbor_node_index) and avoid OtherEnd() calls
+        // TODO try moving head/tail into arcs and avoid reading edges
         struct ArcIndex {
             int index = -1;
+
+            bool operator>=(const ArcIndex & other) const {
+                return index >= other.index;
+            }
         };
 
         struct Node {
@@ -131,7 +135,6 @@ class VzhuhSolver {
         std::vector<int> elementary_heads;
         std::vector<int> elementary_tails;
         std::vector<uint8_t> matched;
-        std::vector<uint8_t> maybe_has_zero_slack;
 
         std::vector<Tree> trees;
         std::vector<TreeHeapInfo> tree_heap_infos;
@@ -158,13 +161,31 @@ class VzhuhSolver {
         // a vector of (quadrupled dual variable, index of the blossom parent or -1)
         // dual_certificate is empty unless params.compute_dual_certificate is true
 
+        struct InitComparator {
+            bool operator()(const std::pair<int, ArcIndex> & lhs, const std::pair<int, ArcIndex> & rhs) const {
+                return lhs.first > rhs.first;
+            }
+        };
+        std::priority_queue<std::pair<int, ArcIndex>, std::vector<std::pair<int, ArcIndex>>, InitComparator> init_plus_empty;
+        std::vector<ArcIndex> half_int_clockwise;
+        std::vector<int> init_tree_nodes;
+        int init_min_plus_plus_edge = -1;
+        int init_min_plus_plus_slack_amortized = INT32_MAX;
+
         void PrintGraph() const;
         void PrintNode(int node) const;
 
-        void GreedyInit();
+        void Init();
         void InitMakeSlacksNonnegative();
         void InitGreedyIncreaseVars();
         void InitFindLengthThreeAugmentations();
+        void FractionalMatchingInit(int max_tree_size);
+        void FracInitGrow(ArcIndex arc, int tree_cnt, int tree_var);
+        void FracInitAugment(int node_plus, int this_root);
+        void FracInitAugmentCycle(ArcIndex arc, int this_root);
+        void FracInitMakeCycle(int edge, int this_root);
+        void FracInitCleanTree(int tree_var);
+        void FracInitCleanup(); // clear minus parents, clear .tree, round the half integral edges
 
 
         void InitializeTrees();

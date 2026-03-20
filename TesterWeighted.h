@@ -56,7 +56,7 @@ class TesterWeighted {
 
         static void MeasureBenchmark(const std::string &path, int num_iter, double max_time_per_instance = 60.);
         static void MeasureInstance(const std::string &filename, int num_iter, double max_time_per_instance = 60.,
-                                     bool with_debug = false);
+                                     bool with_debug = false, bool print_statistics = false);
 
     private:
         std::mt19937 generator;

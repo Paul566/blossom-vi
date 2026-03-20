@@ -125,7 +125,7 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
         VzhuhSolver solver = VzhuhSolver(edge_list,
                                          {
                                              .compute_dual_certificate = verify_output,
-                                             .verbose = (verbose || (i == 46128)), .print_statistics = false,
+                                             .verbose = (verbose || (i == 71)), .print_statistics = false,
                                              .debug = verify_output
                                          });
         solver.FindMinPerfectMatching();
@@ -162,7 +162,7 @@ void TesterWeighted::MeasureBenchmark(const std::string &path, int num_iter, dou
 void TesterWeighted::MeasureInstance(const std::string &filename,
                                      int num_iter,
                                      double max_time_per_instance,
-                                     bool with_debug) {
+                                     bool with_debug, bool print_statistics) {
     std::cout << filename << std::endl;
     EdgeListType edge_list = ReadWeightedEdgeList(filename);
 
@@ -177,7 +177,7 @@ void TesterWeighted::MeasureInstance(const std::string &filename,
         VzhuhSolver solver = VzhuhSolver(edge_list,
                                          {
                                              .compute_dual_certificate = false, .verbose = false,
-                                             .print_statistics = false, .debug = with_debug
+                                             .print_statistics = print_statistics, .debug = with_debug
                                          });
         solver.FindMinPerfectMatching();
         auto stop = std::chrono::high_resolution_clock::now();

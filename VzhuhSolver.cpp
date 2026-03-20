@@ -52,7 +52,7 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
     elementary_heads.reserve(edge_list_.size());
     elementary_tails.reserve(edge_list_.size());
     matched = std::vector<uint8_t>(edge_list_.size(), false);
-    maybe_has_zero_slack = std::vector<uint8_t>(edge_list_.size(), true);
+    // maybe_has_zero_slack = std::vector<uint8_t>(edge_list_.size(), true);
     int i = 0;
     for (int from = 0; from < num_vertices_elementary; ++from) {
         for (auto [to, weight] : incident_edges[from]) {
@@ -86,7 +86,7 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
 }
 
 void VzhuhSolver::FindMinPerfectMatching() {
-    GreedyInit();
+    Init();
     InitializeTrees();
 
     if (params.verbose) {
@@ -180,12 +180,13 @@ VzhuhSolver::Tree::Tree(int root_) {
 }
 
 void VzhuhSolver::PrintGraph() const {
-    std::cout << "Adjacency list (to, matched):" << std::endl;
+    std::cout << "Adjacency list (to, matched, weight, amortized slack):" << std::endl;
 
     for (int i = 0; i < num_vertices_elementary; ++i) {
         std::cout << i << ": ";
         for (ArcIndex arc : adj_list[i]) {
-            std::cout << "(" << OtherElementaryEnd(arc) << " " << static_cast<bool>(matched[arc.index >> 1]) << ") ";
+            std::cout << "(" << OtherElementaryEnd(arc) << " " << static_cast<bool>(matched[arc.index >> 1]) << " " <<
+                edge_weights[arc.index >> 1] << " " << edges[arc.index >> 1].slack_quadrupled_amortized_ << ") ";
         }
         std::cout << std::endl;
     }
@@ -214,10 +215,13 @@ void VzhuhSolver::PrintNode(int node) const {
     std::cout << std::endl;
 }
 
-void VzhuhSolver::GreedyInit() {
+void VzhuhSolver::Init() {
     InitMakeSlacksNonnegative();
 
     InitGreedyIncreaseVars();
+
+    // InitFindLengthThreeAugmentations();
+    FractionalMatchingInit(num_vertices_elementary);
 }
 
 void VzhuhSolver::InitMakeSlacksNonnegative() {
@@ -261,11 +265,11 @@ void VzhuhSolver::InitGreedyIncreaseVars() {
         for (ArcIndex arc : adj_list[i]) {
             edges[arc.index >> 1].slack_quadrupled_amortized_ -= smallest_slack;
 
-            if (edges[arc.index >> 1].slack_quadrupled_amortized_ == 0) {
-                maybe_has_zero_slack[arc.index >> 1] = true;
-            } else {
-                maybe_has_zero_slack[arc.index >> 1] = false;
-            }
+            // if (edges[arc.index >> 1].slack_quadrupled_amortized_ == 0) {
+            //     maybe_has_zero_slack[arc.index >> 1] = true;
+            // } else {
+            //     maybe_has_zero_slack[arc.index >> 1] = false;
+            // }
         }
 
         for (ArcIndex arc : adj_list[i]) {
@@ -280,77 +284,347 @@ void VzhuhSolver::InitGreedyIncreaseVars() {
             }
         }
     }
-
-    // debug:
-    for (int edge = 0; edge < static_cast<int>(edges.size()); ++edge) {
-        int head = elementary_heads[edge];
-        int tail = elementary_tails[edge];
-        if (matched[edge]) {
-            if (nodes[head].matched_edge.index != edge * 2) {
-                throw std::runtime_error("");
-            }
-            if (nodes[tail].matched_edge.index != edge * 2 + 1) {
-                throw std::runtime_error("");
-            }
-        }
-    }
-    for (int node = 0; node < num_vertices_elementary; ++node) {
-        if (nodes[node].matched_edge.index >= 0) {
-            if (!matched[nodes[node].matched_edge.index >> 1]) {
-                throw std::runtime_error("");
-            }
-            if (node != ThisElementaryEnd(nodes[node].matched_edge)) {
-                throw std::runtime_error("");
-            }
-        }
-    }
 }
 
 void VzhuhSolver::InitFindLengthThreeAugmentations() {
     for (int root = 0; root < num_vertices_elementary; ++root) {
-        if (nodes[root].matched_edge.index > 0) {
+        if (nodes[root].matched_edge.index >= 0) {
             continue;
         }
 
-        // TODO
-
-        int root_incident_slack = INT32_MAX; // second-smallest slack
         int child = -1;
         int edge_to_child = -1;
         for (ArcIndex arc : adj_list[root]) {
             int slack = edges[arc.index >> 1].slack_quadrupled_amortized_;
             if (slack == 0) {
-                if (child < 0) {
-                    edge_to_child = arc.index >> 1;
-                    child = OtherElementaryEnd(arc);
-                } else {
-                    root_incident_slack = 0;
-                    break;
-                }
-            } else {
-                if (slack < root_incident_slack) {
-                    root_incident_slack = slack;
-                }
+                edge_to_child = arc.index >> 1;
+                child = OtherElementaryEnd(arc);
+                break;
             }
         }
 
         if (child < 0) {
             throw std::runtime_error("InitFindLengthThreeAugmentations: no child");
-            // TODO this is possible
+            // TODO this is possible?
         }
-        if (nodes[child].matched_edge.index < 0) {
-            throw std::runtime_error("InitFindLengthThreeAugmentations: child unmatched");
-        }
-
         int grandchild = OtherElementaryEnd(nodes[child].matched_edge);
-        int grandchild_incident_slack = INT32_MAX; // second-smallest slack
         for (ArcIndex arc : adj_list[grandchild]) {
             int edge = arc.index >> 1;
             if (!matched[edge]) {
                 int slack = edges[edge].slack_quadrupled_amortized_;
-                if (slack < grandchild_incident_slack) {
-                    grandchild_incident_slack = slack;
+                if (slack == 0) {
+                    int final_end = OtherElementaryEnd(arc);
+                    if (final_end == root || nodes[final_end].matched_edge.index >= 0) {
+                        continue;
+                    }
+
+                    // augment
+                    MakeEdgeUnmatched(nodes[child].matched_edge.index >> 1);
+                    MakeEdgeMatched(edge_to_child);
+                    MakeEdgeMatched(edge);
+                    break;
                 }
+            }
+        }
+    }
+}
+
+void VzhuhSolver::FractionalMatchingInit(int max_tree_size) {
+    // TODO use a different slack amortization
+
+    if (params.verbose) {
+        PrintGraph();
+    }
+
+    half_int_clockwise = std::vector<ArcIndex>(num_vertices_elementary, {-1});
+    int tree_cnt = 0;
+    init_tree_nodes.resize(max_tree_size);
+
+    for (int root = 0; root < num_vertices_elementary; ++root) {
+        if (nodes[root].matched_edge.index >= 0 || half_int_clockwise[root].index >= 0) {
+            continue;
+        }
+
+        ++tree_cnt; // marking the nodes in the tree
+        nodes[root].tree = tree_cnt;
+        nodes[root].plus = true;
+        init_tree_nodes.clear();
+        init_tree_nodes.emplace_back(root);
+
+        int tree_var = 0;
+        init_plus_empty = {};
+        init_min_plus_plus_edge = -1;
+        init_min_plus_plus_slack_amortized = INT32_MAX; // must be correct
+
+        // might contain (+, +) or (+, -) arcs
+        for (ArcIndex arc : adj_list[root]) {
+            init_plus_empty.push({edges[arc.index >> 1].slack_quadrupled_amortized_, arc});
+        }
+
+        while (init_tree_nodes.size() < max_tree_size) {
+            if (init_plus_empty.empty()) {
+                break;
+            }
+            auto [slack_amortized, arc] = init_plus_empty.top();
+            init_plus_empty.pop();
+
+            if (slack_amortized < init_min_plus_plus_slack_amortized / 2) {
+                int neighbor = OtherElementaryEnd(arc);
+                if (nodes[neighbor].tree == tree_cnt) {
+                    // in this tree
+                    if (nodes[neighbor].plus) {
+                        // ++
+                        throw std::runtime_error("FractionalMatchingInit: ++ edge not discovered");
+                    } else {
+                        // +-
+                        continue;
+                    }
+                } else {
+                    // not in this tree
+                    if (nodes[neighbor].matched_edge.index >= 0) {
+                        tree_var = slack_amortized;
+                        if (params.verbose) {
+                            std::cout << "tree var: " << tree_var << std::endl;
+                        }
+                        FracInitGrow(arc, tree_cnt, tree_var);
+                    } else {
+                        if (half_int_clockwise[neighbor].index >= 0) {
+                            tree_var = slack_amortized;
+                            if (params.verbose) {
+                                std::cout << "tree var: " << tree_var << std::endl;
+                            }
+                            FracInitAugmentCycle(arc, root);
+                            break;
+                        } else {
+                            tree_var = slack_amortized;
+                            if (params.verbose) {
+                                std::cout << "tree var: " << tree_var << std::endl;
+                            }
+                            FracInitAugment(ThisElementaryEnd(arc), root);
+                            MakeEdgeMatched(arc.index >> 1);
+                            break;
+                        }
+                    }
+                }
+            } else {
+                tree_var = init_min_plus_plus_slack_amortized / 2;
+                if (params.verbose) {
+                    std::cout << "tree var: " << tree_var << std::endl;
+                }
+                FracInitMakeCycle(init_min_plus_plus_edge, root);
+                break;
+            }
+        }
+
+        FracInitCleanTree(tree_var);
+    }
+
+    FracInitCleanup();
+    if (params.verbose) {
+        PrintGraph();
+    }
+}
+
+void VzhuhSolver::FracInitGrow(ArcIndex arc, int tree_cnt, int tree_var) {
+    int child = OtherElementaryEnd(arc);
+    int grandchild = OtherElementaryEnd(nodes[child].matched_edge);
+
+    if (params.verbose) {
+        std::cout << "INIT GROW " << ThisElementaryEnd(arc) << " " << child << " " << grandchild << std::endl;
+    }
+
+    nodes[child].minus_parent = ReverseArc(arc);
+
+    nodes[child].plus = false;
+    nodes[grandchild].plus = true;
+
+    nodes[child].tree = tree_cnt;
+    nodes[grandchild].tree = tree_cnt;
+
+    init_tree_nodes.push_back(child);
+    init_tree_nodes.push_back(grandchild);
+
+    node_heap_infos[child].dual_var_quadrupled_amortized_ += tree_var;
+    node_heap_infos[grandchild].dual_var_quadrupled_amortized_ -= tree_var;
+
+    for (ArcIndex grand_arc : adj_list[grandchild]) {
+        edges[grand_arc.index >> 1].slack_quadrupled_amortized_ += tree_var;
+
+        int neighbor = OtherElementaryEnd(grand_arc);
+        if (nodes[neighbor].tree != tree_cnt) {
+            init_plus_empty.push({edges[grand_arc.index >> 1].slack_quadrupled_amortized_, grand_arc});
+        } else {
+            if (nodes[neighbor].plus && edges[grand_arc.index >> 1].slack_quadrupled_amortized_ <
+                init_min_plus_plus_slack_amortized) {
+                init_min_plus_plus_slack_amortized = edges[grand_arc.index >> 1].slack_quadrupled_amortized_;
+                init_min_plus_plus_edge = grand_arc.index >> 1;
+            }
+        }
+    }
+    for (ArcIndex child_arc : adj_list[child]) {
+        edges[child_arc.index >> 1].slack_quadrupled_amortized_ -= tree_var;
+    }
+}
+
+void VzhuhSolver::FracInitAugment(int node_plus, int this_root) {
+    if (params.verbose) {
+        std::cout << "INIT AUGMENT " << node_plus << std::endl;
+    }
+
+    path_to_root.clear();
+    while (node_plus != this_root) {
+        path_to_root.push_back(nodes[node_plus].matched_edge.index >> 1);
+        node_plus = OtherEnd(nodes[node_plus].matched_edge);
+        path_to_root.push_back(nodes[node_plus].minus_parent.index >> 1);
+        node_plus = OtherEnd(nodes[node_plus].minus_parent);
+    }
+
+    for (int i = 0; i < path_to_root.size(); ++i) {
+        if (i % 2 == 0) {
+            MakeEdgeUnmatched(path_to_root[i]);
+        } else {
+            MakeEdgeMatched(path_to_root[i]);
+        }
+    }
+}
+
+void VzhuhSolver::FracInitAugmentCycle(ArcIndex arc, int this_root) {
+    if (params.verbose) {
+        std::cout << "INIT AUGMENT CYCLE " << ThisElementaryEnd(arc) << " " << OtherElementaryEnd(arc) << std::endl;
+    }
+
+    FracInitAugment(ThisElementaryEnd(arc), this_root);
+    MakeEdgeMatched(arc.index >> 1);
+
+    int receptacle = OtherElementaryEnd(arc);
+
+    MakeEdgeUnmatched(half_int_clockwise[receptacle].index >> 1);
+    int cur_node = OtherElementaryEnd(half_int_clockwise[receptacle]);
+    half_int_clockwise[receptacle] = ArcIndex(-1);
+    bool match = true;
+
+    while (cur_node != receptacle) {
+        if (match) {
+            MakeEdgeMatched(half_int_clockwise[cur_node].index >> 1);
+        } else {
+            MakeEdgeUnmatched(half_int_clockwise[cur_node].index >> 1);
+        }
+        match = !match;
+        int next_node = OtherElementaryEnd(half_int_clockwise[cur_node]);
+        half_int_clockwise[cur_node] = ArcIndex(-1);
+        cur_node = next_node;
+    }
+}
+
+void VzhuhSolver::FracInitMakeCycle(int edge, int this_root) {
+    ++nodes_label_cnt;
+    int first_vertex = elementary_heads[edge];
+    int second_vertex = elementary_tails[edge];
+
+    if (params.verbose) {
+        std::cout << "INIT MAKE CYCLE " << first_vertex << " " << second_vertex << std::endl;
+    }
+
+    nodes[first_vertex].label = nodes_label_cnt;
+    nodes[second_vertex].label = nodes_label_cnt;
+
+    int lca = this_root;
+    while (first_vertex != second_vertex) {
+        if (nodes[first_vertex].matched_edge.index >= 0) {
+            first_vertex = OtherElementaryEnd(nodes[first_vertex].matched_edge);
+            first_vertex = OtherElementaryEnd(nodes[first_vertex].minus_parent);
+            if (nodes[first_vertex].label == nodes_label_cnt) {
+                lca = first_vertex;
+                break;
+            }
+            nodes[first_vertex].label = nodes_label_cnt;
+        }
+
+        if (nodes[second_vertex].matched_edge.index >= 0) {
+            second_vertex = OtherElementaryEnd(nodes[second_vertex].matched_edge);
+            second_vertex = OtherElementaryEnd(nodes[second_vertex].minus_parent);
+            if (nodes[second_vertex].label == nodes_label_cnt) {
+                lca = second_vertex;
+                break;
+            }
+            nodes[second_vertex].label = nodes_label_cnt;
+        }
+    }
+
+    FracInitAugment(lca, this_root);
+
+    first_vertex = elementary_heads[edge];
+    second_vertex = elementary_tails[edge];
+    while (second_vertex != lca) {
+        half_int_clockwise[second_vertex] = nodes[second_vertex].matched_edge;
+        MakeEdgeUnmatched(nodes[second_vertex].matched_edge.index >> 1);
+        nodes[second_vertex].matched_edge = ArcIndex(-1);
+        second_vertex = OtherElementaryEnd(half_int_clockwise[second_vertex]);
+        nodes[second_vertex].matched_edge = ArcIndex(-1);
+
+        half_int_clockwise[second_vertex] = nodes[second_vertex].minus_parent;
+        second_vertex = OtherElementaryEnd(nodes[second_vertex].minus_parent);
+    }
+    half_int_clockwise[first_vertex] = ArcIndex(edge * 2);
+    while (first_vertex != lca) {
+        ArcIndex upwards_arc = nodes[first_vertex].matched_edge;
+        nodes[first_vertex].matched_edge = ArcIndex(-1);
+        first_vertex = OtherElementaryEnd(upwards_arc);
+        nodes[first_vertex].matched_edge = ArcIndex(-1);
+        MakeEdgeUnmatched(upwards_arc.index >> 1);
+        half_int_clockwise[first_vertex] = ReverseArc(upwards_arc);
+
+        upwards_arc = nodes[first_vertex].minus_parent;
+        first_vertex = OtherElementaryEnd(nodes[first_vertex].minus_parent);
+        half_int_clockwise[first_vertex] = ReverseArc(upwards_arc);
+    }
+    nodes[lca].matched_edge = ArcIndex(-1);
+}
+
+void VzhuhSolver::FracInitCleanTree(int tree_var) {
+    if (params.verbose) {
+        std::cout << "INIT CLEAN TREE" << std::endl;
+    }
+    // change the slacks and vars by tree_var
+
+    for (int node : init_tree_nodes) {
+        int diff = tree_var;
+        if (!nodes[node].plus) {
+            diff = -diff;
+        }
+
+        node_heap_infos[node].dual_var_quadrupled_amortized_ += diff;
+        for (ArcIndex arc : adj_list[node]) {
+            edges[arc.index >> 1].slack_quadrupled_amortized_ -= diff;
+        }
+    }
+
+    if (params.debug) {
+        for (int edge = 0; edge < edges.size(); ++edge) {
+            if (edges[edge].slack_quadrupled_amortized_ < 0) {
+                throw std::runtime_error("FracInitCleanTree: got negative slack");
+            }
+        }
+    }
+}
+
+void VzhuhSolver::FracInitCleanup() {
+    for (int node = 0; node < num_vertices_elementary; ++node) {
+        nodes[node].tree = -1;
+        nodes[node].minus_parent = ArcIndex(-1);
+
+        if (half_int_clockwise[node].index >= 0) {
+            int cur_node = OtherElementaryEnd(half_int_clockwise[node]);
+            half_int_clockwise[node] = ArcIndex(-1);
+            bool match = true;
+            while (cur_node != node) {
+                if (match) {
+                    MakeEdgeMatched(half_int_clockwise[cur_node].index >> 1);
+                }
+                match = !match;
+                int next_node = OtherElementaryEnd(half_int_clockwise[cur_node]);
+                half_int_clockwise[cur_node] = ArcIndex(-1);
+                cur_node = next_node;
             }
         }
     }
@@ -689,7 +963,8 @@ void VzhuhSolver::MakePrimalUpdateForNode(int node) {
     UpdateNonLoopNeighbors(node);
     for (ArcIndex arc : adj_list[node]) {
         int edge = arc.index >> 1;
-        if (maybe_has_zero_slack[edge]) {
+        // if (maybe_has_zero_slack[edge]) {
+        if (true) {
             // compute the old slack to compare it to 0
             int slack = edges[edge].slack_quadrupled_amortized_;
             slack += delta_slack;
@@ -719,7 +994,7 @@ void VzhuhSolver::MakePrimalUpdateForNode(int node) {
                     }
                 }
             } else {
-                maybe_has_zero_slack[edge] = false;
+                // maybe_has_zero_slack[edge] = false;
             }
         }
     }
@@ -1072,16 +1347,16 @@ void VzhuhSolver::Grow(int parent, ArcIndex arc) {
     int child = OtherEnd(arc);
     int tree = nodes[parent].tree;
 
-    if (!nodes[parent].plus) {
-        throw std::runtime_error("In Grow: parent is not a plus");
-    }
-    if (nodes[child].tree >= 0) {
-        throw std::runtime_error("In Grow: child vertex is not free");
-    }
-    if (nodes[child].matched_edge.index < 0) {
-        std::cout << "parent " << parent << ", child " << child << std::endl;
-        throw std::runtime_error("Grow: child has no matched_edge");
-    }
+    // if (!nodes[parent].plus) {
+    //     throw std::runtime_error("In Grow: parent is not a plus");
+    // }
+    // if (nodes[child].tree >= 0) {
+    //     throw std::runtime_error("In Grow: child vertex is not free");
+    // }
+    // if (nodes[child].matched_edge.index < 0) {
+    //     std::cout << "parent " << parent << ", child " << child << std::endl;
+    //     throw std::runtime_error("Grow: child has no matched_edge");
+    // }
 
     int grandchild = OtherEnd(nodes[child].matched_edge);
     if (params.verbose) {
@@ -1206,8 +1481,7 @@ void VzhuhSolver::Augment(int edge_plus_plus) {
 
     if (params.verbose) {
         std::cout << "AUGMENT " << head << " " << tail << ", elementary ends: " << elementary_heads[edge_plus_plus]
-            << " " << elementary_tails[edge_plus_plus] <<
-            ", is in zero slack set: " << maybe_has_zero_slack[edge_plus_plus] << std::endl;
+            << " " << elementary_tails[edge_plus_plus] << std::endl;
     }
 
     PathToRoot(head);
@@ -1869,8 +2143,6 @@ void VzhuhSolver::InitNextRoundActionable() {
 
 void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_actionable) {
     int top_edge = GetMinEdgeHeap(queue_index);
-    // RemoveMinEdgeHeap(queue_index);
-    // InsertEdgeHeap(top_edge, queue_index);
 
     int min_key = edges[top_edge].slack_quadrupled_amortized_;
 
@@ -1881,9 +2153,6 @@ void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_action
         int edge = stack.top();
         stack.pop();
 
-        if (!maybe_has_zero_slack[edge]) {
-            maybe_has_zero_slack[edge] = true;
-        }
         if (add_to_actionable) {
             actionable_edges.push_back(edge);
         }
