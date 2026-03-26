@@ -60,6 +60,7 @@ class VzhuhSolver {
             ArcIndex matched_edge;
             ArcIndex minus_parent;
             int receptacle_; // by default, a node is its own receptacle
+            // TODO make a labeled UnionFind
             int tree;
             int old_tree;
 
