@@ -160,6 +160,9 @@ class VzhuhSolver {
         std::vector<int> traversal_nodes_tmp;
         std::vector<int> traversal_lists_tmp;
         std::vector<int> edges_stack_tmp;
+        std::vector<int> organize_sizes_tmp;
+        std::vector<int> organize_label_to_index_tmp;
+        std::vector<std::vector<int> > future_blossoms_tmp;
 
         std::vector<std::pair<int, int> > matching;
         std::vector<std::tuple<int, int, int> > dual_certificate;
@@ -245,7 +248,7 @@ class VzhuhSolver {
         void HandleIncidentMinus(int node);
         void UpdateQueuesThirdPass();
 
-        std::vector<std::vector<int> > OrganizeBlossomChildren();
+        void OrganizeBlossomChildren();
         void Shrink(std::vector<int> &children);
 
         // for debug:

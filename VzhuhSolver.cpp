@@ -86,6 +86,9 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
     traversal_nodes_tmp.reserve(num_vertices_elementary);
     traversal_lists_tmp.reserve(num_vertices_elementary);
     edges_stack_tmp.reserve(64);
+    organize_sizes_tmp.reserve(num_vertices_elementary);
+    organize_label_to_index_tmp.reserve(num_vertices_elementary);
+    future_blossoms_tmp.reserve(num_vertices_elementary >> 1);
 }
 
 void VzhuhSolver::FindMinPerfectMatching() {
@@ -904,12 +907,13 @@ bool VzhuhSolver::MakePrimalUpdates() {
     if (params.verbose) {
         std::cout << "shrinking phase" << std::endl;
     }
-    std::vector<std::vector<int> > future_blossoms = OrganizeBlossomChildren();
-    for (std::vector<int> &children : future_blossoms) {
+    OrganizeBlossomChildren();
+    for (std::vector<int> &children : future_blossoms_tmp) {
         // if (children.size() > 1) {
         Shrink(children);
         // }
     }
+    future_blossoms_tmp.clear();
 
     primal_update_record.clear();
     return action_taken;
@@ -1773,7 +1777,7 @@ void VzhuhSolver::UpdateQueuesThirdPass() {
     }
 }
 
-std::vector<std::vector<int> > VzhuhSolver::OrganizeBlossomChildren() {
+void VzhuhSolver::OrganizeBlossomChildren() {
     ++nodes_label_cnt;
     int label_zero = nodes_label_cnt;
 
@@ -1796,28 +1800,31 @@ std::vector<std::vector<int> > VzhuhSolver::OrganizeBlossomChildren() {
         }
     }
 
-    std::vector<int> sizes(nodes_label_cnt - label_zero, 0);
-    std::vector<int> label_diff_to_index(nodes_label_cnt - label_zero, -1);
+    organize_sizes_tmp.assign(nodes_label_cnt - label_zero, 0);
+    organize_label_to_index_tmp.assign(nodes_label_cnt - label_zero, -1);
 
     for (int node : primal_update_record) {
         if (nodes[node].label < label_zero) {
             continue;
         }
-        ++sizes[nodes[node].label - label_zero];
+        ++organize_sizes_tmp[nodes[node].label - label_zero];
     }
 
     int index = 0;
-    for (int i = 0; i < static_cast<int>(sizes.size()); ++i) {
-        if (sizes[i] > 1) {
-            label_diff_to_index[i] = index;
+    for (int i = 0; i < static_cast<int>(organize_sizes_tmp.size()); ++i) {
+        if (organize_sizes_tmp[i] > 1) {
+            organize_label_to_index_tmp[i] = index;
             ++index;
         }
     }
 
-    std::vector<std::vector<int> > result(index);
-    for (int i = 0; i < static_cast<int>(sizes.size()); ++i) {
-        if (label_diff_to_index[i] >= 0) {
-            result[label_diff_to_index[i]].reserve(sizes[i]);
+    future_blossoms_tmp.resize(index);
+    for (std::vector<int> &children : future_blossoms_tmp) {
+        children.clear();
+    }
+    for (int i = 0; i < static_cast<int>(organize_sizes_tmp.size()); ++i) {
+        if (organize_label_to_index_tmp[i] >= 0) {
+            future_blossoms_tmp[organize_label_to_index_tmp[i]].reserve(organize_sizes_tmp[i]);
         }
     }
 
@@ -1825,12 +1832,11 @@ std::vector<std::vector<int> > VzhuhSolver::OrganizeBlossomChildren() {
         if (nodes[node].label < label_zero) {
             continue;
         }
-        if (label_diff_to_index[nodes[node].label - label_zero] >= 0) {
-            result[label_diff_to_index[nodes[node].label - label_zero]].push_back(node);
+        int group_index = organize_label_to_index_tmp[nodes[node].label - label_zero];
+        if (group_index >= 0) {
+            future_blossoms_tmp[group_index].push_back(node);
         }
     }
-
-    return result;
 }
 
 void VzhuhSolver::Shrink(std::vector<int> &children) {
