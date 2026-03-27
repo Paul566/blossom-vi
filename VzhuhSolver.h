@@ -157,6 +157,9 @@ class VzhuhSolver {
         std::vector<ArcIndex> even_path_tmp;
         std::vector<ArcIndex> odd_path_tmp;
         std::vector<int> path_to_root;
+        std::vector<int> traversal_nodes_tmp;
+        std::vector<int> traversal_lists_tmp;
+        std::vector<int> edges_stack_tmp;
 
         std::vector<std::pair<int, int> > matching;
         std::vector<std::tuple<int, int, int> > dual_certificate;

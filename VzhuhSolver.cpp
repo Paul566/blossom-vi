@@ -83,6 +83,9 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
     even_path_tmp.reserve(num_vertices_elementary);
     odd_path_tmp.reserve(num_vertices_elementary);
     path_to_root.reserve(num_vertices_elementary);
+    traversal_nodes_tmp.reserve(num_vertices_elementary);
+    traversal_lists_tmp.reserve(num_vertices_elementary);
+    edges_stack_tmp.reserve(64);
 }
 
 void VzhuhSolver::FindMinPerfectMatching() {
@@ -1049,11 +1052,10 @@ void VzhuhSolver::RestoreEdgeEndsBeforeExpand(int blossom) {
             continue;
         }
 
-        std::queue<int> queue;
-        queue.push(child);
-        while (!queue.empty()) {
-            int cur = queue.front();
-            queue.pop();
+        traversal_nodes_tmp.clear();
+        traversal_nodes_tmp.push_back(child);
+        for (std::size_t queue_index = 0; queue_index < traversal_nodes_tmp.size(); ++queue_index) {
+            int cur = traversal_nodes_tmp[queue_index];
             for (int potential_leaf : blossom_structures[cur].blossom_children) {
                 blossom_ancestors[potential_leaf] = child;
                 if (IsElementary(potential_leaf)) {
@@ -1065,7 +1067,7 @@ void VzhuhSolver::RestoreEdgeEndsBeforeExpand(int blossom) {
                         }
                     }
                 } else {
-                    queue.push(potential_leaf);
+                    traversal_nodes_tmp.push_back(potential_leaf);
                 }
             }
         }
@@ -2146,12 +2148,12 @@ void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_action
 
     int min_key = edges[top_edge].slack_quadrupled_amortized_;
 
-    std::stack<int> stack;
-    stack.push(GetMinEdgeHeap(queue_index));
+    edges_stack_tmp.clear();
+    edges_stack_tmp.push_back(top_edge);
 
-    while (!stack.empty()) {
-        int edge = stack.top();
-        stack.pop();
+    while (!edges_stack_tmp.empty()) {
+        int edge = edges_stack_tmp.back();
+        edges_stack_tmp.pop_back();
 
         if (add_to_actionable) {
             actionable_edges.push_back(edge);
@@ -2159,7 +2161,7 @@ void VzhuhSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_action
 
         for (int child = edges[edge].heap_child; child >= 0; child = edges[child].heap_next) {
             if (edges[child].slack_quadrupled_amortized_ == min_key) {
-                stack.push(child);
+                edges_stack_tmp.push_back(child);
             }
         }
     }
@@ -2203,31 +2205,29 @@ void VzhuhSolver::UpdateNonLoopNeighbors(int node) {
     }
 
     // mark the vertices, collect the lists
-    std::queue<int> queue;
-    std::vector<int> lists;
+    traversal_nodes_tmp.clear();
+    traversal_lists_tmp.clear();
     int total_length = 0;
-    queue.push(node);
+    traversal_nodes_tmp.push_back(node);
     ++nodes_label_cnt;
     nodes[node].label = nodes_label_cnt;
-    while (!queue.empty()) {
-        int cur = queue.front();
-        queue.pop();
-
+    for (std::size_t queue_index = 0; queue_index < traversal_nodes_tmp.size(); ++queue_index) {
+        int cur = traversal_nodes_tmp[queue_index];
         for (int child : blossom_structures[cur].blossom_children) {
             nodes[child].label = nodes_label_cnt;
 
             if (!adj_list[child].empty()) {
-                lists.push_back(child);
+                traversal_lists_tmp.push_back(child);
                 total_length += adj_list[child].size();
             } else {
-                queue.push(child);
+                traversal_nodes_tmp.push_back(child);
             }
         }
     }
 
     // add non-loops to neighbors
     adj_list[node].reserve(total_length);
-    for (int descendant : lists) {
+    for (int descendant : traversal_lists_tmp) {
         for (ArcIndex arc : adj_list[descendant]) {
             int edge = arc.index >> 1;
             if (arc.index % 2 == 1) {
