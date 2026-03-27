@@ -15,6 +15,7 @@ struct SolverParameters {
     bool verbose = false;
     bool print_statistics = true;
     bool debug = false;
+    int init_max_tree_size = 100;
 };
 
 class VzhuhSolver {
@@ -180,7 +181,7 @@ class VzhuhSolver {
         void InitMakeSlacksNonnegative();
         void InitGreedyIncreaseVars();
         void InitFindLengthThreeAugmentations();
-        void FractionalMatchingInit(int max_tree_size);
+        void FractionalMatchingInit();
         void FracInitGrow(ArcIndex arc, int tree_cnt, int tree_var);
         void FracInitAugment(int node_plus, int this_root);
         void FracInitAugmentCycle(ArcIndex arc, int this_root);

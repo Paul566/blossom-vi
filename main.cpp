@@ -6,7 +6,7 @@
 
 int main() {
     TesterWeighted tester(true, 239);
-    tester.RunInstances(MatchingPlusGraphGenerator(6, 10, 0, 10), 100000, false);
+    // tester.RunInstances(MatchingPlusGraphGenerator(6, 10, 0, 10), 100000, false);
     tester.RunInstances(MatchingPlusGraphGenerator(100, 500, -1000, 1000), 1000, false);
 
     int iterations = 1;

@@ -221,7 +221,7 @@ void VzhuhSolver::Init() {
     InitGreedyIncreaseVars();
 
     // InitFindLengthThreeAugmentations();
-    FractionalMatchingInit(num_vertices_elementary);
+    FractionalMatchingInit();
 }
 
 void VzhuhSolver::InitMakeSlacksNonnegative() {
@@ -329,7 +329,7 @@ void VzhuhSolver::InitFindLengthThreeAugmentations() {
     }
 }
 
-void VzhuhSolver::FractionalMatchingInit(int max_tree_size) {
+void VzhuhSolver::FractionalMatchingInit() {
     // TODO use a different slack amortization
 
     if (params.verbose) {
@@ -338,7 +338,7 @@ void VzhuhSolver::FractionalMatchingInit(int max_tree_size) {
 
     half_int_clockwise = std::vector<ArcIndex>(num_vertices_elementary, {-1});
     int tree_cnt = 0;
-    init_tree_nodes.resize(max_tree_size);
+    init_tree_nodes.resize(params.init_max_tree_size);
 
     for (int root = 0; root < num_vertices_elementary; ++root) {
         if (nodes[root].matched_edge.index >= 0 || half_int_clockwise[root].index >= 0) {
@@ -361,7 +361,7 @@ void VzhuhSolver::FractionalMatchingInit(int max_tree_size) {
             init_plus_empty.push({edges[arc.index >> 1].slack_quadrupled_amortized_, arc});
         }
 
-        while (init_tree_nodes.size() < max_tree_size) {
+        while (init_tree_nodes.size() < params.init_max_tree_size) {
             if (init_plus_empty.empty()) {
                 break;
             }
