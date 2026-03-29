@@ -14,7 +14,7 @@ struct Parameters {
     };
 
     UpdateType update_type = UpdateType::ConnectedComponents;
-    int repetitions = 1;
+    int repetitions = 2;
     int LP_threshold = 100; // use CC if more than this many variables
 };
 

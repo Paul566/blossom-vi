@@ -36,36 +36,21 @@ VzhuhSolver::VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_lis
         adj_list[i].reserve(degrees[i]);
     }
 
-    // rearrange the edges
-    std::vector<std::vector<std::pair<int, int> > > incident_edges(num_vertices_elementary);
-    for (int i = 0; i < num_vertices_elementary; ++i) {
-        incident_edges[i].reserve(degrees[i]);
-    }
-    for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
-        int head = std::get<0>(edge_list_[i]);
-        int tail = std::get<1>(edge_list_[i]);
-        incident_edges[head].emplace_back(tail, std::get<2>(edge_list_[i]));
-    }
-
     edges.reserve(edge_list_.size());
     edge_weights.reserve(edge_list_.size());
     elementary_heads.reserve(edge_list_.size());
     elementary_tails.reserve(edge_list_.size());
     matched = std::vector<uint8_t>(edge_list_.size(), false);
     // maybe_has_zero_slack = std::vector<uint8_t>(edge_list_.size(), true);
-    int i = 0;
-    for (int from = 0; from < num_vertices_elementary; ++from) {
-        for (auto [to, weight] : incident_edges[from]) {
-            edges.emplace_back(Edge(from, to, weight));
-            edge_weights.push_back(weight);
-            elementary_heads.push_back(from);
-            elementary_tails.push_back(to);
+    for (int i = 0; i < static_cast<int>(edge_list_.size()); ++i) {
+        const auto &[head, tail, weight] = edge_list_[i];
+        edges.emplace_back(Edge(head, tail, weight));
+        edge_weights.push_back(weight);
+        elementary_heads.push_back(head);
+        elementary_tails.push_back(tail);
 
-            adj_list[from].emplace_back(i * 2);
-            adj_list[to].emplace_back(i * 2 + 1);
-
-            ++i;
-        }
+        adj_list[head].emplace_back(i * 2);
+        adj_list[tail].emplace_back(i * 2 + 1);
     }
 
     primal_update_record.reserve(num_vertices_elementary);

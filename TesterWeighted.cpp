@@ -1,6 +1,7 @@
 #include "TesterWeighted.h"
 
 #include <chrono>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -366,19 +367,85 @@ std::vector<std::string> TesterWeighted::AllFiles(const std::string &directory_p
 }
 
 EdgeListType TesterWeighted::ReadWeightedEdgeList(const std::string &filename) {
-    std::ifstream infile(filename);
-    if (!infile.is_open()) {
+    struct FastInput {
+        explicit FastInput(const std::string &path) : file(std::fopen(path.c_str(), "rb")) {
+        }
+
+        ~FastInput() {
+            if (file != nullptr) {
+                std::fclose(file);
+            }
+        }
+
+        bool IsOpen() const {
+            return file != nullptr;
+        }
+
+        bool ReadInt(int *value) {
+            int sign = 1;
+            int c = NextNonSpace();
+            if (c == EOF) {
+                return false;
+            }
+            if (c == '-') {
+                sign = -1;
+                c = NextChar();
+            }
+
+            int result = 0;
+            while (c >= '0' && c <= '9') {
+                result = result * 10 + (c - '0');
+                c = NextChar();
+            }
+
+            *value = sign * result;
+            return true;
+        }
+
+        private:
+            FILE *file = nullptr;
+            char buffer[1 << 20];
+            std::size_t position = 0;
+            std::size_t size = 0;
+
+            int NextChar() {
+                if (position == size) {
+                    size = std::fread(buffer, 1, sizeof(buffer), file);
+                    position = 0;
+                    if (size == 0) {
+                        return EOF;
+                    }
+                }
+                return static_cast<unsigned char>(buffer[position++]);
+            }
+
+            int NextNonSpace() {
+                int c = NextChar();
+                while (c != EOF && c <= ' ') {
+                    c = NextChar();
+                }
+                return c;
+            }
+    };
+
+    FastInput input(filename);
+    if (!input.IsOpen()) {
         throw std::runtime_error("Failed to open file: " + filename);
     }
 
     int n, m;
-    infile >> n >> m;
+    if (!input.ReadInt(&n) || !input.ReadInt(&m)) {
+        throw std::runtime_error("Failed to read header: " + filename);
+    }
 
     std::vector<std::tuple<int, int, int> > edge_list;
     edge_list.reserve(m);
     int u, v, weight;
 
-    while (infile >> u >> v >> weight) {
+    while (input.ReadInt(&u)) {
+        if (!input.ReadInt(&v) || !input.ReadInt(&weight)) {
+            throw std::runtime_error("Malformed edge list: " + filename);
+        }
         edge_list.emplace_back(u, v, weight);
     }
 
