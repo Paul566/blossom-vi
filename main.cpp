@@ -1,8 +1,10 @@
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "TesterWeighted.h"
 
@@ -38,6 +40,60 @@ double ParseDoubleArg(const char* value, const char* arg_name) {
     }
 }
 
+struct GraphSize {
+    int n = 0;
+    int m = 0;
+};
+
+GraphSize ReadGraphSize(const std::filesystem::path& filename) {
+    std::ifstream input(filename);
+    if (!input.is_open()) {
+        throw std::runtime_error("Failed to open benchmark file: " + filename.string());
+    }
+
+    GraphSize size;
+    if (!(input >> size.n >> size.m)) {
+        throw std::runtime_error("Failed to read benchmark header: " + filename.string());
+    }
+
+    return size;
+}
+
+void ExportDenseRandomRuntimes(int iterations, double max_time_per_instance) {
+    const std::filesystem::path benchmark_dir = ResolveBenchmarkPath("tests-weighted/dense-random");
+    const std::filesystem::path output_dir = std::filesystem::path("runtimes") / "blossom-vi" / "dense-random";
+    const std::filesystem::path output_file = output_dir / "runtimes.csv";
+
+    std::vector<std::filesystem::path> files;
+    for (const auto& entry : std::filesystem::directory_iterator(benchmark_dir)) {
+        if (entry.is_regular_file()) {
+            files.push_back(entry.path());
+        }
+    }
+    std::sort(files.begin(), files.end());
+
+    std::filesystem::create_directories(output_dir);
+    std::ofstream output(output_file);
+    if (!output.is_open()) {
+        throw std::runtime_error("Failed to open output file: " + output_file.string());
+    }
+
+    output << "instance,n,m,iterations,runtime_seconds,sigma_seconds\n";
+    for (const auto& file : files) {
+        const GraphSize size = ReadGraphSize(file);
+        const TesterWeighted::MeasurementResult result =
+            TesterWeighted::MeasureInstance(file.string(), iterations, max_time_per_instance);
+        output << file.filename().string() << ','
+               << size.n << ','
+               << size.m << ','
+               << iterations << ','
+               << std::setprecision(17) << result.mean_runtime << ','
+               << result.sigma_runtime << '\n';
+    }
+
+    std::cout << "saved runtimes to " << output_file << std::endl;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -49,10 +105,15 @@ int main(int argc, char** argv) {
     const int iterations = argc > 2 ? ParseIntArg(argv[2], "iterations") : 1;
     const double max_time_per_instance = argc > 3 ? ParseDoubleArg(argv[3], "max_time_per_instance") : 20.;
 
+    if (benchmark_path_arg == "--export-dense-random") {
+        ExportDenseRandomRuntimes(iterations, max_time_per_instance);
+        return 0;
+    }
+
     tester.MeasureBenchmark(ResolveBenchmarkPath(benchmark_path_arg).string(), iterations, max_time_per_instance);
 
     // tester.MeasureInstance("../tests-weighted/delaunay-100000-299968", 1, 20, false);
-    tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999962", 1, 20, false);
+    // tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999962", 1, 20, false);
     // tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999965", 1, 20, false, true);
     // tester.MeasureInstance("../tests-weighted/dan59296-177299", 10, 20, false);
     // tester.MeasureInstance("../tests-weighted/sra104815-314222", 10, 20, false);

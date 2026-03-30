@@ -46,6 +46,11 @@ class MatchingPlusGraphGenerator : public GraphGenerator {
 
 class TesterWeighted {
     public:
+        struct MeasurementResult {
+            double mean_runtime = 0.;
+            double sigma_runtime = 0.;
+        };
+
         bool verify_output;
 
         explicit TesterWeighted(bool verify_output_, int seed = 239);
@@ -55,8 +60,9 @@ class TesterWeighted {
                           bool verbose = true);
 
         static void MeasureBenchmark(const std::string &path, int num_iter, double max_time_per_instance = 60.);
-        static void MeasureInstance(const std::string &filename, int num_iter, double max_time_per_instance = 60.,
-                                     bool with_debug = false, bool print_statistics = false);
+        static MeasurementResult MeasureInstance(const std::string &filename, int num_iter,
+                                                 double max_time_per_instance = 60.,
+                                                 bool with_debug = false, bool print_statistics = false);
 
     private:
         std::mt19937 generator;

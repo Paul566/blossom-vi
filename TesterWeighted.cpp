@@ -160,10 +160,11 @@ void TesterWeighted::MeasureBenchmark(const std::string &path, int num_iter, dou
     }
 }
 
-void TesterWeighted::MeasureInstance(const std::string &filename,
-                                     int num_iter,
-                                     double max_time_per_instance,
-                                     bool with_debug, bool print_statistics) {
+TesterWeighted::MeasurementResult TesterWeighted::MeasureInstance(const std::string &filename,
+                                                                  int num_iter,
+                                                                  double max_time_per_instance,
+                                                                  bool with_debug,
+                                                                  bool print_statistics) {
     std::cout << filename << std::endl;
     EdgeListType edge_list = ReadWeightedEdgeList(filename);
 
@@ -197,7 +198,7 @@ void TesterWeighted::MeasureInstance(const std::string &filename,
     auto [mean, sigma] = MeanAndSTD(runtimes);
     std::cout << "runtime: ";
     PrintTime(mean, sigma);
-    std::cout << std::endl;
+    return {.mean_runtime = mean, .sigma_runtime = sigma};
 }
 
 void TesterWeighted::Verify(const std::vector<std::tuple<int, int, int> > &edge_list, const VzhuhSolver &solver) {
