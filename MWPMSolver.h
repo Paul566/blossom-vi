@@ -1,5 +1,5 @@
-#ifndef BLOSSOM_VI_VZHUHSOLVER_H
-#define BLOSSOM_VI_VZHUHSOLVER_H
+#ifndef BLOSSOM_VI_MWPMSOLVER_H
+#define BLOSSOM_VI_MWPMSOLVER_H
 
 #include <memory>
 #include <queue>
@@ -18,13 +18,13 @@ struct SolverParameters {
     int init_max_tree_size = 100;
 };
 
-class VzhuhSolver {
+class MWPMSolver {
     public:
         int64_t primal_objective;
         int64_t dual_objective;
         const SolverParameters params;
 
-        explicit VzhuhSolver(const std::vector<std::tuple<int, int, int> > &edge_list_,
+        explicit MWPMSolver(const std::vector<std::tuple<int, int, int> > &edge_list_,
                              const SolverParameters &params_ = {});
 
         void FindMinPerfectMatching();
@@ -403,4 +403,4 @@ class VzhuhSolver {
         }
 };
 
-#endif //BLOSSOM_VI_VZHUHSOLVER_H
+#endif //BLOSSOM_VI_MWPMSOLVER_H

@@ -7,7 +7,7 @@
 
 // #include "SolverWeighted.h"
 // #include "Solver.h"
-#include "VzhuhSolver.h"
+#include "MWPMSolver.h"
 
 using EdgeListType = std::vector<std::tuple<int, int, int> >;
 using AdjListType = std::vector<std::vector<std::pair<int, int> > >;
@@ -67,7 +67,7 @@ class TesterWeighted {
     private:
         std::mt19937 generator;
 
-        void Verify(const EdgeListType &edge_list, const VzhuhSolver &solver);
+        void Verify(const EdgeListType &edge_list, const MWPMSolver &solver);
         static bool IsPerfectMatching(const AdjListType &adj_list,
                                       const std::vector<std::pair<int, int> > &matching);
         bool IsCorrectDualSolution(const AdjListType &adj_list,

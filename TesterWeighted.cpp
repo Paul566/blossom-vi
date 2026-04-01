@@ -123,7 +123,7 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
         std::vector<std::tuple<int, int, int> > edge_list = graph_generator.Generate(&generator);
 
         auto start = std::chrono::high_resolution_clock::now();
-        VzhuhSolver solver = VzhuhSolver(edge_list,
+        MWPMSolver solver = MWPMSolver(edge_list,
                                          {
                                              .compute_dual_certificate = verify_output,
                                              .verbose = (verbose || (i == 71)), .print_statistics = false,
@@ -176,7 +176,7 @@ TesterWeighted::MeasurementResult TesterWeighted::MeasureInstance(const std::str
     int real_iters = 0;
     for (int i = 0; i < num_iter; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
-        VzhuhSolver solver = VzhuhSolver(edge_list,
+        MWPMSolver solver = MWPMSolver(edge_list,
                                          {
                                              .compute_dual_certificate = false, .verbose = false,
                                              .print_statistics = print_statistics, .debug = with_debug
@@ -201,7 +201,7 @@ TesterWeighted::MeasurementResult TesterWeighted::MeasureInstance(const std::str
     return {.mean_runtime = mean, .sigma_runtime = sigma};
 }
 
-void TesterWeighted::Verify(const std::vector<std::tuple<int, int, int> > &edge_list, const VzhuhSolver &solver) {
+void TesterWeighted::Verify(const std::vector<std::tuple<int, int, int> > &edge_list, const MWPMSolver &solver) {
     const std::vector<std::pair<int, int> > &matching = solver.Matching();
     const std::vector<std::tuple<int, int, int> > &dual_solution = solver.DualCertificate();
     std::vector<std::vector<std::pair<int, int> > > adj_list = AdjList(edge_list);
