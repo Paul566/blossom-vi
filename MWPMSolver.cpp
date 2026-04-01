@@ -2210,7 +2210,6 @@ void MWPMSolver::UpdateNonLoopNeighbors(int node) {
         return;
     }
 
-    // mark the vertices, collect the lists
     traversal_nodes_tmp.clear();
     traversal_lists_tmp.clear();
     int total_length = 0;
@@ -2231,7 +2230,6 @@ void MWPMSolver::UpdateNonLoopNeighbors(int node) {
         }
     }
 
-    // add non-loops to neighbors
     adj_list[node].reserve(total_length);
     for (int descendant : traversal_lists_tmp) {
         for (ArcIndex arc : adj_list[descendant]) {
@@ -2643,22 +2641,43 @@ int MWPMSolver::MeldNodeHeap(int node_a, int node_b) {
 }
 
 int MWPMSolver::TwoPassMergeNodeHeap(int node_first) {
-    if (node_first < 0 || node_heap_infos[node_first].heap_next < 0) {
-        return node_first;
+    if (node_first < 0) {
+        return -1;
     }
 
-    int a = node_first;
-    int b = node_heap_infos[a].heap_next;
-    int rest = node_heap_infos[b].heap_next;
+    int stack = -1;
 
-    node_heap_infos[a].heap_next = -1;
-    node_heap_infos[b].heap_next = -1;
+    while (node_first >= 0) {
+        int a = node_first;
+        int b = node_heap_infos[node_first].heap_next;
 
-    int merged = MeldNodeHeap(a, b);
-    // TODO avoid recursion
-    int remaining = TwoPassMergeNodeHeap(rest);
+        node_first = (b >= 0) ? node_heap_infos[b].heap_next : -1;
+        node_heap_infos[a].heap_next = -1;
 
-    return MeldNodeHeap(merged, remaining);
+        int merged;
+        if (b >= 0) {
+            node_heap_infos[b].heap_next = -1;
+            merged = MeldNodeHeap(a, b);
+        } else {
+            merged = a;
+        }
+
+        node_heap_infos[merged].heap_next = stack;
+        stack = merged;
+    }
+
+    int result = stack;
+    stack = node_heap_infos[stack].heap_next;
+    node_heap_infos[result].heap_next = -1;
+
+    while (stack >= 0) {
+        int next = node_heap_infos[stack].heap_next;
+        node_heap_infos[stack].heap_next = -1;
+        result = MeldNodeHeap(stack, result);
+        stack = next;
+    }
+
+    return result;
 }
 
 void MWPMSolver::CutNodeHeap(int node) {
