@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
+import json
 import math
 from pathlib import Path
 
 import networkx as nx
 import numpy as np
-from scipy.spatial import Delaunay
+from scipy.spatial import ConvexHull, Delaunay
 
 
 NUM_RANDOM_INSTANCES = 10
@@ -14,6 +15,8 @@ NUM_DELAUNAY_INSTANCES = 30
 MAX_DELAUNAY_NODES = 3_000_000
 NUM_GEOMETRIC_INSTANCES = 20
 MAX_GEOMETRIC_NODES = 100_000
+NUM_SPHERE_MAXCUT_INSTANCES = 20
+MAX_SPHERE_MAXCUT_NODES = 1000_000
 FIXED_RECTANGLE_SIDE = 1_000_000.0
 WEIGHT_LOW = -1_000_000
 WEIGHT_HIGH_EXCLUSIVE = 1_000_001
@@ -157,6 +160,45 @@ def sqrt_n_rectangle_points(num_nodes: int, rng: np.random.Generator) -> np.ndar
     return rng.uniform(0.0, side, size=(num_nodes, 2))
 
 
+def read_tsp_point_cloud(path: Path) -> np.ndarray:
+    points = []
+    in_section = False
+
+    with path.open() as f:
+        for line in f:
+            line = line.strip()
+
+            if line.startswith("NODE_COORD_SECTION"):
+                in_section = True
+                continue
+
+            if not in_section:
+                continue
+
+            if line.startswith("EOF"):
+                break
+
+            parts = line.split()
+            if len(parts) >= 3:
+                points.append((float(parts[1]), float(parts[2])))
+
+    return np.asarray(points, dtype=np.float64)
+
+
+def sample_points_on_sphere(num_nodes: int, radius: float, rng: np.random.Generator) -> np.ndarray:
+    points = rng.normal(size=(num_nodes, 3))
+    norms = np.linalg.norm(points, axis=1, keepdims=True)
+    return radius * points / norms
+
+
+def sphere_radius_fixed(_: int) -> float:
+    return 1_000_000.0
+
+
+def sphere_radius_sqrt_n(num_nodes: int) -> float:
+    return math.sqrt(num_nodes)
+
+
 def geometric_radius(num_nodes: int) -> float:
     return math.sqrt(10.0 / (math.pi * num_nodes))
 
@@ -190,23 +232,14 @@ def geometric_graph(
     num_nodes: int,
     radius: float,
     seed: int,
-    weight_scale_fn,
+    rectangle_size: float,
 ) -> WeightedGraph:
     rng = np.random.default_rng(seed)
     graph_nx = nx.random_geometric_graph(num_nodes, radius, dim=2, seed=seed)
-    positions = np.array([graph_nx.nodes[i]["pos"] for i in range(num_nodes)]) * np.sqrt(num_nodes)
+    positions = np.array([graph_nx.nodes[i]["pos"] for i in range(num_nodes)]) * rectangle_size
 
     geometric_edges = np.array(graph_nx.edges(), dtype=np.int32)
-    if len(geometric_edges) == 0:
-        geometric_edges = np.empty((0, 2), dtype=np.int32)
-        scale_factor = 0.0
-    else:
-        geometric_edges.sort(axis=1)
-        geometric_deltas = positions[geometric_edges[:, 0]] - positions[geometric_edges[:, 1]]
-        geometric_distances = np.linalg.norm(geometric_deltas, axis=1)
-        scale_factor = 1.
-        if weight_scale_fn is not None:
-            scale_factor = scaling_factor_from_geometric_edges(geometric_distances, weight_scale_fn)
+    geometric_edges.sort(axis=1)
 
     matching_edges = random_perfect_matching_edges(num_nodes, rng)
     edges = np.vstack((geometric_edges, matching_edges))
@@ -214,25 +247,10 @@ def geometric_graph(
 
     deltas = positions[edges[:, 0]] - positions[edges[:, 1]]
     distances = np.linalg.norm(deltas, axis=1)
-    scaled_distances = distances * scale_factor
 
     graph = WeightedGraph(num_nodes, edges[:, 0].copy(), edges[:, 1].copy())
-    graph.weights = np.rint(scaled_distances).astype(np.int32)
+    graph.weights = np.rint(distances).astype(np.int32)
     return graph
-
-
-def scale_weights_to_max(distances: np.ndarray) -> np.ndarray:
-    max_distance = np.max(distances)
-    if max_distance == 0:
-        return np.zeros_like(distances)
-    return distances * (1_000_000.0 / max_distance)
-
-
-# def scale_weights_to_mean(distances: np.ndarray) -> np.ndarray:
-#     mean_distance = np.mean(distances)
-#     if mean_distance == 0:
-#         return np.zeros_like(distances)
-#     return distances * (5.0 / mean_distance)
 
 
 def generate_random_family(
@@ -278,10 +296,28 @@ def generate_delaunay_family(
         print(f"{family_name}: wrote {filename.name} (n={num_nodes}, m={len(graph.us)})")
 
 
+def generate_tsp_family(tests_weighted_dir: Path) -> None:
+    family_dir = tests_weighted_dir / "tsp"
+    family_dir.mkdir(parents=True, exist_ok=True)
+    tsp_dir = Path(__file__).resolve().parents[1] / "tests-aux" / "vlsi_tsp" / "vlsi"
+
+    for tsp_path in sorted(tsp_dir.glob("*.tsp")):
+        points = read_tsp_point_cloud(tsp_path)
+        if len(points) < 50_000:
+            continue
+        if len(points) % 2 != 0:
+            points = points[:-1]
+
+        graph = delaunay_graph(points)
+        filename = family_dir / f"{tsp_path.stem}-{len(graph.us)}"
+        export_graph(graph, filename)
+        print(f"tsp: wrote {filename.name} (n={graph.num_nodes}, m={len(graph.us)})")
+
+
 def generate_geometric_family(
     tests_weighted_dir: Path,
     family_name: str,
-    weight_scale_fn,
+    rectangle_size_fn,
     family_seed: int,
 ) -> None:
     family_dir = tests_weighted_dir / family_name
@@ -290,13 +326,152 @@ def generate_geometric_family(
     for idx in range(1, NUM_GEOMETRIC_INSTANCES + 1):
         num_nodes = idx * MAX_GEOMETRIC_NODES // NUM_GEOMETRIC_INSTANCES
         radius = geometric_radius(num_nodes)
-        graph = geometric_graph(num_nodes, radius, family_seed + idx, weight_scale_fn)
+        graph = geometric_graph(num_nodes, radius, family_seed + idx, rectangle_size_fn(num_nodes))
         filename = family_dir / f"geometric-{num_nodes}-{len(graph.us)}"
         export_graph(graph, filename)
         mean_degree = 2 * len(graph.us) / num_nodes if num_nodes > 0 else 0.0
         print(
             f"{family_name}: wrote {filename.name} "
             f"(n={num_nodes}, m={len(graph.us)}, mean_degree={mean_degree:.2f})"
+        )
+
+
+def sphere_triangulation_faces(points: np.ndarray) -> np.ndarray:
+    hull = ConvexHull(points)
+    faces = hull.simplices.astype(np.int32, copy=False)
+
+    face_normals = np.cross(
+        points[faces[:, 1]] - points[faces[:, 0]],
+        points[faces[:, 2]] - points[faces[:, 0]],
+    )
+    outward_mask = np.einsum("ij,ij->i", face_normals, points[faces[:, 0]]) < 0
+    faces[outward_mask] = faces[outward_mask][:, [0, 2, 1]]
+    return faces
+
+
+def sphere_max_cut_instance_data(
+    points: np.ndarray,
+    rng: np.random.Generator,
+    max_abs_weight: int,
+) -> dict:
+    faces = sphere_triangulation_faces(points)
+    num_faces = len(faces)
+
+    city_base = 3 * np.arange(num_faces, dtype=np.int32)
+    zero_us = np.concatenate((city_base, city_base + 1, city_base + 2))
+    zero_vs = np.concatenate((city_base + 1, city_base + 2, city_base))
+    zero_weights = np.zeros(3 * num_faces, dtype=np.int32)
+
+    edge_to_face_side: dict[tuple[int, int], list[tuple[int, int]]] = {}
+    for face_idx, face in enumerate(faces):
+        for side_idx in range(3):
+            u = int(face[side_idx])
+            v = int(face[(side_idx + 1) % 3])
+            key = (u, v) if u < v else (v, u)
+            edge_to_face_side.setdefault(key, []).append((face_idx, side_idx))
+
+    cross_us = []
+    cross_vs = []
+    cross_weights = []
+    cross_face_pairs = []
+    triangulation_edges = []
+    triangulation_edge_weights = []
+    for (u, v), incidences in edge_to_face_side.items():
+        if len(incidences) != 2:
+            raise ValueError(f"expected exactly two incident faces for edge {(u, v)}, got {len(incidences)}")
+
+        (face_a, side_a), (face_b, side_b) = incidences
+        weight = int(rng.integers(0, max_abs_weight + 1))
+        cross_us.append(3 * face_a + side_a)
+        cross_vs.append(3 * face_b + side_b)
+        cross_weights.append(weight)
+        cross_face_pairs.append((face_a, face_b))
+        triangulation_edges.append((u, v))
+        triangulation_edge_weights.append(weight)
+
+    cross_us_arr = np.asarray(cross_us, dtype=np.int32)
+    cross_vs_arr = np.asarray(cross_vs, dtype=np.int32)
+    cross_weights_arr = np.asarray(cross_weights, dtype=np.int32)
+
+    graph = WeightedGraph(
+        3 * num_faces,
+        np.concatenate((zero_us, cross_us_arr)),
+        np.concatenate((zero_vs, cross_vs_arr)),
+    )
+    graph.weights = np.concatenate((zero_weights, cross_weights_arr))
+    return {
+        "graph": graph,
+        "faces": faces,
+        "triangulation_edges": np.asarray(triangulation_edges, dtype=np.int32),
+        "triangulation_edge_weights": np.asarray(triangulation_edge_weights, dtype=np.int32),
+        "cross_face_pairs": np.asarray(cross_face_pairs, dtype=np.int32),
+    }
+
+
+def max_cut_instance_from_sphere_triangulation(
+    points: np.ndarray,
+    rng: np.random.Generator,
+    max_abs_weight: int,
+) -> WeightedGraph:
+    return sphere_max_cut_instance_data(points, rng, max_abs_weight)["graph"]
+
+
+def export_sphere_max_cut_example(
+    output_path: Path,
+    num_points: int = 10,
+    radius: float = 1_000_000.0,
+    seed: int = 123,
+    max_abs_weight: int = 1_000_000,
+) -> None:
+    rng = np.random.default_rng(seed)
+    points = sample_points_on_sphere(num_points, radius, rng)
+    data = sphere_max_cut_instance_data(points, rng, max_abs_weight)
+    graph = data["graph"]
+    faces = data["faces"]
+    triangulation_edges = data["triangulation_edges"]
+    triangulation_edge_weights = data["triangulation_edge_weights"]
+    cross_face_pairs = data["cross_face_pairs"]
+
+    payload = {
+        "num_points": num_points,
+        "radius": radius,
+        "seed": seed,
+        "max_abs_weight": max_abs_weight,
+        "points": points.tolist(),
+        "faces": faces.tolist(),
+        "triangulation_edges": triangulation_edges.tolist(),
+        "triangulation_edge_weights": triangulation_edge_weights.tolist(),
+        "instance_num_nodes": int(graph.num_nodes),
+        "instance_edges": [
+            [int(u), int(v), int(w)]
+            for u, v, w in zip(graph.us, graph.vs, graph.weights)
+        ],
+        "cross_face_pairs": cross_face_pairs.tolist(),
+    }
+    output_path.write_text(json.dumps(payload, indent=2))
+
+
+def generate_sphere_max_cut_family(
+    tests_weighted_dir: Path,
+    family_name: str,
+    radius_fn,
+    max_abs_weight: int,
+    family_seed: int,
+) -> None:
+    family_dir = tests_weighted_dir / family_name
+    family_dir.mkdir(parents=True, exist_ok=True)
+    rng = np.random.default_rng(family_seed)
+
+    for idx in range(1, NUM_SPHERE_MAXCUT_INSTANCES + 1):
+        num_points = idx * MAX_SPHERE_MAXCUT_NODES // NUM_SPHERE_MAXCUT_INSTANCES
+        radius = radius_fn(num_points)
+        points = sample_points_on_sphere(num_points, radius, rng)
+        graph = max_cut_instance_from_sphere_triangulation(points, rng, max_abs_weight)
+        filename = family_dir / f"sphere-maxcut-{num_points}-{len(graph.us)}"
+        export_graph(graph, filename)
+        print(
+            f"{family_name}: wrote {filename.name} "
+            f"(points={num_points}, nodes={graph.num_nodes}, m={len(graph.us)})"
         )
 
 
@@ -321,17 +496,32 @@ def main() -> None:
     #     sqrt_n_rectangle_points,
     #     family_seed=20_000,
     # )
+    # generate_tsp_family(tests_weighted_dir)
     # generate_geometric_family(
     #     tests_weighted_dir,
     #     "geometric-big-weights",
-    #     scale_weights_to_max,
+    #     lambda n : 1_000_000,
     #     family_seed=30_000,
     # )
-    generate_geometric_family(
+    # generate_geometric_family(
+    #     tests_weighted_dir,
+    #     "geometric-small-weights",
+    #     lambda n : np.sqrt(n),
+    #     family_seed=40_000,
+    # )
+    generate_sphere_max_cut_family(
         tests_weighted_dir,
-        "geometric-small-weights",
-        None,
-        family_seed=40_000,
+        "maxcut-big-weights",
+        sphere_radius_fixed,
+        1_000_000,
+        family_seed=50_000,
+    )
+    generate_sphere_max_cut_family(
+        tests_weighted_dir,
+        "maxcut-small-weights",
+        sphere_radius_sqrt_n,
+        1,
+        family_seed=60_000,
     )
 
 

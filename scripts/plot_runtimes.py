@@ -48,28 +48,40 @@ def read_runtime_table(path: Path, runtime_column: str) -> list[tuple[int, float
     return rows
 
 
-def plot_family(ax, family_name: str, blossom_vi_rows: list[tuple[int, float]], blossom_v_rows: list[tuple[int, float]]) -> None:
-    ax.plot(
-        [m for m, _ in blossom_vi_rows],
-        [runtime for _, runtime in blossom_vi_rows],
-        marker="o",
-        markersize=3,
-        linewidth=1.5,
-        label="Blossom VI",
-    )
-    ax.plot(
-        [m for m, _ in blossom_v_rows],
-        [runtime for _, runtime in blossom_v_rows],
-        marker="s",
-        markersize=3,
-        linewidth=1.5,
-        label="Blossom V",
-    )
+def plot_family(ax, family_name: str, blossom_vi_rows: list[tuple[int, float]] | None, blossom_v_rows: list[tuple[int, float]] | None) -> None:
+    if blossom_vi_rows:
+        ax.plot(
+            [m for m, _ in blossom_vi_rows],
+            [runtime for _, runtime in blossom_vi_rows],
+            marker="o",
+            markersize=3,
+            linewidth=1.5,
+            label="Blossom VI",
+        )
+    if blossom_v_rows:
+        ax.plot(
+            [m for m, _ in blossom_v_rows],
+            [runtime for _, runtime in blossom_v_rows],
+            marker="s",
+            markersize=3,
+            linewidth=1.5,
+            label="Blossom V",
+        )
+
     ax.set_xlabel("m")
     ax.set_ylabel("time [s]")
     ax.set_title(family_name)
     ax.grid(True, alpha=0.3)
-    ax.legend()
+    if blossom_vi_rows or blossom_v_rows:
+        ax.legend()
+    else:
+        ax.text(0.5, 0.5, "No runtime CSVs yet", ha="center", va="center", transform=ax.transAxes)
+
+
+def maybe_read_runtime_table(path: Path, runtime_column: str) -> list[tuple[int, float]] | None:
+    if not path.exists():
+        return None
+    return read_runtime_table(path, runtime_column)
 
 
 def main() -> None:
@@ -91,14 +103,16 @@ def main() -> None:
         "delaunay-small-weights",
         "geometric-big-weights",
         "geometric-small-weights",
+        "maxcut-big-weights",
+        "maxcut-small-weights",
     )
-    fig, axes = plt.subplots(3, 2, figsize=(16, 15))
+    fig, axes = plt.subplots(4, 2, figsize=(16, 20))
 
     for ax, family_name in zip(axes.flat, families):
         blossom_vi_path = args.blossom_vi_root / family_name / "runtimes.csv"
         blossom_v_path = args.blossom_v_root / family_name / "runtimes.csv"
-        blossom_vi_rows = read_runtime_table(blossom_vi_path, "runtime_seconds")
-        blossom_v_rows = read_runtime_table(blossom_v_path, "runtime_seconds")
+        blossom_vi_rows = maybe_read_runtime_table(blossom_vi_path, "runtime_seconds")
+        blossom_v_rows = maybe_read_runtime_table(blossom_v_path, "runtime_seconds")
         plot_family(ax, family_name, blossom_vi_rows, blossom_v_rows)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

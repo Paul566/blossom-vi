@@ -59,9 +59,10 @@ GraphSize ReadGraphSize(const std::filesystem::path& filename) {
     return size;
 }
 
-void ExportDenseRandomRuntimes(int iterations, double max_time_per_instance) {
-    const std::filesystem::path benchmark_dir = ResolveBenchmarkPath("tests-weighted/dense-random");
-    const std::filesystem::path output_dir = std::filesystem::path("runtimes") / "blossom-vi" / "dense-random";
+void ExportRuntimes(const std::string& benchmark_path_arg, int iterations, double max_time_per_instance) {
+    const std::filesystem::path benchmark_dir = ResolveBenchmarkPath(benchmark_path_arg);
+    const std::filesystem::path output_dir =
+        std::filesystem::path("runtimes") / "blossom-vi" / benchmark_dir.filename();
     const std::filesystem::path output_file = output_dir / "runtimes.csv";
 
     std::vector<std::filesystem::path> files;
@@ -102,16 +103,26 @@ int main(int argc, char** argv) {
     // tester.RunInstances(MatchingPlusGraphGenerator(100, 500, -1000, 1000), 1000, false);
 
     const std::string benchmark_path_arg = argc > 1 ? argv[1] : "tests-weighted";
-    const int iterations = argc > 2 ? ParseIntArg(argv[2], "iterations") : 1;
-    const double max_time_per_instance = argc > 3 ? ParseDoubleArg(argv[3], "max_time_per_instance") : 20.;
 
-    if (benchmark_path_arg == "--export-dense-random") {
-        ExportDenseRandomRuntimes(iterations, max_time_per_instance);
+    if (benchmark_path_arg == "--export-runtimes") {
+        if (argc < 3) {
+            throw std::invalid_argument("Expected benchmark directory after --export-runtimes");
+        }
+
+        const std::string export_path_arg = argv[2];
+        const int export_iterations = argc > 3 ? ParseIntArg(argv[3], "iterations") : 1;
+        const double export_max_time_per_instance =
+            argc > 4 ? ParseDoubleArg(argv[4], "max_time_per_instance") : 20.;
+        ExportRuntimes(export_path_arg, export_iterations, export_max_time_per_instance);
         return 0;
     }
 
-    tester.MeasureBenchmark(ResolveBenchmarkPath(benchmark_path_arg).string(), iterations, max_time_per_instance);
+    const int iterations = argc > 2 ? ParseIntArg(argv[2], "iterations") : 1;
+    const double max_time_per_instance = argc > 3 ? ParseDoubleArg(argv[3], "max_time_per_instance") : 20.;
 
+    // tester.MeasureBenchmark(ResolveBenchmarkPath(benchmark_path_arg).string(), iterations, max_time_per_instance);
+
+    tester.MeasureInstance("../tests-weighted/maxcut-big-weights/sphere-maxcut-300000-2699982", 1, 20, false);
     // tester.MeasureInstance("../tests-weighted/delaunay-100000-299968", 1, 20, false);
     // tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999962", 1, 20, false);
     // tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999965", 1, 20, false, true);
