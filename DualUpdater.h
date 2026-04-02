@@ -8,13 +8,10 @@
 struct Parameters {
     enum class UpdateType {
         ConnectedComponents,
-        StronglyConnectedComponents,
-        ShortestPaths,
         LP
     };
 
     UpdateType update_type = UpdateType::ConnectedComponents;
-    int repetitions = 2;
     int LP_threshold = 100; // use CC if more than this many variables
 };
 
@@ -141,10 +138,6 @@ class DualUpdater {
 
         void FindDeltasCC();
         std::vector<std::vector<int> > ConnectedComponents();
-
-        void FindDeltasShortestPaths();
-        void SetDeltasToDists();
-        void RefineUpperBounds();
 
         void FindDeltasMinCostFlow();
 };
