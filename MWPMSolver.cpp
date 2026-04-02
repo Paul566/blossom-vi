@@ -103,14 +103,6 @@ void MWPMSolver::FindMinPerfectMatching() {
         if (params.print_statistics) {
             std::cout << "round " << current_round << std::endl;
             std::cout << "trees left: " << alive_trees.size() << std::endl;
-
-            // int avgpp = 0;
-            // int avgpm = 0;
-            // for (int tree : alive_trees) {
-            //     avgpp += tree_heap_infos[tree].pq_plus_plus.size();
-            //     avgpm += tree_heap_infos[tree].pq_plus_minus.size();
-            // }
-            // std::cout << avgpp * 1. / num_trees_alive << " " << avgpm * 1. / num_trees_alive << std::endl;
         }
 
         ++current_round;
@@ -123,17 +115,12 @@ void MWPMSolver::FindMinPerfectMatching() {
     }
 
     // compute the objectives and recover the matching
-    ComputeDualObjectiveQuadrupled();
-    if (dual_objective % 4 != 0) {
-        throw std::runtime_error("Dual objective not integer");
-    }
-    dual_objective /= 4;
-
-    if (params.verbose) {
-        std::cout << "Dual objective:\t\t" << dual_objective << std::endl;
-    }
-
     if (params.compute_dual_certificate) {
+        ComputeDualObjectiveQuadrupled();
+        if (dual_objective % 4 != 0) {
+            throw std::runtime_error("Dual objective not integer");
+        }
+        dual_objective /= 4;
         ComputeDualCertificate();
     }
 
@@ -832,7 +819,7 @@ bool MWPMSolver::MakePrimalUpdates() {
         ValidateArcs();
     }
 
-    if (num_trees_alive == 0) {
+    if (num_trees_alive == 0 && params.compute_dual_certificate) {
         for (int node : primal_update_record) {
             int old_tree = nodes[node].old_tree;
             int old_blossom_parent = nodes[node].old_blossom_parent;
@@ -1511,15 +1498,10 @@ void MWPMSolver::AugmentPathToRoot() {
 void MWPMSolver::ClearTree(int tree) {
     trees[tree].is_alive = false;
 
-    // TODO have a special routine for the last two trees
-    // TODO amortize
-
     for (int node : tree_nodes[tree]) {
         if (blossom_parents[node] >= 0 || nodes[node].tree != tree || !nodes[node].is_alive) {
             continue;
         }
-
-        // TODO make better
 
         AddNodeToRecord(node);
         nodes[node].tree = -1;
