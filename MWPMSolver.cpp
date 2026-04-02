@@ -293,52 +293,7 @@ void MWPMSolver::InitGreedyIncreaseVars() {
     }
 }
 
-void MWPMSolver::InitFindLengthThreeAugmentations() {
-    for (int root = 0; root < num_vertices_elementary; ++root) {
-        if (nodes[root].matched_edge.index >= 0) {
-            continue;
-        }
-
-        int child = -1;
-        int edge_to_child = -1;
-        for (ArcIndex arc : adj_list[root]) {
-            int slack = edges[arc.index >> 1].slack_quadrupled_amortized_;
-            if (slack == 0) {
-                edge_to_child = arc.index >> 1;
-                child = OtherElementaryEnd(arc);
-                break;
-            }
-        }
-
-        if (child < 0) {
-            throw std::runtime_error("InitFindLengthThreeAugmentations: no child");
-            // TODO this is possible?
-        }
-        int grandchild = OtherElementaryEnd(nodes[child].matched_edge);
-        for (ArcIndex arc : adj_list[grandchild]) {
-            int edge = arc.index >> 1;
-            if (!matched[edge]) {
-                int slack = edges[edge].slack_quadrupled_amortized_;
-                if (slack == 0) {
-                    int final_end = OtherElementaryEnd(arc);
-                    if (final_end == root || nodes[final_end].matched_edge.index >= 0) {
-                        continue;
-                    }
-
-                    // augment
-                    MakeEdgeUnmatched(nodes[child].matched_edge.index >> 1);
-                    MakeEdgeMatched(edge_to_child);
-                    MakeEdgeMatched(edge);
-                    break;
-                }
-            }
-        }
-    }
-}
-
 void MWPMSolver::FractionalMatchingInit() {
-    // TODO use a different slack amortization
-
     if (params.verbose) {
         PrintGraph();
     }
@@ -850,7 +805,6 @@ bool MWPMSolver::MakePrimalUpdates() {
         }
     }
 
-    // TODO make an early return if augmented the last pair of trees
     // unweighted solver like phase
     while (actionable_edges_head < actionable_edges.size()) {
         int edge = actionable_edges[actionable_edges_head++];
@@ -869,10 +823,47 @@ bool MWPMSolver::MakePrimalUpdates() {
     if (!primal_update_record.empty()) {
         action_taken = true;
     }
+    if (num_trees_alive == 0) {
+        action_taken = true;
+    }
 
     if (params.debug) {
         ValidateEvenOddPaths();
         ValidateArcs();
+    }
+
+    if (num_trees_alive == 0) {
+        for (int node : primal_update_record) {
+            int old_tree = nodes[node].old_tree;
+            int old_blossom_parent = nodes[node].old_blossom_parent;
+            bool old_plus = nodes[node].old_plus;
+            bool plus = nodes[node].plus;
+            int tree = nodes[node].tree;
+
+            if (!nodes[node].is_alive || (old_blossom_parent < 0 && old_plus == plus && old_tree == tree)) {
+                continue;
+            }
+
+            if (old_tree != tree || old_plus != plus || old_blossom_parent >= 0) {
+                if (old_tree >= 0 && old_blossom_parent < 0) {
+                    if (old_plus) {
+                        node_heap_infos[node].dual_var_quadrupled_amortized_ += trees[old_tree].dual_var_quadrupled;
+                    } else {
+                        node_heap_infos[node].dual_var_quadrupled_amortized_ -= trees[old_tree].dual_var_quadrupled;
+                    }
+                }
+                if (tree >= 0) {
+                    if (plus) {
+                        node_heap_infos[node].dual_var_quadrupled_amortized_ -= trees[tree].dual_var_quadrupled;
+                    } else {
+                        node_heap_infos[node].dual_var_quadrupled_amortized_ += trees[tree].dual_var_quadrupled;
+                    }
+                }
+            }
+        }
+
+        primal_update_record.clear();
+        return action_taken;
     }
 
     // update queues and amortized variables phase
@@ -1470,8 +1461,17 @@ void MWPMSolver::Augment(int edge_plus_plus) {
 
     int first_tree = nodes[head].tree;
     int second_tree = nodes[tail].tree;
-    ClearTree(first_tree);
-    ClearTree(second_tree);
+    if (num_trees_alive == 0) {
+        ClearTreeForLastPair(first_tree);
+        ClearTreeForLastPair(second_tree);
+        actionable_edges.clear();
+        actionable_edges_head = 0;
+        actionable_nodes.clear();
+        actionable_nodes_head = 0;
+    } else {
+        ClearTree(first_tree);
+        ClearTree(second_tree);
+    }
 }
 
 void MWPMSolver::PathToRoot(int node_plus) {
@@ -1535,6 +1535,22 @@ void MWPMSolver::ClearTree(int tree) {
     }
     for (auto [other_tree, heap] : tree_heap_infos[tree].pq_plus_minus) {
         edge_heap_alive[heap] = 0;
+    }
+}
+
+void MWPMSolver::ClearTreeForLastPair(int tree) {
+    trees[tree].is_alive = false;
+
+    for (int node : tree_nodes[tree]) {
+        if (blossom_parents[node] >= 0 || nodes[node].tree != tree || !nodes[node].is_alive) {
+            continue;
+        }
+
+        AddNodeToRecord(node);
+        nodes[node].tree = -1;
+        nodes[node].minus_parent = ArcIndex(-1);
+        nodes[node].receptacle_ = node;
+        nodes[node].plus = false;
     }
 }
 
@@ -1620,7 +1636,6 @@ void MWPMSolver::UpdateQueuesSecondPass() {
             continue;
         }
 
-        // TODO maybe first update all slacks, then all queues
         if (nodes[node].tree >= 0) {
             if (nodes[node].plus) {
                 HandleIncidentPlus(node);

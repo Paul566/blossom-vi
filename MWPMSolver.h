@@ -5,7 +5,6 @@
 #include <queue>
 #include <deque>
 #include <iostream>
-#include <stack>
 #include <boost/container/small_vector.hpp>
 
 #include "DualUpdater.h"
@@ -48,7 +47,6 @@ class MWPMSolver {
             Edge(int head_, int tail_, int weight_);
         };
 
-        // TODO try moving head/tail into arcs and avoid reading edges
         struct ArcIndex {
             int index = -1;
 
@@ -128,7 +126,6 @@ class MWPMSolver {
         std::vector<NodeHeapInfo> node_heap_infos;
         std::vector<int> blossom_parents;
         std::vector<int> blossom_ancestors;
-        // TODO store neighbors in a linked list
         std::vector<boost::container::small_vector<ArcIndex, 8> > adj_list;
         // TODO store in another way
         std::vector<NodeBlossomStructure> blossom_structures;
@@ -188,7 +185,6 @@ class MWPMSolver {
         void Init();
         void InitMakeSlacksNonnegative();
         void InitGreedyIncreaseVars();
-        void InitFindLengthThreeAugmentations();
         void FractionalMatchingInit();
         void FracInitGrow(ArcIndex arc, int tree_cnt, int tree_var);
         void FracInitAugment(int node_plus, int this_root);
@@ -239,6 +235,7 @@ class MWPMSolver {
         void PathToRoot(int node_plus);
         void AugmentPathToRoot();
         void ClearTree(int tree);
+        void ClearTreeForLastPair(int tree);
 
         // updates amortized slack and variables, edge_heaps and node_heaps, old_tree, old_plus,
         // old_blossom_parent

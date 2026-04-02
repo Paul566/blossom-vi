@@ -100,7 +100,7 @@ void ExportRuntimes(const std::string& benchmark_path_arg, int iterations, doubl
 int main(int argc, char** argv) {
     TesterWeighted tester(true, 239);
     // tester.RunInstances(MatchingPlusGraphGenerator(6, 10, 0, 10), 100000, false);
-    // tester.RunInstances(MatchingPlusGraphGenerator(100, 500, -1000, 1000), 1000, false);
+    tester.RunInstances(MatchingPlusGraphGenerator(100, 500, -1000, 1000), 1000, false);
 
     const std::string benchmark_path_arg = argc > 1 ? argv[1] : "tests-weighted";
 
