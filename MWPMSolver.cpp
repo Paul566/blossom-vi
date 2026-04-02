@@ -52,7 +52,7 @@ MWPMSolver::MWPMSolver(const std::vector<std::tuple<int, int, int> > &edge_list_
     elementary_heads.reserve(edge_list_.size());
     elementary_tails.reserve(edge_list_.size());
     matched = std::vector<uint8_t>(edge_list_.size(), false);
-    // maybe_has_zero_slack = std::vector<uint8_t>(edge_list_.size(), true);
+    maybe_has_zero_slack = std::vector<uint8_t>(edge_list_.size(), true);
     int i = 0;
     for (int from = 0; from < num_vertices_elementary; ++from) {
         for (auto [to, weight] : incident_edges[from]) {
@@ -169,7 +169,8 @@ MWPMSolver::Edge::Edge(int head_, int tail_, int weight_) : head(head_), tail(ta
     slack_quadrupled_amortized_ = 4 * weight_;
 }
 
-MWPMSolver::Node::Node(int index_) : matched_edge(-1), minus_parent(-1), receptacle_(index_), tree(-1),
+MWPMSolver::Node::Node(int index_) : old_blossom_parent(-1), matched_edge(-1), minus_parent(-1),
+                                      receptacle_(index_), tree(-1),
                                       old_tree(-1), tree_var_at_birth(0),
                                       slack_diff(0),
                                       is_in_record(false) {
@@ -958,30 +959,43 @@ void MWPMSolver::MakePrimalUpdateForNode(int node) {
         return;
     }
 
+    int old_top = node;
+    if (nodes[old_top].old_blossom_parent >= 0) {
+        old_top = nodes[old_top].old_blossom_parent;
+    }
     int delta_slack = 0;
-    if (nodes[node].old_tree >= 0) {
-        if (nodes[node].old_plus) {
-            delta_slack = -trees[nodes[node].old_tree].dual_var_quadrupled;
+    if (nodes[old_top].old_tree >= 0) {
+        if (nodes[old_top].old_plus) {
+            delta_slack = -trees[nodes[old_top].old_tree].dual_var_quadrupled;
         } else {
-            delta_slack = trees[nodes[node].old_tree].dual_var_quadrupled;
+            delta_slack = trees[nodes[old_top].old_tree].dual_var_quadrupled;
         }
     }
 
     UpdateNonLoopNeighbors(node);
     for (ArcIndex arc : adj_list[node]) {
         int edge = arc.index >> 1;
-        // if (maybe_has_zero_slack[edge]) {
-        if (true) {
+        if (maybe_has_zero_slack[edge]) {
             // compute the old slack to compare it to 0
             int slack = edges[edge].slack_quadrupled_amortized_;
-            slack += delta_slack;
 
             int neighbor = OtherEnd(arc);
-            if (nodes[neighbor].old_tree >= 0) {
-                if (nodes[neighbor].old_plus) {
-                    slack -= trees[nodes[neighbor].old_tree].dual_var_quadrupled;
-                } else {
-                    slack += trees[nodes[neighbor].old_tree].dual_var_quadrupled;
+            int neighbor_old_parent = neighbor;
+            if (nodes[neighbor_old_parent].old_blossom_parent >= 0) {
+                neighbor_old_parent = nodes[neighbor_old_parent].old_blossom_parent;
+            }
+
+            if (old_top == neighbor_old_parent) {
+                // used to be a loop, but the node got expanded
+                slack -= -2 * nodes[old_top].tree_var_at_birth;
+            } else {
+                slack += delta_slack;
+                if (nodes[neighbor_old_parent].old_tree >= 0) {
+                    if (nodes[neighbor_old_parent].old_plus) {
+                        slack -= trees[nodes[neighbor_old_parent].old_tree].dual_var_quadrupled;
+                    } else {
+                        slack += trees[nodes[neighbor_old_parent].old_tree].dual_var_quadrupled;
+                    }
                 }
             }
 
@@ -1001,7 +1015,7 @@ void MWPMSolver::MakePrimalUpdateForNode(int node) {
                     }
                 }
             } else {
-                // maybe_has_zero_slack[edge] = false;
+                maybe_has_zero_slack[edge] = false;
             }
         }
     }
@@ -1013,12 +1027,13 @@ void MWPMSolver::Expand(int blossom) {
     if (params.verbose) {
         std::cout << "EXPAND " << blossom << std::endl;
     }
+    if (nodes[blossom].old_blossom_parent >= 0) {
+        throw std::runtime_error("Expand: two-level expanding");
+    }
 
     nodes[blossom].is_alive = false;
 
-    // TODO make better
     RestoreEdgeEndsBeforeExpand(blossom);
-    ChangeLoopSlacksBeforeExpand(blossom);
     // now ThisEnd/OtherEnd is safe
 
     int new_receptacle = ThisEnd(nodes[blossom].matched_edge);
@@ -1080,53 +1095,6 @@ void MWPMSolver::RestoreEdgeEndsBeforeExpand(int blossom) {
     for (int child : blossom_structures[blossom].blossom_children) {
         blossom_parents[child] = -1;
         blossom_ancestors[child] = -1;
-    }
-}
-
-void MWPMSolver::ChangeLoopSlacksBeforeExpand(int blossom) {
-    // TODO make better?
-
-    int old_tree_of_children = nodes[blossom_structures[blossom].blossom_children[0]].old_tree;
-    int old_tree_var_of_children = trees[old_tree_of_children].dual_var_quadrupled;
-
-    int old_tree_blossom = nodes[blossom].old_tree;
-    int old_tree_var_blossom = 0;
-    if (old_tree_blossom >= 0) {
-        old_tree_var_blossom = trees[old_tree_blossom].dual_var_quadrupled;
-    }
-
-    for (int child : blossom_structures[blossom].blossom_children) {
-        UpdateNonLoopNeighbors(child);
-    }
-
-    ++nodes_label_cnt;
-    for (int child : blossom_structures[blossom].blossom_children) {
-        nodes[child].label = nodes_label_cnt;
-        node_heap_infos[child].dual_var_quadrupled_amortized_ -= old_tree_var_of_children;
-    }
-
-    for (int child : blossom_structures[blossom].blossom_children) {
-        for (ArcIndex arc : adj_list[child]) {
-            int edge = arc.index >> 1;
-
-            if (nodes[OtherEnd(arc)].label == nodes_label_cnt) {
-                edges[edge].slack_quadrupled_amortized_ -= nodes[blossom].tree_var_at_birth;
-                edges[edge].slack_quadrupled_amortized_ += old_tree_var_of_children;
-            } else {
-                if (old_tree_blossom >= 0) {
-                    if (nodes[blossom].old_plus) {
-                        edges[edge].slack_quadrupled_amortized_ -= old_tree_var_blossom;
-                    } else {
-                        edges[edge].slack_quadrupled_amortized_ += old_tree_var_blossom;
-                    }
-                }
-                edges[edge].slack_quadrupled_amortized_ += old_tree_var_of_children;
-            }
-
-            if (!nodes[child].old_plus || OtherEnd(arc) == child) {
-                throw std::runtime_error("In ChangeLoopSlacksBeforeExpand");
-            }
-        }
     }
 }
 
@@ -1329,10 +1297,14 @@ void MWPMSolver::OddPathToReceptacle(int node) {
 void MWPMSolver::ExpandChildBeforeGrow(int blossom) {
     ++aux_counter2;
 
+    if (nodes[blossom].old_blossom_parent >= 0) {
+        // avoid two-level expansion
+        return;
+    }
+
     nodes[blossom].is_alive = false;
 
     RestoreEdgeEndsBeforeExpand(blossom);
-    ChangeLoopSlacksBeforeExpand(blossom);
     // now OtherEnd, Head, Tail is safe
 
     int new_receptacle = ThisEnd(nodes[blossom].matched_edge);
@@ -1373,7 +1345,7 @@ void MWPMSolver::Grow(int parent, ArcIndex arc) {
         if (DualVariableQuadrupled(child,
                                    nodes[child].old_tree,
                                    nodes[child].old_plus,
-                                   -1) == 0) {
+                                   nodes[child].old_blossom_parent) == 0) {
             if (params.verbose) {
                 std::cout << "EXPAND CHILD, new child/grandchild: ";
             }
@@ -1575,19 +1547,20 @@ void MWPMSolver::UpdateQueuesRecordTraversal() {
 void MWPMSolver::UpdateQueuesFirstPass() {
     for (int node : primal_update_record) {
         int old_tree = nodes[node].old_tree;
+        int old_blossom_parent = nodes[node].old_blossom_parent;
         bool old_plus = nodes[node].old_plus;
         bool plus = nodes[node].plus;
         int tree = nodes[node].tree;
 
-        if (!nodes[node].is_alive || (old_plus == plus && old_tree == tree)) {
+        if (!nodes[node].is_alive || (old_blossom_parent < 0 && old_plus == plus && old_tree == tree)) {
             continue;
         }
 
         UpdateNonLoopNeighbors(node);
 
         // update dual_var_quadrupled_amortized_
-        if (old_tree != tree || old_plus != plus) {
-            if (old_tree >= 0) {
+        if (old_tree != tree || old_plus != plus || old_blossom_parent >= 0) {
+            if (old_tree >= 0 && old_blossom_parent < 0) {
                 if (old_plus) {
                     node_heap_infos[node].dual_var_quadrupled_amortized_ += trees[old_tree].dual_var_quadrupled;
                 } else {
@@ -1625,11 +1598,15 @@ void MWPMSolver::UpdateQueuesFirstPass() {
                 nodes[node].slack_diff -= trees[tree].dual_var_quadrupled;
             }
         }
-        if (nodes[node].old_tree >= 0) {
-            if (nodes[node].old_plus) {
-                nodes[node].slack_diff -= trees[nodes[node].old_tree].dual_var_quadrupled;
+        int old_top_node = node;
+        if (old_blossom_parent >= 0) {
+            old_top_node = old_blossom_parent;
+        }
+        if (nodes[old_top_node].old_tree >= 0) {
+            if (nodes[old_top_node].old_plus) {
+                nodes[node].slack_diff -= trees[nodes[old_top_node].old_tree].dual_var_quadrupled;
             } else {
-                nodes[node].slack_diff += trees[nodes[node].old_tree].dual_var_quadrupled;
+                nodes[node].slack_diff += trees[nodes[old_top_node].old_tree].dual_var_quadrupled;
             }
         }
     }
@@ -1637,7 +1614,8 @@ void MWPMSolver::UpdateQueuesFirstPass() {
 
 void MWPMSolver::UpdateQueuesSecondPass() {
     for (int node : primal_update_record) {
-        if (!nodes[node].is_alive || (nodes[node].old_plus == nodes[node].plus &&
+        if (!nodes[node].is_alive || (nodes[node].old_blossom_parent < 0 &&
+            nodes[node].old_plus == nodes[node].plus &&
             nodes[node].old_tree == nodes[node].tree)) {
             continue;
         }
@@ -1656,19 +1634,33 @@ void MWPMSolver::UpdateQueuesSecondPass() {
 }
 
 void MWPMSolver::HandleIncidentEmpty(int node) {
+    int old_parent = nodes[node].old_blossom_parent;
+
     for (ArcIndex arc : adj_list[node]) {
         int edge = arc.index >> 1;
         if (edges[edge].last_round_updated < current_round) {
             edges[edge].last_round_updated = current_round;
 
+            int queue_index = -1;
             int other_end = OtherEnd(arc);
 
-            edges[edge].slack_quadrupled_amortized_ += nodes[node].slack_diff;
-            edges[edge].slack_quadrupled_amortized_ += nodes[other_end].slack_diff;
+            if (old_parent >= 0 && old_parent == nodes[other_end].old_blossom_parent) {
+                edges[edge].slack_quadrupled_amortized_ -= 2 * nodes[old_parent].tree_var_at_birth;
+                if (nodes[other_end].tree >= 0) {
+                    if (nodes[other_end].plus) {
+                        edges[edge].slack_quadrupled_amortized_ += trees[nodes[other_end].tree].dual_var_quadrupled;
+                    } else {
+                        edges[edge].slack_quadrupled_amortized_ -= trees[nodes[other_end].tree].dual_var_quadrupled;
+                    }
+                }
+            } else {
+                edges[edge].slack_quadrupled_amortized_ += nodes[node].slack_diff;
+                edges[edge].slack_quadrupled_amortized_ += nodes[other_end].slack_diff;
+            }
 
             RemoveEdgeFromQueue(edge);
             if (nodes[other_end].tree >= 0 && nodes[other_end].plus) {
-                int queue_index = tree_heap_infos[nodes[other_end].tree].plus_empty_edges;
+                queue_index = tree_heap_infos[nodes[other_end].tree].plus_empty_edges;
                 if (queue_index >= 0) {
                     AddEdgeToThisQueue(edge, queue_index);
                 }
@@ -1679,6 +1671,7 @@ void MWPMSolver::HandleIncidentEmpty(int node) {
 
 void MWPMSolver::HandleIncidentPlus(int node) {
     int tree = nodes[node].tree;
+    int old_parent = nodes[node].old_blossom_parent;
     int receptacle_node = Receptacle(node);
 
     for (ArcIndex arc : adj_list[node]) {
@@ -1689,8 +1682,20 @@ void MWPMSolver::HandleIncidentPlus(int node) {
             int other_end = OtherEnd(arc);
             int other_tree = nodes[other_end].tree;
 
-            edges[edge].slack_quadrupled_amortized_ += nodes[node].slack_diff;
-            edges[edge].slack_quadrupled_amortized_ += nodes[other_end].slack_diff;
+            if (old_parent >= 0 && old_parent == nodes[other_end].old_blossom_parent) {
+                edges[edge].slack_quadrupled_amortized_ -= 2 * nodes[old_parent].tree_var_at_birth;
+                edges[edge].slack_quadrupled_amortized_ += trees[tree].dual_var_quadrupled;
+                if (other_tree >= 0) {
+                    if (nodes[other_end].plus) {
+                        edges[edge].slack_quadrupled_amortized_ += trees[other_tree].dual_var_quadrupled;
+                    } else {
+                        edges[edge].slack_quadrupled_amortized_ -= trees[other_tree].dual_var_quadrupled;
+                    }
+                }
+            } else {
+                edges[edge].slack_quadrupled_amortized_ += nodes[node].slack_diff;
+                edges[edge].slack_quadrupled_amortized_ += nodes[other_end].slack_diff;
+            }
 
             RemoveEdgeFromQueue(edge);
             if (tree == other_tree) {
@@ -1736,6 +1741,7 @@ void MWPMSolver::HandleIncidentPlus(int node) {
 
 void MWPMSolver::HandleIncidentMinus(int node) {
     int tree = nodes[node].tree;
+    int old_parent = nodes[node].old_blossom_parent;
 
     for (ArcIndex arc : adj_list[node]) {
         int edge = arc.index >> 1;
@@ -1745,8 +1751,20 @@ void MWPMSolver::HandleIncidentMinus(int node) {
             int other_end = OtherEnd(arc);
             int other_tree = nodes[other_end].tree;
 
-            edges[edge].slack_quadrupled_amortized_ += nodes[node].slack_diff;
-            edges[edge].slack_quadrupled_amortized_ += nodes[other_end].slack_diff;
+            if (old_parent >= 0 && old_parent == nodes[other_end].old_blossom_parent) {
+                edges[edge].slack_quadrupled_amortized_ -= 2 * nodes[old_parent].tree_var_at_birth;
+                edges[edge].slack_quadrupled_amortized_ -= trees[tree].dual_var_quadrupled;
+                if (other_tree >= 0) {
+                    if (nodes[other_end].plus) {
+                        edges[edge].slack_quadrupled_amortized_ += trees[other_tree].dual_var_quadrupled;
+                    } else {
+                        edges[edge].slack_quadrupled_amortized_ -= trees[other_tree].dual_var_quadrupled;
+                    }
+                }
+            } else {
+                edges[edge].slack_quadrupled_amortized_ += nodes[node].slack_diff;
+                edges[edge].slack_quadrupled_amortized_ += nodes[other_end].slack_diff;
+            }
 
             RemoveEdgeFromQueue(edge);
             if (other_tree >= 0) {
@@ -1770,6 +1788,7 @@ void MWPMSolver::HandleIncidentMinus(int node) {
 
 void MWPMSolver::UpdateQueuesThirdPass() {
     for (int node : primal_update_record) {
+        nodes[node].old_blossom_parent = blossom_parents[node];
         nodes[node].old_plus = nodes[node].plus;
         nodes[node].old_tree = nodes[node].tree;
         nodes[node].is_in_record = false;
@@ -1886,6 +1905,7 @@ void MWPMSolver::Shrink(std::vector<int> &children) {
         }
         blossom_parents[child] = new_index;
         blossom_ancestors[child] = new_index;
+        nodes[child].old_blossom_parent = new_index;
         node_heap_infos[child].dual_var_quadrupled_amortized_ += trees[nodes.back().tree].dual_var_quadrupled;
     }
 
@@ -2161,6 +2181,7 @@ void MWPMSolver::AddZeroSlackEdgesFromQueue(int queue_index, bool add_to_actiona
         int edge = edges_stack_tmp.back();
         edges_stack_tmp.pop_back();
 
+        maybe_has_zero_slack[edge] = true;
         if (add_to_actionable) {
             actionable_edges.push_back(edge);
         }

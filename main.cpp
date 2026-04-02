@@ -120,9 +120,9 @@ int main(int argc, char** argv) {
     const int iterations = argc > 2 ? ParseIntArg(argv[2], "iterations") : 1;
     const double max_time_per_instance = argc > 3 ? ParseDoubleArg(argv[3], "max_time_per_instance") : 20.;
 
-    // tester.MeasureBenchmark(ResolveBenchmarkPath(benchmark_path_arg).string(), iterations, max_time_per_instance);
+    tester.MeasureBenchmark(ResolveBenchmarkPath(benchmark_path_arg).string(), iterations, max_time_per_instance);
 
-    tester.MeasureInstance("../tests-weighted/maxcut-big-weights/sphere-maxcut-300000-2699982", 1, 20, false);
+    // tester.MeasureInstance("../tests-weighted/maxcut-big-weights/sphere-maxcut-300000-2699982", 1, 20, false);
     // tester.MeasureInstance("../tests-weighted/delaunay-100000-299968", 1, 20, false);
     // tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999962", 1, 20, false);
     // tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999965", 1, 20, false, true);

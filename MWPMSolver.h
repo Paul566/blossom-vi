@@ -58,6 +58,7 @@ class MWPMSolver {
         };
 
         struct Node {
+            int old_blossom_parent;
             ArcIndex matched_edge;
             ArcIndex minus_parent;
             int receptacle_; // by default, a node is its own receptacle
@@ -137,6 +138,7 @@ class MWPMSolver {
         std::vector<int> elementary_heads;
         std::vector<int> elementary_tails;
         std::vector<uint8_t> matched;
+        std::vector<uint8_t> maybe_has_zero_slack;
 
         std::vector<Tree> trees;
         std::vector<TreeHeapInfo> tree_heap_infos;
@@ -218,7 +220,6 @@ class MWPMSolver {
 
         void Expand(int blossom);
         void RestoreEdgeEndsBeforeExpand(int blossom);
-        void ChangeLoopSlacksBeforeExpand(int blossom);
         void RotateReceptacle(int blossom, int new_receptacle);
         void UpdateInternalStructure(int blossom,
                                      int old_receptacle,
@@ -239,7 +240,8 @@ class MWPMSolver {
         void AugmentPathToRoot();
         void ClearTree(int tree);
 
-        // updates amortized slam and variables, edge_heaps and node_heaps, old_tree, old_plus, old_blossom_parent
+        // updates amortized slack and variables, edge_heaps and node_heaps, old_tree, old_plus,
+        // old_blossom_parent
         void UpdateQueuesRecordTraversal();
         void UpdateQueuesFirstPass();
         void UpdateQueuesSecondPass();
