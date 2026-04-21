@@ -30,7 +30,7 @@ Run the solver on a graph file:
 Output:
 
 ```text
-weight 7
+Optimal weight: 7
 ```
 
 By default, stdout contains only the optimal matching weight.
