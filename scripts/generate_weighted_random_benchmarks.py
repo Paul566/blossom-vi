@@ -9,13 +9,13 @@ import numpy as np
 from scipy.spatial import ConvexHull, Delaunay
 
 
-NUM_RANDOM_INSTANCES = 10
-MAX_RANDOM_EDGES = 10_000_00
-NUM_DELAUNAY_INSTANCES = 30
-MAX_DELAUNAY_NODES = 3_000_000
-NUM_GEOMETRIC_INSTANCES = 20
-MAX_GEOMETRIC_NODES = 100_000
-NUM_SPHERE_MAXCUT_INSTANCES = 20
+NUM_RANDOM_INSTANCES = 50
+MAX_RANDOM_EDGES = 10_000_000
+NUM_DELAUNAY_INSTANCES = 50
+MAX_DELAUNAY_NODES = 3_500_000
+NUM_GEOMETRIC_INSTANCES = 50
+MAX_GEOMETRIC_NODES = 2000_000
+NUM_SPHERE_MAXCUT_INSTANCES = 50
 MAX_SPHERE_MAXCUT_NODES = 1000_000
 FIXED_RECTANGLE_SIDE = 1_000_000.0
 WEIGHT_LOW = -1_000_000
@@ -52,6 +52,9 @@ class RandomGraphGenerator:
         min_edges_needed = num_nodes // 2
         if num_edges < min_edges_needed:
             raise ValueError("num_edges must be at least num_nodes / 2")
+        max_edges = num_nodes * (num_nodes - 1) // 2
+        if num_edges > max_edges:
+            raise ValueError("num_edges cannot exceed the number of edges in the complete graph")
 
         permutation = self.rng.permutation(num_nodes).astype(np.int32)
         matching_us = np.minimum(permutation[0::2], permutation[1::2])
@@ -63,25 +66,26 @@ class RandomGraphGenerator:
 
         remaining_edges = num_edges - min_edges_needed
         if remaining_edges > 0:
-            extra_ranks = np.empty(0, dtype=np.int64)
             sorted_matching_ranks = np.sort(matching_ranks)
-            while len(extra_ranks) < remaining_edges:
-                batch_size = max(2 * (remaining_edges - len(extra_ranks)), 1024)
-                raw_us = self.rng.integers(num_nodes, size=batch_size, dtype=np.int32)
-                raw_vs = self.rng.integers(num_nodes, size=batch_size, dtype=np.int32)
-                valid_mask = raw_us != raw_vs
-                us = np.minimum(raw_us[valid_mask], raw_vs[valid_mask])
-                vs = np.maximum(raw_us[valid_mask], raw_vs[valid_mask])
-                candidate_ranks = (
-                    cumulative_edges_before(num_nodes, us.astype(np.int64))
-                    + (vs.astype(np.int64) - us.astype(np.int64) - 1)
-                )
-                candidate_ranks = np.unique(candidate_ranks)
+            chosen_extra_ranks = []
+            chosen_extra_rank_set = set()
+            while len(chosen_extra_ranks) < remaining_edges:
+                batch_size = max(2 * (remaining_edges - len(chosen_extra_ranks)), 1024)
+                candidate_ranks = self.rng.integers(max_edges, size=batch_size, dtype=np.int64)
+                candidate_ranks, first_indices = np.unique(candidate_ranks, return_index=True)
+                candidate_ranks = candidate_ranks[np.argsort(first_indices)]
                 keep_mask = ~np.isin(candidate_ranks, sorted_matching_ranks, assume_unique=True)
-                candidate_ranks = candidate_ranks[keep_mask]
-                extra_ranks = np.unique(np.concatenate((extra_ranks, candidate_ranks)))
+                for rank in candidate_ranks[keep_mask]:
+                    rank_int = int(rank)
+                    if rank_int in chosen_extra_rank_set:
+                        continue
+                    chosen_extra_rank_set.add(rank_int)
+                    chosen_extra_ranks.append(rank_int)
+                    if len(chosen_extra_ranks) == remaining_edges:
+                        break
 
-            ranks = np.sort(np.concatenate((sorted_matching_ranks, extra_ranks[:remaining_edges])))
+            extra_ranks = np.asarray(chosen_extra_ranks, dtype=np.int64)
+            ranks = np.sort(np.concatenate((sorted_matching_ranks, extra_ranks)))
         else:
             ranks = np.sort(matching_ranks)
 
@@ -482,8 +486,8 @@ def main() -> None:
     np.random.seed(0)
     graph_generator = RandomGraphGenerator(seed=0)
 
-    # generate_random_family(tests_weighted_dir, "dense-random", dense_num_nodes, graph_generator)
-    # generate_random_family(tests_weighted_dir, "sparse-random", sparse_num_nodes, graph_generator)
+    generate_random_family(tests_weighted_dir, "dense-random", dense_num_nodes, graph_generator)
+    generate_random_family(tests_weighted_dir, "sparse-random", sparse_num_nodes, graph_generator)
     # generate_delaunay_family(
     #     tests_weighted_dir,
     #     "delaunay-big-weights",
@@ -509,20 +513,20 @@ def main() -> None:
     #     lambda n : np.sqrt(n),
     #     family_seed=40_000,
     # )
-    generate_sphere_max_cut_family(
-        tests_weighted_dir,
-        "maxcut-big-weights",
-        sphere_radius_fixed,
-        1_000_000,
-        family_seed=50_000,
-    )
-    generate_sphere_max_cut_family(
-        tests_weighted_dir,
-        "maxcut-small-weights",
-        sphere_radius_sqrt_n,
-        1,
-        family_seed=60_000,
-    )
+    # generate_sphere_max_cut_family(
+    #     tests_weighted_dir,
+    #     "maxcut-big-weights",
+    #     sphere_radius_fixed,
+    #     1_000_000,
+    #     family_seed=50_000,
+    # )
+    # generate_sphere_max_cut_family(
+    #     tests_weighted_dir,
+    #     "maxcut-small-weights",
+    #     sphere_radius_sqrt_n,
+    #     1,
+    #     family_seed=60_000,
+    # )
 
 
 if __name__ == "__main__":

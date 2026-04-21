@@ -124,6 +124,10 @@ void MWPMSolver::FindMinPerfectMatching() {
         ComputeDualCertificate();
     }
 
+    if (params.print_statistics) {
+        std::cout << aux_counter3 << std::endl;
+    }
+
     DestroyBlossoms();
     ComputeMatching();
     ComputePrimalObjective();
@@ -686,6 +690,8 @@ void MWPMSolver::DestroyBlossoms() {
 }
 
 void MWPMSolver::RestoreFinalEdgeEnds() {
+    int max_depth = 0;
+
     std::vector<int> depths(nodes.size(), 0);
     for (int node(nodes.size() - 1); node >= 0; --node) {
         if (!nodes[node].is_alive) {
@@ -693,7 +699,13 @@ void MWPMSolver::RestoreFinalEdgeEnds() {
         }
         if (blossom_parents[node] >= 0) {
             depths[node] = depths[blossom_parents[node]] + 1;
+            if (depths[node] > max_depth) {
+                max_depth = depths[node];
+            }
         }
+    }
+    if (params.print_statistics) {
+        std::cout << max_depth << std::endl;
     }
 
     std::vector<int> edges_to_restore;

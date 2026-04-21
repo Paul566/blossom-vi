@@ -12,7 +12,7 @@
 struct SolverParameters {
     bool compute_dual_certificate = false;
     bool verbose = false;
-    bool print_statistics = true;
+    bool print_statistics = false;
     bool debug = false;
     int init_max_tree_size = 100;
 };

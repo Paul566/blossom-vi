@@ -1,138 +1,180 @@
+#include <cstdint>
+#include <cstdlib>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
-#include "TesterWeighted.h"
+#include "MWPMSolver.h"
 
 namespace {
 
-std::filesystem::path ResolveBenchmarkPath(const std::string& user_path) {
-    const std::filesystem::path direct_path(user_path);
-    if (std::filesystem::exists(direct_path)) {
-        return direct_path;
-    }
-
-    const std::filesystem::path parent_path = std::filesystem::path("..") / user_path;
-    if (std::filesystem::exists(parent_path)) {
-        return parent_path;
-    }
-
-    throw std::runtime_error("Benchmark path does not exist: " + user_path);
-}
-
-int ParseIntArg(const char* value, const char* arg_name) {
-    try {
-        return std::stoi(value);
-    } catch (const std::exception&) {
-        throw std::invalid_argument(std::string("Invalid integer for ") + arg_name + ": " + value);
-    }
-}
-
-double ParseDoubleArg(const char* value, const char* arg_name) {
-    try {
-        return std::stod(value);
-    } catch (const std::exception&) {
-        throw std::invalid_argument(std::string("Invalid number for ") + arg_name + ": " + value);
-    }
-}
-
-struct GraphSize {
-    int n = 0;
-    int m = 0;
+struct GraphInput {
+    int num_vertices = 0;
+    int num_edges = 0;
+    std::vector<std::tuple<int, int, int>> edges;
 };
 
-GraphSize ReadGraphSize(const std::filesystem::path& filename) {
-    std::ifstream input(filename);
-    if (!input.is_open()) {
-        throw std::runtime_error("Failed to open benchmark file: " + filename.string());
-    }
+struct CommandLineOptions {
+    std::filesystem::path graph_path;
+    std::filesystem::path matching_output_path;
+    bool print_matching = false;
+    bool print_runtime = false;
+    bool save_matching = false;
+};
 
-    GraphSize size;
-    if (!(input >> size.n >> size.m)) {
-        throw std::runtime_error("Failed to read benchmark header: " + filename.string());
-    }
-
-    return size;
+void PrintUsage(const char* program_name) {
+    std::cerr << "Usage: " << program_name
+              << " [--print-matching] [--print-runtime] <graph-file> [matching-output-file]\n"
+              << "\n"
+              << "Input format:\n"
+              << "  n m\n"
+              << "  endpoint1 endpoint2 weight\n"
+              << "  ...\n"
+              << "\n"
+              << "By default stdout contains only the optimal weight.\n"
+              << "Use --print-matching to also print the matched edges to stdout.\n"
+              << "Use --print-runtime to print the time spent in FindMinPerfectMatching().\n"
+              << "Use matching-output-file to save the matched edges to a file.\n";
 }
 
-void ExportRuntimes(const std::string& benchmark_path_arg, int iterations, double max_time_per_instance) {
-    const std::filesystem::path benchmark_dir = ResolveBenchmarkPath(benchmark_path_arg);
-    const std::filesystem::path output_dir =
-        std::filesystem::path("runtimes") / "blossom-vi" / benchmark_dir.filename();
-    const std::filesystem::path output_file = output_dir / "runtimes.csv";
+CommandLineOptions ParseCommandLine(int argc, char** argv) {
+    CommandLineOptions options;
+    std::vector<std::string> positional_args;
 
-    std::vector<std::filesystem::path> files;
-    for (const auto& entry : std::filesystem::directory_iterator(benchmark_dir)) {
-        if (entry.is_regular_file()) {
-            files.push_back(entry.path());
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--print-matching") {
+            options.print_matching = true;
+        } else if (arg == "--print-runtime") {
+            options.print_runtime = true;
+        } else if (arg == "--help" || arg == "-h") {
+            PrintUsage(argv[0]);
+            std::exit(0);
+        } else if (!arg.empty() && arg[0] == '-') {
+            throw std::invalid_argument("Unknown option: " + arg);
+        } else {
+            positional_args.push_back(arg);
         }
     }
-    std::sort(files.begin(), files.end());
 
-    std::filesystem::create_directories(output_dir);
-    std::ofstream output(output_file);
-    if (!output.is_open()) {
-        throw std::runtime_error("Failed to open output file: " + output_file.string());
+    if (positional_args.empty() || positional_args.size() > 2) {
+        throw std::invalid_argument("Expected <graph-file> and optional [matching-output-file]");
     }
 
-    output << "instance,n,m,iterations,runtime_seconds,sigma_seconds\n";
-    for (const auto& file : files) {
-        const GraphSize size = ReadGraphSize(file);
-        const TesterWeighted::MeasurementResult result =
-            TesterWeighted::MeasureInstance(file.string(), iterations, max_time_per_instance);
-        output << file.filename().string() << ','
-               << size.n << ','
-               << size.m << ','
-               << iterations << ','
-               << std::setprecision(17) << result.mean_runtime << ','
-               << result.sigma_runtime << '\n';
+    options.graph_path = positional_args[0];
+    if (positional_args.size() == 2) {
+        options.matching_output_path = positional_args[1];
+        options.save_matching = true;
     }
-
-    std::cout << "saved runtimes to " << output_file << std::endl;
+    return options;
 }
 
-} // namespace
+GraphInput ReadGraph(const std::filesystem::path& path) {
+    std::ifstream input(path);
+    if (!input.is_open()) {
+        throw std::runtime_error("Failed to open input file: " + path.string());
+    }
+
+    GraphInput graph;
+    if (!(input >> graph.num_vertices >> graph.num_edges)) {
+        throw std::runtime_error("Failed to read graph header: " + path.string());
+    }
+    if (graph.num_vertices < 0 || graph.num_edges < 0) {
+        throw std::runtime_error("Graph header must contain non-negative integers");
+    }
+    if (graph.num_vertices % 2 != 0) {
+        throw std::runtime_error("The number of vertices must be even");
+    }
+
+    graph.edges.reserve(graph.num_edges);
+    std::vector<int> degrees(graph.num_vertices, 0);
+    for (int i = 0; i < graph.num_edges; ++i) {
+        int from = 0;
+        int to = 0;
+        int weight = 0;
+        if (!(input >> from >> to >> weight)) {
+            throw std::runtime_error("Failed to read edge " + std::to_string(i));
+        }
+        if (from < 0 || from >= graph.num_vertices || to < 0 || to >= graph.num_vertices) {
+            throw std::runtime_error("Edge endpoint out of range at edge " + std::to_string(i));
+        }
+        if (from == to) {
+            throw std::runtime_error("Self-loops are not supported");
+        }
+
+        graph.edges.emplace_back(from, to, weight);
+        ++degrees[from];
+        ++degrees[to];
+    }
+
+    int extra = 0;
+    if (input >> extra) {
+        throw std::runtime_error("Input contains more data than declared by m");
+    }
+
+    for (int vertex = 0; vertex < graph.num_vertices; ++vertex) {
+        if (degrees[vertex] == 0) {
+            throw std::runtime_error("Vertex " + std::to_string(vertex) + " is isolated");
+        }
+    }
+
+    return graph;
+}
+
+void PrintMatching(const MWPMSolver& solver) {
+    for (const auto& [from, to] : solver.Matching()) {
+        std::cout << "match " << from << ' ' << to << '\n';
+    }
+}
+
+void SaveMatching(const MWPMSolver& solver, const std::filesystem::path& output_path) {
+    std::ofstream output(output_path);
+    if (!output.is_open()) {
+        throw std::runtime_error("Failed to open matching output file: " + output_path.string());
+    }
+
+    for (const auto& [from, to] : solver.Matching()) {
+        output << from << ' ' << to << '\n';
+    }
+}
+
+}  // namespace
 
 int main(int argc, char** argv) {
-    TesterWeighted tester(true, 239);
-    // tester.RunInstances(MatchingPlusGraphGenerator(6, 10, 0, 10), 100000, false);
-    tester.RunInstances(MatchingPlusGraphGenerator(100, 500, -1000, 1000), 1000, false);
+    try {
+        const CommandLineOptions options = ParseCommandLine(argc, argv);
+        const GraphInput graph = ReadGraph(options.graph_path);
+        MWPMSolver solver(graph.edges, {
+            .compute_dual_certificate = false,
+            .verbose = false,
+            .print_statistics = false,
+            .debug = false,
+        });
+        const auto start_time = std::chrono::steady_clock::now();
+        solver.FindMinPerfectMatching();
+        const auto stop_time = std::chrono::steady_clock::now();
+        const std::chrono::duration<double> runtime = stop_time - start_time;
 
-    const std::string benchmark_path_arg = argc > 1 ? argv[1] : "tests-weighted";
-
-    if (benchmark_path_arg == "--export-runtimes") {
-        if (argc < 3) {
-            throw std::invalid_argument("Expected benchmark directory after --export-runtimes");
+        std::cout << "Optimal weight: " << solver.primal_objective << '\n';
+        if (options.print_runtime) {
+            std::cout << "Runtime: " << runtime.count() << " seconds" << '\n';
         }
-
-        const std::string export_path_arg = argv[2];
-        const int export_iterations = argc > 3 ? ParseIntArg(argv[3], "iterations") : 1;
-        const double export_max_time_per_instance =
-            argc > 4 ? ParseDoubleArg(argv[4], "max_time_per_instance") : 20.;
-        ExportRuntimes(export_path_arg, export_iterations, export_max_time_per_instance);
-        return 0;
+        if (options.print_matching) {
+            PrintMatching(solver);
+        }
+        if (options.save_matching) {
+            SaveMatching(solver, options.matching_output_path);
+        }
+    } catch (const std::exception& error) {
+        PrintUsage(argv[0]);
+        std::cerr << "error: " << error.what() << '\n';
+        return 1;
     }
-
-    const int iterations = argc > 2 ? ParseIntArg(argv[2], "iterations") : 1;
-    const double max_time_per_instance = argc > 3 ? ParseDoubleArg(argv[3], "max_time_per_instance") : 20.;
-
-    tester.MeasureBenchmark(ResolveBenchmarkPath(benchmark_path_arg).string(), iterations, max_time_per_instance);
-
-    // tester.MeasureInstance("../tests-weighted/maxcut-big-weights/sphere-maxcut-300000-2699982", 1, 20, false);
-    // tester.MeasureInstance("../tests-weighted/delaunay-100000-299968", 1, 20, false);
-    // tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999962", 1, 20, false);
-    // tester.MeasureInstance("../tests-weighted/delaunay-1000000-2999965", 1, 20, false, true);
-    // tester.MeasureInstance("../tests-weighted/dan59296-177299", 10, 20, false);
-    // tester.MeasureInstance("../tests-weighted/sra104815-314222", 10, 20, false);
-    // tester.MeasureInstance("../tests-weighted/ara238025-713594", 1, 20, false);
-    // tester.MeasureInstance("../tests-weighted/lrb744710-2233725", 1, 20, false);
-    // tester.MeasureInstance("../tests-weighted/lra498378-1494967", 1, 20, false);
-    // tester.MeasureInstance("../tests-weighted/random-10000-100000", 1, 20, false);
-    // tester.MeasureInstance("../tests-weighted/random-100000-1000000", 1, 20, false);
 
     return 0;
 }

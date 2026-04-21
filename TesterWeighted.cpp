@@ -118,7 +118,9 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
     init_times.reserve(num_iter);
 
     for (int i = 0; i < num_iter; ++i) {
-        std::cout << "------------------------------------------------------------\niter " << i << std::endl;
+        if (verbose) {
+            std::cout << "------------------------------------------------------------\niter " << i << std::endl;
+        }
 
         std::vector<std::tuple<int, int, int> > edge_list = graph_generator.Generate(&generator);
 
@@ -126,7 +128,7 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
         MWPMSolver solver = MWPMSolver(edge_list,
                                          {
                                              .compute_dual_certificate = verify_output,
-                                             .verbose = (verbose || (i == 71)), .print_statistics = false,
+                                             .verbose = verbose, .print_statistics = false,
                                              .debug = verify_output
                                          });
         solver.FindMinPerfectMatching();
@@ -144,11 +146,6 @@ void TesterWeighted::RunInstances(const GraphGenerator &graph_generator,
     }
 
     std::cout << "All tests passed!" << std::endl;
-    std::cout << "runtimes:\t\t\t\t\t";
-    for (int i = 0; i < num_iter; ++i) {
-        std::cout << runtimes[i] << "\t";
-    }
-    std::cout << "\naverage runtime: " << std::accumulate(runtimes.begin(), runtimes.end(), 0.) / num_iter << std::endl;
 }
 
 void TesterWeighted::MeasureBenchmark(const std::string &path, int num_iter, double max_time_per_instance) {

@@ -6,7 +6,7 @@ include(CheckIPOSupported)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-add_executable(blossom_vi main.cpp
+set(BLOSSOM_VI_SOURCES
         TesterWeighted.h
         TesterWeighted.cpp
         MWPMSolver.cpp
@@ -14,11 +14,22 @@ add_executable(blossom_vi main.cpp
         DualUpdater.cpp
         DualUpdater.h)
 
+add_executable(blossom_vi main.cpp ${BLOSSOM_VI_SOURCES})
+add_executable(blossom_vi_benchmark benchmark_main.cpp ${BLOSSOM_VI_SOURCES})
+add_executable(blossom_vi_test test_main.cpp ${BLOSSOM_VI_SOURCES})
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(blossom_vi PRIVATE $<$<CONFIG:Release>:-march=native>)
+    target_compile_options(blossom_vi_benchmark PRIVATE $<$<CONFIG:Release>:-march=native>)
+    target_compile_options(blossom_vi_test PRIVATE $<$<CONFIG:Release>:-march=native>)
 endif()
 
 check_ipo_supported(RESULT ipo_supported)
 if(ipo_supported)
     set_property(TARGET blossom_vi PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    set_property(TARGET blossom_vi_benchmark PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    set_property(TARGET blossom_vi_test PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 endif()
+
+enable_testing()
+add_test(NAME random_correctness COMMAND blossom_vi_test 30 100 20)

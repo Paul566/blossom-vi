@@ -27,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         type=Path,
-        default=repo_root / "runtimes" / "runtime-comparison.png",
+        default=repo_root / "runtimes" / "runtime-comparison.pdf",
         help="Output image path.",
     )
     parser.add_argument(
@@ -38,35 +38,51 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def read_runtime_table(path: Path, runtime_column: str) -> list[tuple[int, float]]:
-    rows: list[tuple[int, float]] = []
+def read_runtime_table(path: Path, runtime_column: str) -> list[tuple[int, float, str | None]]:
+    rows: list[tuple[int, float, str | None]] = []
     with path.open(newline="") as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
-            rows.append((int(row["m"]), float(row[runtime_column])))
+            rows.append((int(row["m"]), float(row[runtime_column]), row.get("status")))
     rows.sort()
     return rows
 
 
-def plot_family(ax, family_name: str, blossom_vi_rows: list[tuple[int, float]] | None, blossom_v_rows: list[tuple[int, float]] | None) -> None:
+def plot_family(
+    ax,
+    family_name: str,
+    blossom_vi_rows: list[tuple[int, float, str | None]] | None,
+    blossom_v_rows: list[tuple[int, float, str | None]] | None,
+) -> None:
     if blossom_vi_rows:
         ax.plot(
-            [m for m, _ in blossom_vi_rows],
-            [runtime for _, runtime in blossom_vi_rows],
+            [m for m, _, _ in blossom_vi_rows],
+            [runtime for _, runtime, _ in blossom_vi_rows],
             marker="o",
             markersize=3,
-            linewidth=1.5,
             label="Blossom VI",
         )
     if blossom_v_rows:
         ax.plot(
-            [m for m, _ in blossom_v_rows],
-            [runtime for _, runtime in blossom_v_rows],
+            [m for m, _, _ in blossom_v_rows],
+            [runtime for _, runtime, _ in blossom_v_rows],
             marker="s",
             markersize=3,
-            linewidth=1.5,
             label="Blossom V",
         )
+        timeout_rows = [
+            (m, runtime) for m, runtime, status in blossom_v_rows if status == "timeout"
+        ]
+        if timeout_rows:
+            ax.plot(
+                [m for m, _ in timeout_rows],
+                [runtime for _, runtime in timeout_rows],
+                linestyle="None",
+                marker="x",
+                markersize=5,
+                color="red",
+                label="Blossom V timeout",
+            )
 
     ax.set_xlabel("m")
     ax.set_ylabel("time [s]")
@@ -78,7 +94,9 @@ def plot_family(ax, family_name: str, blossom_vi_rows: list[tuple[int, float]] |
         ax.text(0.5, 0.5, "No runtime CSVs yet", ha="center", va="center", transform=ax.transAxes)
 
 
-def maybe_read_runtime_table(path: Path, runtime_column: str) -> list[tuple[int, float]] | None:
+def maybe_read_runtime_table(
+    path: Path, runtime_column: str
+) -> list[tuple[int, float, str | None]] | None:
     if not path.exists():
         return None
     return read_runtime_table(path, runtime_column)
@@ -95,6 +113,8 @@ def main() -> None:
             "matplotlib is required to plot the runtime comparison. "
             "Install it and rerun the script."
         ) from exc
+
+    plt.rcParams.update({"font.size": plt.rcParams["font.size"] * 1.5})
 
     families = (
         "dense-random",
@@ -117,7 +137,7 @@ def main() -> None:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
-    fig.savefig(args.output, dpi=200)
+    fig.savefig(args.output, format="pdf")
 
     if args.show:
         plt.show()
