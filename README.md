@@ -1,6 +1,6 @@
 # Blossom VI
 
-Blossom VI is a C++ implementation of a **minimum weight perfect matching** solver. Given an undirected weighted graph with an even number of vertices, the solver finds a perfect matching of minimum total edge weight.
+Blossom VI is a C++ implementation of a **minimum weight perfect matching** solver. Given an undirected weighted graph, the solver finds a perfect matching of minimum total edge weight. If the graph does not contain a perfect matching, an exception is thrown.
 
 ## Build
 
@@ -33,12 +33,10 @@ Output:
 Optimal weight: 7
 ```
 
-By default, stdout contains only the optimal matching weight.
-
-To write the matching to a file:
+To save the matching to a file `matching.txt`:
 
 ```bash
-./cmake-build-release/blossom_vi examples/example.txt /tmp/square.matching
+./cmake-build-release/blossom_vi examples/example.txt matching.txt
 ```
 
 The matching file contains one matched edge per line:
@@ -48,7 +46,7 @@ The matching file contains one matched edge per line:
 1 3
 ```
 
-To also print the optimal matching to stdout:
+By default, stdout contains only the optimal matching weight. To also print the matching:
 
 ```bash
 ./cmake-build-release/blossom_vi --print-matching examples/example.txt
@@ -78,7 +76,7 @@ The next `m` lines contain one undirected weighted edge per line:
 endpoint1 endpoint2 weight
 ```
 
-Vertices are numbered from `0` to `n - 1`. Weights are integers and may be negative. The absolute values of the edge weights must not exceed `536,870,912`, and the difference between the maximal and the minimal weight also must not exceed this number, otherwise there might be overflows.
+Vertices are numbered from `0` to `n - 1`. Weights are integers and may be negative. The absolute values of the edge weights must not exceed $2^{29}-1$, and the difference between the maximal and the minimal weight also must not exceed this number, otherwise there might be overflows.
 
 Example:
 
