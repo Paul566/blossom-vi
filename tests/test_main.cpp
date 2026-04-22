@@ -24,6 +24,8 @@ void PrintUsage(const char* program_name) {
 
 int main(int argc, char** argv) {
     // TODO add testing with no fractional matching initialization
+    // TODO add another family of tests
+    // TODO add tests for throwing if there is no perfect matching
     try {
         if (argc > 5 || (argc > 1 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h"))) {
             PrintUsage(argv[0]);

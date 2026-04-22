@@ -15,7 +15,7 @@ The executable is written to `cmake-build-release/blossom_vi`.
 
 Requirements:
 
-- CMake 3.30 or newer
+- CMake 3.20 or newer
 - A C++20 compiler
 - Boost headers
 
