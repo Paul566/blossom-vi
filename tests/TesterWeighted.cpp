@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <unordered_set>
 
 CliqueGenerator::CliqueGenerator(int num_vertices_, int weight_min_, int weight_max_) : num_vertices(num_vertices_),
@@ -462,11 +463,13 @@ std::pair<double, double> TesterWeighted::MeanAndSTD(const std::vector<double> &
 }
 
 void TesterWeighted::PrintTime(double mean, double sigma, int digits) {
-    std::string s = std::format("{:.{}g}", mean, digits);
+    std::ostringstream mean_stream;
+    mean_stream << std::setprecision(digits) << mean;
+    std::string s = mean_stream.str();
     std::cout << s << " +- ";
 
     auto pos = s.find('.');
     int decimals = (pos == std::string::npos) ? 0 : s.size() - pos - 1;
 
-    std::cout << std::format("{:.{}f}", sigma, decimals) << std::endl;
+    std::cout << std::fixed << std::setprecision(decimals) << sigma << std::defaultfloat << std::endl;
 }
