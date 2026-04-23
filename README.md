@@ -2,6 +2,8 @@
 
 Blossom VI is a C++ implementation of a **minimum weight perfect matching** solver. Given an undirected weighted graph, the solver finds a perfect matching of minimum total edge weight. If the graph does not contain a perfect matching, an exception is thrown.
 
+If you use this code for academic purposes, **please cite the paper** https://arxiv.org/abs/2604.20351.
+
 ## Build
 
 Build:
