@@ -452,7 +452,11 @@ EdgeListType TesterWeighted::ReadWeightedEdgeList(const std::string &filename) {
 }
 
 std::pair<double, double> TesterWeighted::MeanAndSTD(const std::vector<double> &data) {
-    double mean = std::accumulate(data.begin(), data.end(), 0.0) / data.size();
+    double sum = 0.;
+    for (double x : data) {
+        sum += x;
+    }
+    double mean = sum / data.size();
 
     double sum_sq_diff = 0.;
     for (double x : data) {
